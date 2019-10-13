@@ -1,0 +1,11 @@
+*.dsk
+*.~*
+*.identcache
+*.local
+*.stat
+/DWHex.res
+/__history
+/__recovery
+/Test
+/Win32
+/Win64
