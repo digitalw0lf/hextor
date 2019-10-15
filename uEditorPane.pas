@@ -75,7 +75,7 @@ begin
   ScrBmp := TBitmap.Create();
   Color := clWindow;
   BevelOuter := bvNone;
-  Font.Name := 'Fixedsys';//'Courier New';
+  Font.Name := 'Consolas';//'Fixedsys';//'Courier New';
   CharSize.cx := Font.Height div 2;
   CharSize.cy := Font.Height;
 end;

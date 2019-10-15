@@ -8,12 +8,12 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, ColoredPanel, Vcl.Menus,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Menus,
   System.Math, Generics.Collections, Clipbrd, System.Actions, Vcl.ActnList,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
-  Vcl.ImgList,
+  Vcl.ImgList, System.UITypes,
 
-  uUtil, uLargeStr, uEditorPane, uLogFile{, uPathCompressTest};
+  uUtil, uLargeStr, uEditorPane, uLogFile{, ColoredPanel{, uPathCompressTest};
 
 const
   KByte = 1024;
@@ -84,6 +84,11 @@ type
     ActionGoToStart: TAction;
     ActionGoToEnd: TAction;
     ImageList16: TImageList;
+    ActionRevert: TAction;
+    Revert1: TMenuItem;
+    N2: TMenuItem;
+    ActionFind: TAction;
+    FindReplace1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure VertScrollBarChange(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
@@ -113,6 +118,9 @@ type
       Shift: TShiftState);
     procedure PaneHexKeyPress(Sender: TObject; var Key: Char);
     procedure PaneTextKeyPress(Sender: TObject; var Key: Char);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure ActionRevertExecute(Sender: TObject);
+    procedure ActionFindExecute(Sender: TObject);
   private
     { Private declarations }
     FCaretPos: TFilePointer;
@@ -120,16 +128,23 @@ type
     SelDragStart, SelDragEnd: TFilePointer;
     WasLeftMouseDown: Boolean;
     FCaretInByte: Integer;
-    procedure SetCaretPos(const Value: TFilePointer);
+    FHasUnsavedChanges: Boolean;
+    FTopVisibleRow: TFilePointer;
+    FUpdating: Integer;
+    FNeedUpdatePanes: Boolean;
+    procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
     procedure CheckEnabledActions();
     procedure NewFileOpened();
     procedure SetCaretInByte(const Value: Integer);
+    procedure SetHasUnsavedChanges(const Value: Boolean);
+    procedure UpdateFormCaption();
+    procedure ScrollToCaret();
+    procedure SetTopVisibleRow(const Value: TFilePointer);
   public
     { Public declarations }
     ByteColumns: Integer;
-    TopVisibleRow: TFilePointer;
     FileName: string;
     FileStream: TFileStream;
     FileData: TBytes;
@@ -156,6 +171,8 @@ type
     procedure SetSelection(AStart, AEnd: TFilePointer);
     procedure BeginUpdatePanes();
     procedure EndUpdatePanes();
+    property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
+    property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
   end;
 
 function DivRoundUp(A, B: Int64): Int64; inline;
@@ -167,9 +184,27 @@ implementation
 
 {$R *.dfm}
 
+uses uFindReplaceForm;
+
 function DivRoundUp(A, B: Int64): Int64; inline;
 begin
   Result := (A-1) div B + 1;
+end;
+
+function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
+// Ограничивает X в диапазон [MinX,MaxX]
+var
+  t: TFilePointer;
+begin
+  Result:=X;
+  if MinX>MaxX then
+  begin
+    t:=MinX;
+    MinX:=MaxX;
+    MaxX:=t;
+  end;
+  if Result<MinX then Result:=MinX;
+  if Result>MaxX then Result:=MaxX;
 end;
 
 { TMainForm }
@@ -189,12 +224,18 @@ begin
   Clipboard.AsText := s;
 end;
 
+procedure TMainForm.ActionFindExecute(Sender: TObject);
+begin
+  FindReplaceForm.Show();
+end;
+
 procedure TMainForm.ActionGoToEndExecute(Sender: TObject);
 begin
   BeginUpdatePanes();
   try
     SetSelection(0, -1);
     CaretPos := GetFileSize();
+    CaretInByte := 0;
   finally
     EndUpdatePanes();
   end;
@@ -206,6 +247,7 @@ begin
   try
     SetSelection(0, -1);
     CaretPos := 0;
+    CaretInByte := 0;
   finally
     EndUpdatePanes();
   end;
@@ -243,6 +285,12 @@ begin
   UpdatePanes();
 end;
 
+procedure TMainForm.ActionRevertExecute(Sender: TObject);
+begin
+  if Application.MessageBox('Revert unsaved changes?', 'Revert', MB_OKCANCEL) <> IDOK then Exit;
+  OpenFile(FileName);
+end;
+
 procedure TMainForm.ActionSaveAsExecute(Sender: TObject);
 begin
   SaveDialog1.FileName := FileName;
@@ -263,6 +311,7 @@ end;
 
 procedure TMainForm.BeginUpdatePanes;
 begin
+  Inc(FUpdating);
   PaneLnNum.BeginUpdate();
   PaneHex.BeginUpdate();
   PaneText.BeginUpdate();
@@ -280,12 +329,16 @@ procedure TMainForm.CheckEnabledActions;
 var
   FocusInEditor: Boolean;
 begin
-  FocusInEditor := (ActiveControl=PaneHex) or (ActiveControl=PaneText);
+  FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
-  ActionSave.Enabled := (FileName<>'');
+  ActionSave.Enabled := (FileName<>'') and (HasUnsavedChanges);
+  ActionRevert.Enabled := (HasUnsavedChanges);
 
   ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
   ActionCut.Enabled := ActionCopy.Enabled;
+  ActionPaste.Enabled := FocusInEditor;
+  ActionSelectAll.Enabled := FocusInEditor;
+  ActionFind.Enabled := FocusInEditor;
 
   ActionSelectAll.Enabled := FocusInEditor;
 end;
@@ -317,6 +370,19 @@ begin
   if FindCachedRegion(Addr, n) then
     raise Exception.Create('Trying to create overlapping region');
   CachedRegions.Insert(n, Result);
+end;
+
+procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := True;
+  if HasUnsavedChanges then
+  begin
+    case Application.MessageBox(PChar('Save changes to '#13#10+FileName+'?'), 'Closing', MB_YESNOCANCEL) of
+      IDYES: SaveFile(FileName);
+      IDNO: begin end;
+      IDCANCEL: CanClose := False;
+    end;
+  end;
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -487,22 +553,21 @@ begin
 end;
 
 procedure TMainForm.NewFileOpened;
-var
-  s: string;
 begin
-  s := 'DWHex - ';
-  if FileName <> '' then
-    s := s + FileName
-  else
-    s := s + '(unnamed)';
-  Self.Caption := s;
+  BeginUpdatePanes();
+  try
+    HasUnsavedChanges := False;
+    CachedRegions.Clear();
 
-  CachedRegions.Clear();
+    UpdateFormCaption();
+    UpdateScrollBar();
+    TopVisibleRow := 0;
+    UpdatePanes();
 
-  UpdateScrollBar();
-  UpdatePanes();
-
-  CheckEnabledActions();
+    CheckEnabledActions();
+  finally
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TMainForm.OpenFile(const AFileName: string);
@@ -512,7 +577,8 @@ begin
   //LoadEntireFile(OpenDialog1.FileName, FileData);
   FreeAndNil(FileStream);
   FileDataLoaded := False;
-  FileStream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  if FileName <> '' then
+    FileStream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
 
   NewFileOpened();
 end;
@@ -524,28 +590,90 @@ end;
 
 procedure TMainForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
-begin
-//  Caption := Caption + ' ' + IntToStr(Key);
-  case Key of
-    VK_END:
-      if ssCtrl in Shift then
-        ActionGoToEnd.Execute()
-      else
-      begin
 
-      end;
+  procedure MoveCaret(dx, dy: Integer; StartOfByte: Boolean = False);
+  var
+    cp, cp2: TFilePointer;
+    cb: Integer;
+  begin
+    cp := CaretPos;
+    cb := CaretInByte;
 
-    VK_HOME:
-      if ssCtrl in Shift then
-        ActionGoToStart.Execute()
-      else
-      begin
+    if (Sender=PaneHex) then
+    begin
+      cp2 := cp*2+cb+dx;
+      cp2 := BoundValue(cp2, 0, GetFileSize()*2);
+      cp := cp2 div 2;
+      cb := cp2 mod 2;
+    end
+    else
+    begin
+      cp := cp + dx;
+    end;
+    cp := cp + ByteColumns*dy;
 
-      end;
+    if StartOfByte then cb := 0;
 
-
+    CaretPos := cp;
+    CaretInByte := cb;
   end;
 
+begin
+//  Caption := Caption + ' ' + IntToStr(Key);
+  BeginUpdatePanes();
+  try
+    case Key of
+      VK_HOME:
+        if ssCtrl in Shift then
+          ActionGoToStart.Execute()
+        else
+        begin
+          CaretPos := (CaretPos div ByteColumns)*ByteColumns;
+          CaretInByte := 0;
+        end;
+
+      VK_END:
+        if ssCtrl in Shift then
+          ActionGoToEnd.Execute()
+        else
+        begin
+          CaretPos := (CaretPos div ByteColumns)*ByteColumns + ByteColumns - 1;
+          CaretInByte := 0;
+        end;
+
+      VK_LEFT: MoveCaret(-1, 0);
+      VK_RIGHT: MoveCaret(1, 0);
+      VK_UP: MoveCaret(0, -1);
+      VK_DOWN: MoveCaret(0, 1);
+
+      VK_PRIOR: MoveCaret(0, -GetVisibleRowsCount());
+      VK_NEXT: MoveCaret(0, GetVisibleRowsCount());
+
+      VK_TAB:
+        begin
+          if ActiveControl = PaneHex then
+            ActiveControl := PaneText
+          else
+          if ActiveControl = PaneText then
+            ActiveControl := PaneHex;
+          UpdatePanesCarets();
+        end;
+    end;
+
+    if ssCtrl in Shift then
+    begin
+      case Key of
+        Ord('A'): ActionSelectAll.Execute();
+        Ord('C'): ActionCopy.Execute();
+        Ord('V'): ActionPaste.Execute();
+        Ord('F'): ActionFind.Execute();
+      end;
+      Key := 0;
+    end;
+
+  finally
+    EndUpdatePanes();
+  end;
 
 end;
 
@@ -650,9 +778,13 @@ begin
   BeginUpdatePanes();
   try
     Caption := Caption + ' ' + IntToStr(Ord(Key));
-    ChangeBytes(CaretPos, [Byte(Key)]);
-    CaretPos := CaretPos + 1;
-    UpdatePanes();
+    //if not CharInSet(Key, [AnsiChar(vkBack), AnsiChar(vkTab), AnsiChar(vkLineFeed), AnsiChar(vkReturn)]) then
+    if Key >= ' ' then
+    begin
+      ChangeBytes(CaretPos, [Byte(Key)]);
+      CaretPos := CaretPos + 1;
+      UpdatePanes();
+    end;
   finally
     EndUpdatePanes();
   end;
@@ -717,6 +849,18 @@ begin
   OpenFile(AFileName);
 end;
 
+procedure TMainForm.ScrollToCaret;
+var
+  CaretRow: TFilePointer;
+begin
+  CaretRow := CaretPos div ByteColumns;
+  if CaretRow < TopVisibleRow then
+    TopVisibleRow := CaretRow
+  else
+  if CaretRow > TopVisibleRow+GetVisibleRowsCount()-1 then
+    TopVisibleRow := CaretRow-GetVisibleRowsCount()+1;
+end;
+
 procedure TMainForm.SetCaretInByte(const Value: Integer);
 begin
   if Value<>FCaretInByte then
@@ -727,12 +871,29 @@ begin
   end;
 end;
 
-procedure TMainForm.SetCaretPos(const Value: TFilePointer);
+procedure TMainForm.SetCaretPos(Value: TFilePointer);
 begin
+  Value := BoundValue(Value, 0, GetFileSize());
   if Value <> FCaretPos then
   begin
-    FCaretPos := Value;
-    UpdatePanesCarets();
+    BeginUpdatePanes();
+    try
+      FCaretPos := Value;
+      ScrollToCaret();
+      UpdatePanesCarets();
+    finally
+      EndUpdatePanes();
+    end;
+  end;
+end;
+
+procedure TMainForm.SetHasUnsavedChanges(const Value: Boolean);
+begin
+  if Value<>FHasUnsavedChanges then
+  begin
+    FHasUnsavedChanges := Value;
+    CheckEnabledActions();
+    UpdateFormCaption();
   end;
 end;
 
@@ -752,6 +913,17 @@ begin
   end;
   UpdatePanes();
   CheckEnabledActions();
+end;
+
+procedure TMainForm.SetTopVisibleRow(const Value: TFilePointer);
+begin
+  if Value<>FTopVisibleRow then
+  begin
+    FTopVisibleRow := Value;
+    if VertScrollBar.Position<>FTopVisibleRow then
+      VertScrollBar.Position:=FTopVisibleRow;
+    UpdatePanes();
+  end;
 end;
 
 function TMainForm.StartChanges(Addr, Size: TFilePointer): TCachedRegion;
@@ -783,6 +955,7 @@ begin
   finally
     Regions.Free;
   end;
+  HasUnsavedChanges := True;
 end;
 
 procedure TMainForm.Decompress1Click(Sender: TObject);
@@ -792,9 +965,32 @@ end;
 
 procedure TMainForm.EndUpdatePanes;
 begin
+  if FUpdating=0 then Exit;
+  Dec(FUpdating);
+  if FUpdating=0 then
+  begin
+    if FNeedUpdatePanes then
+      UpdatePanes();
+  end;
+
   PaneLnNum.EndUpdate();
   PaneHex.EndUpdate();
   PaneText.EndUpdate();
+end;
+
+procedure TMainForm.UpdateFormCaption;
+var
+  s: string;
+begin
+  s := 'DWHex - [';
+  if FileName <> '' then
+    s := s + FileName
+  else
+    s := s + '(unnamed)';
+  if HasUnsavedChanges then
+    s := s + ' *';
+  s := s + ']';
+  Self.Caption := s;
 end;
 
 procedure TMainForm.UpdatePanes;
@@ -809,6 +1005,13 @@ var
   FirstVisibleAddress: Int64;
   IncludesFileEnd: Boolean;
 begin
+  if FUpdating>0 then
+  begin
+    FNeedUpdatePanes := True;
+    Exit;
+  end;
+  FNeedUpdatePanes := False;
+
   BeginUpdatePanes();
   try
     Rows := GetVisibleRowsCount();
@@ -935,7 +1138,6 @@ end;
 procedure TMainForm.VertScrollBarChange(Sender: TObject);
 begin
   TopVisibleRow := VertScrollBar.Position;
-  UpdatePanes();
 end;
 
 { TCachedRegion }
