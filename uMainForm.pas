@@ -22,8 +22,18 @@ const
 
   HexCharsSet: TSysCharSet = ['0'..'9', 'A'..'F', 'a'..'f'];
 
+  Color_ChangedByte = $B0FFFF;
+  Color_Selection = clHighlight;
+
+  ScrollWithWheel = 3;
+
 type
   TFilePointer = Int64;
+
+  TFileRange = record
+    Start, AEnd: TFilePointer;
+    function Size(): TFilePointer;
+  end;
 
   TCachedRegion = class
     Addr: TFilePointer;
@@ -62,25 +72,24 @@ type
     ActionOpen: TAction;
     ActionSave: TAction;
     ActionSaveAs: TAction;
-    ActionSetColumnsCount: TAction;
     View1: TMenuItem;
     Columnscount1: TMenuItem;
-    N81: TMenuItem;
-    N161: TMenuItem;
-    N321: TMenuItem;
-    Bywindowwidth1: TMenuItem;
+    MIColumns8: TMenuItem;
+    MIColumns16: TMenuItem;
+    MIColumns32: TMenuItem;
+    MIColumnsByWidth: TMenuItem;
     Regions1: TMenuItem;
     SaveDialog1: TSaveDialog;
     ActionCut: TAction;
     ActionCopy: TAction;
     ActionPaste: TAction;
     ActionCopyAs: TAction;
-    Cut1: TMenuItem;
-    Copy1: TMenuItem;
-    Copyas1: TMenuItem;
-    Paste1: TMenuItem;
+    MICut: TMenuItem;
+    MICopy: TMenuItem;
+    MICopyAs: TMenuItem;
+    MIPaste: TMenuItem;
     ActionSelectAll: TAction;
-    Selectall1: TMenuItem;
+    MISelectAll: TMenuItem;
     ActionGoToStart: TAction;
     ActionGoToEnd: TAction;
     ImageList16: TImageList;
@@ -88,7 +97,19 @@ type
     Revert1: TMenuItem;
     N2: TMenuItem;
     ActionFind: TAction;
-    FindReplace1: TMenuItem;
+    MIFindReplace: TMenuItem;
+    EditorPopupMenu: TPopupMenu;
+    PMICut: TMenuItem;
+    PMICopy: TMenuItem;
+    PMIPaste: TMenuItem;
+    PMISelectAll: TMenuItem;
+    StatusBar: TStatusBar;
+    ActionFindNext: TAction;
+    ActionFindPrev: TAction;
+    FindNext1: TMenuItem;
+    FindPrevious1: TMenuItem;
+    ActionGoToAddr: TAction;
+    GoToaddress1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure VertScrollBarChange(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
@@ -121,6 +142,14 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure ActionRevertExecute(Sender: TObject);
     procedure ActionFindExecute(Sender: TObject);
+    procedure PaneHexMouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure Splitter1Moved(Sender: TObject);
+    procedure MIColumns8Click(Sender: TObject);
+    procedure Columnscount1Click(Sender: TObject);
+    procedure ActionFindNextExecute(Sender: TObject);
+    procedure ActionFindPrevExecute(Sender: TObject);
+    procedure ActionGoToAddrExecute(Sender: TObject);
   private
     { Private declarations }
     FCaretPos: TFilePointer;
@@ -132,6 +161,11 @@ type
     FTopVisibleRow: TFilePointer;
     FUpdating: Integer;
     FNeedUpdatePanes: Boolean;
+    FByteColumns: Integer;
+    FLinesPerScrollBarTick: Integer;
+//    PrevClickPos: TPoint;
+//    PrevClickTime: Cardinal;
+//    PrevClickCount: Integer;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
@@ -141,10 +175,12 @@ type
     procedure SetHasUnsavedChanges(const Value: Boolean);
     procedure UpdateFormCaption();
     procedure ScrollToCaret();
-    procedure SetTopVisibleRow(const Value: TFilePointer);
+    procedure SetTopVisibleRow(Value: TFilePointer);
+    procedure SetByteColumns(Value: Integer);
+    procedure CalculateByteColumns();
+    procedure ShowSelectionInfo();
   public
     { Public declarations }
-    ByteColumns: Integer;
     FileName: string;
     FileStream: TFileStream;
     FileData: TBytes;
@@ -160,6 +196,7 @@ type
     procedure UpdateScrollBar();
     function GetVisibleRowsCount(): Integer;
     function FirstVisibleAddr(): TFilePointer;
+    function VisibleBytesCount(): Integer;
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
     function GetOverlappingRegions(Addr, Size: TFilePointer; var Index1, Index2: Integer): TCachedRegionsList; overload;
     function GetOverlappingRegions(Addr, Size: TFilePointer): TCachedRegionsList; overload;
@@ -168,12 +205,17 @@ type
     function StartChanges(Addr, Size: TFilePointer): TCachedRegion;
     property CaretPos: TFilePointer read FCaretPos write SetCaretPos;
     property CaretInByte: Integer read FCaretInByte write SetCaretInByte;
+    procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     procedure SetSelection(AStart, AEnd: TFilePointer);
     procedure BeginUpdatePanes();
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
+    property ByteColumns: Integer read FByteColumns write SetByteColumns;
   end;
+
+const
+  EntireFile: TFileRange = (Start: 0; AEnd: -1);
 
 function DivRoundUp(A, B: Int64): Int64; inline;
 
@@ -229,12 +271,41 @@ begin
   FindReplaceForm.Show();
 end;
 
+procedure TMainForm.ActionFindNextExecute(Sender: TObject);
+begin
+  FindReplaceForm.FindNext(1);
+end;
+
+procedure TMainForm.ActionFindPrevExecute(Sender: TObject);
+begin
+  FindReplaceForm.FindNext(-1);
+end;
+
+procedure TMainForm.ActionGoToAddrExecute(Sender: TObject);
+var
+  s: string;
+  Pos: TFilePointer;
+begin
+  s := IntToStr(CaretPos);
+  if not InputQuery('Go to address', 'Go to address (use $ or 0x for hex value, + or - for relative jump):', s) then Exit;
+  s := Trim(s);
+  if s = '' then Exit;
+  s := s.Replace('0x', '$');
+  s := s.Replace('x', '$');
+
+  if (s[Low(s)] = '+') or (s[Low(s)] = '-') then
+    Pos := CaretPos + StrToInt64(s)
+  else
+    Pos := StrToInt64(s);
+
+  MoveCaret(Pos, []);
+end;
+
 procedure TMainForm.ActionGoToEndExecute(Sender: TObject);
 begin
   BeginUpdatePanes();
   try
-    SetSelection(0, -1);
-    CaretPos := GetFileSize();
+    MoveCaret(GetFileSize(), KeyboardStateToShiftState());
     CaretInByte := 0;
   finally
     EndUpdatePanes();
@@ -245,8 +316,7 @@ procedure TMainForm.ActionGoToStartExecute(Sender: TObject);
 begin
   BeginUpdatePanes();
   try
-    SetSelection(0, -1);
-    CaretPos := 0;
+    MoveCaret(0, KeyboardStateToShiftState());
     CaretInByte := 0;
   finally
     EndUpdatePanes();
@@ -281,7 +351,7 @@ begin
   if Length(Buf)=0 then Exit;
 
   ChangeBytes(CaretPos, Buf);
-  CaretPos := CaretPos + Length(Buf);
+  MoveCaret(CaretPos + Length(Buf), []);
   UpdatePanes();
 end;
 
@@ -317,6 +387,23 @@ begin
   PaneText.BeginUpdate();
 end;
 
+procedure TMainForm.CalculateByteColumns();
+// Choose byte columns count based on width of editor panes
+var
+  cw, Cols: Integer;
+begin
+  if ByteColumnsOption > 0 then
+    ByteColumns := ByteColumnsOption
+  else
+  begin
+    cw := PaneHex.CharWidth();
+    Cols := Min( PaneHex.ClientWidth div (PaneHex.CharWidth*3),
+                 PaneText.ClientWidth div (PaneText.CharWidth));
+    if Cols < 1 then Cols := 1;
+    ByteColumns :=  Cols;
+  end;
+end;
+
 procedure TMainForm.ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
 var
   Region: TCachedRegion;
@@ -341,6 +428,16 @@ begin
   ActionFind.Enabled := FocusInEditor;
 
   ActionSelectAll.Enabled := FocusInEditor;
+end;
+
+procedure TMainForm.Columnscount1Click(Sender: TObject);
+begin
+  case ByteColumnsOption of
+    8: MIColumns8.Checked := True;
+    16: MIColumns16.Checked := True;
+    32: MIColumns32.Checked := True;
+    else MIColumnsByWidth.Checked := True;
+  end;
 end;
 
 procedure TMainForm.Copyas6Nwords1Click(Sender: TObject);
@@ -389,8 +486,10 @@ procedure TMainForm.FormCreate(Sender: TObject);
 begin
   bWriteLogFile := True;
 
-  ByteColumns := 16;
+  ByteColumnsOption := -1;
+//  FByteColumns := 16;
   CachedRegions := TObjectList<TCachedRegion>.Create(True);
+  CalculateByteColumns();
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -400,8 +499,14 @@ end;
 
 procedure TMainForm.FormResize(Sender: TObject);
 begin
-  UpdateScrollBar();
-  UpdatePanes();
+  BeginUpdatePanes();
+  try
+    CalculateByteColumns();
+    UpdateScrollBar();
+    UpdatePanes();
+  finally
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
@@ -544,7 +649,31 @@ end;
 
 function TMainForm.GetVisibleRowsCount: Integer;
 begin
-  Result := PaneHex.Height div PaneHex.TextHeight();
+  Result := PaneHex.Height div PaneHex.CharHeight();
+end;
+
+procedure TMainForm.MIColumns8Click(Sender: TObject);
+var
+  n: Integer;
+begin
+  n := (Sender as TMenuItem).Tag;
+  ByteColumnsOption := n;
+  CalculateByteColumns();
+end;
+
+procedure TMainForm.MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
+// Move caret and adjust/remove selection
+begin
+  if ssShift in Shift then
+    SelDragEnd := NewPos
+  else
+  begin
+    SelDragStart := NewPos;
+    SelDragEnd := -1;
+  end;
+  SetSelection(SelDragStart, SelDragEnd);
+
+  CaretPos := NewPos;
 end;
 
 procedure TMainForm.N1Click(Sender: TObject);
@@ -591,7 +720,7 @@ end;
 procedure TMainForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 
-  procedure MoveCaret(dx, dy: Integer; StartOfByte: Boolean = False);
+  procedure AMoveCaret(dx, dy: Integer; StartOfByte: Boolean = False);
   var
     cp, cp2: TFilePointer;
     cb: Integer;
@@ -614,7 +743,7 @@ procedure TMainForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
 
     if StartOfByte then cb := 0;
 
-    CaretPos := cp;
+    MoveCaret(cp, Shift);
     CaretInByte := cb;
   end;
 
@@ -628,7 +757,7 @@ begin
           ActionGoToStart.Execute()
         else
         begin
-          CaretPos := (CaretPos div ByteColumns)*ByteColumns;
+          MoveCaret((CaretPos div ByteColumns)*ByteColumns, KeyboardStateToShiftState());
           CaretInByte := 0;
         end;
 
@@ -637,17 +766,17 @@ begin
           ActionGoToEnd.Execute()
         else
         begin
-          CaretPos := (CaretPos div ByteColumns)*ByteColumns + ByteColumns - 1;
+          MoveCaret((CaretPos div ByteColumns)*ByteColumns + ByteColumns - 1, KeyboardStateToShiftState());
           CaretInByte := 0;
         end;
 
-      VK_LEFT: MoveCaret(-1, 0);
-      VK_RIGHT: MoveCaret(1, 0);
-      VK_UP: MoveCaret(0, -1);
-      VK_DOWN: MoveCaret(0, 1);
+      VK_LEFT: AMoveCaret(-1, 0);
+      VK_RIGHT: AMoveCaret(1, 0);
+      VK_UP: AMoveCaret(0, -1);
+      VK_DOWN: AMoveCaret(0, 1);
 
-      VK_PRIOR: MoveCaret(0, -GetVisibleRowsCount());
-      VK_NEXT: MoveCaret(0, GetVisibleRowsCount());
+      VK_PRIOR: AMoveCaret(0, -GetVisibleRowsCount());
+      VK_NEXT: AMoveCaret(0, GetVisibleRowsCount());
 
       VK_TAB:
         begin
@@ -703,7 +832,7 @@ begin
         CaretInByte := 1
       else
       begin
-        CaretPos := CaretPos + 1;
+        MoveCaret(CaretPos + 1, []);
         CaretInByte := 0;
       end;
       UpdatePanes();
@@ -738,12 +867,19 @@ begin
     WasLeftMouseDown := False;
 end;
 
+procedure TMainForm.PaneHexMouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+  TopVisibleRow := TopVisibleRow - WheelDelta div 120 * ScrollWithWheel;
+end;
+
 procedure TMainForm.PaneMouseMove(Sender: TObject; IsMouseDown: Boolean;
   Shift: TShiftState; X, Y: Integer);
 var
   p: TPoint;
   ACaretPos: TFilePointer;
   ACaretInByte: Integer;
+  ss: TShiftState;
 begin
   BeginUpdatePanes();
   try
@@ -757,15 +893,19 @@ begin
       else
         ACaretInByte := 0;
       ACaretPos := FirstVisibleAddr() + (p.Y*ByteColumns + p.X);
-      if (IsMouseDown) and (not (ssShift in Shift)) then
-      begin
-        SelDragStart := ACaretPos;
-        SelDragEnd := -1;
-      end
-      else
-        SelDragEnd := ACaretPos;
-      SetSelection(SelDragStart, SelDragEnd);
-      CaretPos := ACaretPos;
+//      if (IsMouseDown) and (not (ssShift in Shift)) then
+//      begin
+//        SelDragStart := ACaretPos;
+//        SelDragEnd := -1;
+//      end
+//      else
+//        SelDragEnd := ACaretPos;
+//      SetSelection(SelDragStart, SelDragEnd);
+      ss := Shift;
+      if not IsMouseDown then
+        ss := ss + [ssShift];
+      //CaretPos := ACaretPos;
+      MoveCaret(ACaretPos, ss);
       CaretInByte := ACaretInByte;
     end;
   finally
@@ -782,7 +922,8 @@ begin
     if Key >= ' ' then
     begin
       ChangeBytes(CaretPos, [Byte(Key)]);
-      CaretPos := CaretPos + 1;
+      //CaretPos := CaretPos + 1;
+      MoveCaret(CaretPos + 1, []);
       UpdatePanes();
     end;
   finally
@@ -861,6 +1002,38 @@ begin
     TopVisibleRow := CaretRow-GetVisibleRowsCount()+1;
 end;
 
+procedure TMainForm.SetByteColumns(Value: Integer);
+var
+  NewTopRow: TFilePointer;
+  CaretLineOnScreen: TFilePointer;
+begin
+  Value := BoundValue(Value, 1, 1024);
+  if Value <> FByteColumns then
+  begin
+    BeginUpdatePanes();
+    try
+      // Keep caret in view, if it is now
+      if ByteColumns > 0 then
+        CaretLineOnScreen := CaretPos div ByteColumns - TopVisibleRow
+      else
+        CaretLineOnScreen := 0;
+      // else approximately track view position in file
+      NewTopRow := Round((TopVisibleRow * ByteColumns) / Value);
+
+      FByteColumns := Value;
+
+      UpdateScrollBar();
+      if (CaretLineOnScreen >= 0) and (CaretLineOnScreen < GetVisibleRowsCount()) then
+        TopVisibleRow := CaretPos div ByteColumns - CaretLineOnScreen
+      else
+        TopVisibleRow := NewTopRow;
+      UpdatePanes();
+    finally
+      EndUpdatePanes();
+    end;
+  end;
+end;
+
 procedure TMainForm.SetCaretInByte(const Value: Integer);
 begin
   if Value<>FCaretInByte then
@@ -881,6 +1054,7 @@ begin
       FCaretPos := Value;
       ScrollToCaret();
       UpdatePanesCarets();
+      ShowSelectionInfo();
     finally
       EndUpdatePanes();
     end;
@@ -915,15 +1089,56 @@ begin
   CheckEnabledActions();
 end;
 
-procedure TMainForm.SetTopVisibleRow(const Value: TFilePointer);
+procedure TMainForm.SetTopVisibleRow(Value: TFilePointer);
+var
+  MaxTopRow: TFilePointer;
 begin
   if Value<>FTopVisibleRow then
   begin
+    MaxTopRow := DivRoundUp(GetFileSize()+1, ByteColumns) - GetVisibleRowsCount();
+    if Value > MaxTopRow then Value := MaxTopRow;
+    if Value < 0 then Value := 0;
+
     FTopVisibleRow := Value;
-    if VertScrollBar.Position<>FTopVisibleRow then
-      VertScrollBar.Position:=FTopVisibleRow;
+    if VertScrollBar.Position<>FTopVisibleRow div FLinesPerScrollBarTick then
+      VertScrollBar.Position:=FTopVisibleRow div FLinesPerScrollBarTick;
     UpdatePanes();
   end;
+end;
+
+procedure TMainForm.ShowSelectionInfo();
+// Show info in statusbar about values under caret
+var
+  Data: TBytes;
+  x: Int64;
+begin
+  if SelLength = 0 then
+  begin
+    StatusBar.Panels[0].Text := 'Addr: ' + IntToStr(CaretPos) + '( '+'0x' + IntToHex(CaretPos, 2) + ')';
+    Data := GetEditedData(CaretPos, 1, False);
+    if Length(Data)>=1 then
+      StatusBar.Panels[1].Text := 'Byte: ' + IntToStr(Data[0])
+    else
+      StatusBar.Panels[1].Text := '';
+  end
+  else
+  begin
+    StatusBar.Panels[0].Text := 'Selected: ' + IntToStr(SelLength) + ' bytes';
+    if (SelLength <= 8) then
+    begin
+      Data := GetEditedData(SelStart, SelLength, False);
+      x := 0;
+      Move(Data[0], x, Length(Data));
+      StatusBar.Panels[1].Text := 'As number: ' + IntToStr(x);
+    end
+    else
+      StatusBar.Panels[1].Text := '';
+  end;
+end;
+
+procedure TMainForm.Splitter1Moved(Sender: TObject);
+begin
+  CalculateByteColumns();
 end;
 
 function TMainForm.StartChanges(Addr, Size: TFilePointer): TCachedRegion;
@@ -1002,7 +1217,7 @@ var
   Lines: TStringList;
   s: AnsiString;
   c: AnsiChar;
-  FirstVisibleAddress: Int64;
+  FirstVisibleAddress: TFilePointer;
   IncludesFileEnd: Boolean;
 begin
   if FUpdating>0 then
@@ -1085,24 +1300,34 @@ end;
 procedure TMainForm.UpdatePanesCarets;
 var
   cp: TPoint;
-  p: TFilePointer;
+  p, FirstVis: TFilePointer;
+  VisSize: Integer;
+  Cached: TCachedRegionsList;
 
   procedure Update(Pane: TEditorPane; CharsPerByte: Integer);
   var
     L, i: Integer;
+    j: TFilePointer;
     N0: TFilePointer;
   begin
-    // Selection background
-    N0 := FirstVisibleAddr();
-    L := GetVisibleRowsCount()*ByteColumns*CharsPerByte;
+    // Background colors
+    N0 := FirstVis;
+    L := VisSize*CharsPerByte;
     if Length(Pane.BgColors)<>L then
       SetLength(Pane.BgColors, L);
     for i:=0 to L-1 do
+      Pane.BgColors[i] := Pane.Color;
+    // Changed bytes
+    for i:=0 to Cached.Count-1 do
+    begin
+      for j:=Max(FirstVis, Cached[i].Addr)*CharsPerByte to Min(FirstVis+VisSize, Cached[i].Addr+Cached[i].Size)*CharsPerByte-1 do
+        Pane.BgColors[j - FirstVis*CharsPerByte] := Color_ChangedByte;
+    end;
+    // Selection background
+    for i:=0 to L-1 do
     begin
       if (N0+(i div CharsPerByte)>=SelStart) and (N0+(i div CharsPerByte)<SelStart+SelLength) then
-        Pane.BgColors[i] := clHighlight
-      else
-        Pane.BgColors[i] := Pane.Color;
+        Pane.BgColors[i] := Color_Selection;
     end;
 
     // Caret position
@@ -1110,34 +1335,52 @@ var
   end;
 
 begin
-  p := FCaretPos - FirstVisibleAddr();
+  FirstVis := FirstVisibleAddr();
+  VisSize := VisibleBytesCount();
+
+  p := FCaretPos - FirstVis;
   cp := Point(p mod ByteColumns, p div ByteColumns);
-  Update(PaneHex, 3);
-  Update(PaneText, 1);
+  Cached := GetOverlappingRegions(FirstVis, VisSize);
+
+  try
+    Update(PaneHex, 3);
+    Update(PaneText, 1);
+  finally
+    Cached.Free;
+  end;
 end;
 
 procedure TMainForm.UpdateScrollBar;
 var
-  FileRows: Int64;
+  FileRows: TFilePointer;
   ScreenRows: Integer;
 begin
   FileRows := DivRoundUp(GetFileSize()+1, ByteColumns);
   ScreenRows := GetVisibleRowsCount();
   if (FileRows <= ScreenRows) then
   begin
+    FLinesPerScrollBarTick := 1;
     VertScrollBar.PageSize := 0;
     VertScrollBar.Max := 0;
   end
   else
   begin
-    VertScrollBar.Max := FileRows - 1;
-    VertScrollBar.PageSize := ScreenRows;
+    // ScrollBar.Position is limited by 2^32, so for large files make
+    // one scrollbar step more then one line
+    FLinesPerScrollBarTick := Max(FileRows div 100000000{100 M lines}, 1);
+    VertScrollBar.Max := (FileRows div FLinesPerScrollBarTick) - 1;
+    VertScrollBar.PageSize := (ScreenRows div FLinesPerScrollBarTick);
   end;
 end;
 
 procedure TMainForm.VertScrollBarChange(Sender: TObject);
 begin
-  TopVisibleRow := VertScrollBar.Position;
+  TopVisibleRow := VertScrollBar.Position * FLinesPerScrollBarTick;
+end;
+
+function TMainForm.VisibleBytesCount: Integer;
+begin
+  Result := GetVisibleRowsCount() * ByteColumns;
 end;
 
 { TCachedRegion }
@@ -1145,6 +1388,13 @@ end;
 function TCachedRegion.Size: TFilePointer;
 begin
   Result := Length(Data);
+end;
+
+{ TFileRange }
+
+function TFileRange.Size: TFilePointer;
+begin
+  Result := AEnd-Start;
 end;
 
 end.

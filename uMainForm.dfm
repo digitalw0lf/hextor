@@ -54,34 +54,34 @@ object MainForm: TMainForm
     Left = 0
     Top = 24
     Width = 1028
-    Height = 615
+    Height = 596
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 1
+    ExplicitHeight = 615
     object Splitter1: TSplitter
-      Left = 105
+      Left = 99
       Top = 0
-      Height = 615
+      Width = 4
+      Height = 596
       AutoSnap = False
       ResizeStyle = rsUpdate
-      ExplicitLeft = 66
-      ExplicitTop = 6
-      ExplicitHeight = 610
+      OnMoved = Splitter1Moved
     end
     object Splitter2: TSplitter
-      Left = 625
+      Left = 788
       Top = 0
-      Height = 615
+      Width = 4
+      Height = 596
       AutoSnap = False
       ResizeStyle = rsUpdate
-      ExplicitLeft = 57
-      ExplicitHeight = 746
+      OnMoved = Splitter1Moved
     end
     object PaneLnNum: TEditorPane
       Left = 0
       Top = 0
-      Width = 105
-      Height = 615
+      Width = 99
+      Height = 596
       Align = alLeft
       BevelOuter = bvNone
       Color = clWindow
@@ -98,12 +98,13 @@ object MainForm: TMainForm
       OnMouseUp = PaneHexMouseUp
       Text = ''
       ShowCaret = False
+      ExplicitHeight = 615
     end
     object PaneHex: TEditorPane
-      Left = 108
+      Left = 103
       Top = 0
-      Width = 517
-      Height = 615
+      Width = 685
+      Height = 596
       Align = alLeft
       BevelOuter = bvNone
       Color = clWindow
@@ -114,6 +115,7 @@ object MainForm: TMainForm
       Font.Style = []
       ParentBackground = False
       ParentFont = False
+      PopupMenu = EditorPopupMenu
       TabOrder = 1
       TabStop = True
       OnEnter = PaneHexEnter
@@ -125,12 +127,15 @@ object MainForm: TMainForm
       ShowCaret = True
       OnKeyDown = PaneHexKeyDown
       OnKeyPress = PaneHexKeyPress
+      OnMouseWheel = PaneHexMouseWheel
+      ExplicitLeft = 99
+      ExplicitTop = -6
     end
     object PaneText: TEditorPane
-      Left = 628
+      Left = 792
       Top = 0
-      Width = 383
-      Height = 615
+      Width = 219
+      Height = 596
       Align = alClient
       BevelOuter = bvNone
       Color = clWindow
@@ -141,6 +146,7 @@ object MainForm: TMainForm
       Font.Style = []
       ParentBackground = False
       ParentFont = False
+      PopupMenu = EditorPopupMenu
       TabOrder = 2
       TabStop = True
       OnEnter = PaneHexEnter
@@ -152,23 +158,46 @@ object MainForm: TMainForm
       ShowCaret = True
       OnKeyDown = PaneHexKeyDown
       OnKeyPress = PaneTextKeyPress
+      OnMouseWheel = PaneHexMouseWheel
+      ExplicitLeft = 790
+      ExplicitWidth = 221
+      ExplicitHeight = 615
     end
     object VertScrollBar: TScrollBar
       Left = 1011
       Top = 0
       Width = 17
-      Height = 615
+      Height = 596
       Align = alRight
       Kind = sbVertical
       Max = 0
       PageSize = 0
       TabOrder = 3
       OnChange = VertScrollBarChange
+      ExplicitHeight = 615
     end
+  end
+  object StatusBar: TStatusBar
+    Left = 0
+    Top = 620
+    Width = 1028
+    Height = 19
+    Panels = <
+      item
+        Text = 'Addr: ? (0x?)'
+        Width = 200
+      end
+      item
+        Text = 'Byte: ?'
+        Width = 200
+      end>
+    ExplicitLeft = 520
+    ExplicitTop = 344
+    ExplicitWidth = 0
   end
   object MainMenu1: TMainMenu
     Images = ImageList16
-    Left = 144
+    Left = 216
     Top = 72
     object File1: TMenuItem
       Caption = 'File'
@@ -190,51 +219,69 @@ object MainForm: TMainForm
     end
     object Edit1: TMenuItem
       Caption = 'Edit'
-      object Cut1: TMenuItem
+      object MICut: TMenuItem
         Action = ActionCut
       end
-      object Copy1: TMenuItem
+      object MICopy: TMenuItem
         Action = ActionCopy
       end
-      object Copyas1: TMenuItem
+      object MICopyAs: TMenuItem
         Action = ActionCopyAs
       end
-      object Paste1: TMenuItem
+      object MIPaste: TMenuItem
         Action = ActionPaste
       end
-      object Selectall1: TMenuItem
+      object MISelectAll: TMenuItem
         Action = ActionSelectAll
       end
       object N2: TMenuItem
         Caption = '-'
       end
-      object FindReplace1: TMenuItem
+      object MIFindReplace: TMenuItem
         Action = ActionFind
+      end
+      object FindNext1: TMenuItem
+        Action = ActionFindNext
+      end
+      object FindPrevious1: TMenuItem
+        Action = ActionFindPrev
+      end
+      object GoToaddress1: TMenuItem
+        Action = ActionGoToAddr
       end
     end
     object View1: TMenuItem
       Caption = 'View'
       object Columnscount1: TMenuItem
         Caption = 'Columns count'
-        object N81: TMenuItem
+        OnClick = Columnscount1Click
+        object MIColumns8: TMenuItem
           Tag = 8
-          Action = ActionSetColumnsCount
+          AutoCheck = True
           Caption = '8'
+          RadioItem = True
+          OnClick = MIColumns8Click
         end
-        object N161: TMenuItem
+        object MIColumns16: TMenuItem
           Tag = 16
-          Action = ActionSetColumnsCount
+          AutoCheck = True
           Caption = '16'
+          RadioItem = True
+          OnClick = MIColumns8Click
         end
-        object N321: TMenuItem
+        object MIColumns32: TMenuItem
           Tag = 32
-          Action = ActionSetColumnsCount
+          AutoCheck = True
           Caption = '32'
+          RadioItem = True
+          OnClick = MIColumns8Click
         end
-        object Bywindowwidth1: TMenuItem
+        object MIColumnsByWidth: TMenuItem
           Tag = -1
-          Action = ActionSetColumnsCount
+          AutoCheck = True
           Caption = 'By window width'
+          RadioItem = True
+          OnClick = MIColumns8Click
         end
       end
     end
@@ -264,7 +311,7 @@ object MainForm: TMainForm
   end
   object ActionList1: TActionList
     Images = ImageList16
-    Left = 232
+    Left = 144
     Top = 69
     object ActionNew: TAction
       Category = 'File'
@@ -293,10 +340,6 @@ object MainForm: TMainForm
       Hint = 'Save file as...'
       ImageIndex = 2
       OnExecute = ActionSaveAsExecute
-    end
-    object ActionSetColumnsCount: TAction
-      Category = 'View'
-      Caption = 'ActionSetColumnsCount'
     end
     object ActionCut: TAction
       Category = 'Edit'
@@ -344,6 +387,24 @@ object MainForm: TMainForm
       ImageIndex = 3
       OnExecute = ActionFindExecute
     end
+    object ActionFindNext: TAction
+      Category = 'Edit'
+      Caption = 'Find Next'
+      ShortCut = 114
+      OnExecute = ActionFindNextExecute
+    end
+    object ActionFindPrev: TAction
+      Category = 'Edit'
+      Caption = 'Find Previous'
+      ShortCut = 8306
+      OnExecute = ActionFindPrevExecute
+    end
+    object ActionGoToAddr: TAction
+      Category = 'Navigation'
+      Caption = 'Go To address...'
+      ShortCut = 16455
+      OnExecute = ActionGoToAddrExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -351,10 +412,10 @@ object MainForm: TMainForm
     Top = 200
   end
   object ImageList16: TImageList
-    Left = 324
+    Left = 388
     Top = 69
     Bitmap = {
-      494C010104000800380010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010104000800480010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000002000000001002000000000000020
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -624,5 +685,21 @@ object MainForm: TMainForm
       C001000000008001C001000100008001C003000300008001C00780FF0000C003
       C00FC1FFC003E007FFFFFFFFFFFFFFFF00000000000000000000000000000000
       000000000000}
+  end
+  object EditorPopupMenu: TPopupMenu
+    Left = 286
+    Top = 72
+    object PMICut: TMenuItem
+      Action = ActionCut
+    end
+    object PMICopy: TMenuItem
+      Action = ActionCopy
+    end
+    object PMIPaste: TMenuItem
+      Action = ActionPaste
+    end
+    object PMISelectAll: TMenuItem
+      Action = ActionSelectAll
+    end
   end
 end

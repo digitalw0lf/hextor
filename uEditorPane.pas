@@ -36,7 +36,8 @@ type
     BgColors: array of TColor;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function TextHeight(): Integer;
+    function CharHeight(): Integer;
+    function CharWidth(): Integer;
     function GetCharAt(x, y: Integer; var Pos: TPoint): Boolean;
     procedure SetSelection(AStart, ALength: Integer);
     procedure BeginUpdate();
@@ -50,6 +51,9 @@ type
     property OnKeyDown;
     property OnKeyPress;
     property OnKeyUp;
+    property OnMouseWheel;
+    property OnMouseWheelUp;
+    property OnMouseWheelDown;
   end;
 
 procedure Register;
@@ -253,12 +257,20 @@ begin
   Paint();
 end;
 
-function TEditorPane.TextHeight: Integer;
+function TEditorPane.CharHeight: Integer;
 begin
   if CharSize.cy>0 then
     Result := CharSize.cy
   else
     Result := ScrBmp.Canvas.TextHeight('O');
+end;
+
+function TEditorPane.CharWidth: Integer;
+begin
+  if CharSize.cx>0 then
+    Result := CharSize.cx
+  else
+    Result := ScrBmp.Canvas.TextWidth('O');
 end;
 
 procedure TEditorPane.WMGetDlgCode(var Msg: TWMNoParams);

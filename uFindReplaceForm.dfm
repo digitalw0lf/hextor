@@ -1,6 +1,6 @@
 object FindReplaceForm: TFindReplaceForm
-  Left = 0
-  Top = 0
+  Left = 900
+  Top = 200
   Caption = 'Find/Replace'
   ClientHeight = 240
   ClientWidth = 540
@@ -10,10 +10,13 @@ object FindReplaceForm: TFindReplaceForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
+  KeyPreview = True
   OldCreateOrder = False
+  Position = poDesigned
+  OnKeyDown = FormKeyDown
   PixelsPerInch = 96
   TextHeight = 13
-  object GroupBox1: TGroupBox
+  object GBFind: TGroupBox
     Left = 0
     Top = 0
     Width = 540
@@ -21,7 +24,6 @@ object FindReplaceForm: TFindReplaceForm
     Align = alTop
     Caption = 'Find'
     TabOrder = 0
-    ExplicitWidth = 634
     DesignSize = (
       540
       121)
@@ -39,7 +41,6 @@ object FindReplaceForm: TFindReplaceForm
       Height = 21
       Anchors = [akLeft, akTop, akRight]
       TabOrder = 0
-      ExplicitWidth = 530
     end
     object CBFindHex: TCheckBox
       Left = 16
@@ -49,12 +50,12 @@ object FindReplaceForm: TFindReplaceForm
       Caption = 'Hex'
       TabOrder = 1
     end
-    object CBFindRegEx: TCheckBox
+    object CBWildcards: TCheckBox
       Left = 106
       Top = 48
       Width = 84
       Height = 17
-      Caption = 'RegEx'
+      Caption = '? for any'
       Enabled = False
       TabOrder = 2
     end
@@ -64,16 +65,9 @@ object FindReplaceForm: TFindReplaceForm
       Width = 84
       Height = 17
       Caption = 'Match case'
+      Checked = True
       Enabled = False
-      TabOrder = 3
-    end
-    object CBWholeWords: TCheckBox
-      Left = 376
-      Top = 48
-      Width = 84
-      Height = 17
-      Caption = 'Whole words'
-      Enabled = False
+      State = cbChecked
       TabOrder = 4
     end
     object BtnFindNext: TButton
@@ -82,8 +76,12 @@ object FindReplaceForm: TFindReplaceForm
       Top = 80
       Width = 90
       Height = 25
+      Hint = 'Alt+Right arrow'
       Caption = 'Find next >>'
-      TabOrder = 5
+      Default = True
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 6
       OnClick = BtnFindNextClick
     end
     object BtnFindPrev: TButton
@@ -92,8 +90,11 @@ object FindReplaceForm: TFindReplaceForm
       Top = 80
       Width = 90
       Height = 25
+      Hint = 'Alt+Left arrow'
       Caption = '<< Find prev'
-      TabOrder = 6
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 5
       OnClick = BtnFindNextClick
     end
     object BtnFindCount: TButton
@@ -103,6 +104,7 @@ object FindReplaceForm: TFindReplaceForm
       Height = 25
       Caption = 'Count'
       TabOrder = 7
+      OnClick = BtnFindCountClick
     end
     object CBUnicode: TCheckBox
       Left = 196
@@ -110,10 +112,18 @@ object FindReplaceForm: TFindReplaceForm
       Width = 84
       Height = 17
       Caption = 'Unicode'
+      TabOrder = 3
+    end
+    object CBFindInSelection: TCheckBox
+      Left = 343
+      Top = 84
+      Width = 84
+      Height = 17
+      Caption = 'In selection'
       TabOrder = 8
     end
   end
-  object GroupBox2: TGroupBox
+  object GBReplace: TGroupBox
     Left = 0
     Top = 121
     Width = 540
@@ -121,9 +131,6 @@ object FindReplaceForm: TFindReplaceForm
     Align = alClient
     Caption = 'Replace'
     TabOrder = 1
-    ExplicitTop = 153
-    ExplicitWidth = 634
-    ExplicitHeight = 153
     DesignSize = (
       540
       119)
@@ -141,7 +148,6 @@ object FindReplaceForm: TFindReplaceForm
       Height = 21
       Anchors = [akLeft, akTop, akRight]
       TabOrder = 0
-      ExplicitWidth = 530
     end
     object CBReplaceHex: TCheckBox
       Left = 16
@@ -167,5 +173,11 @@ object FindReplaceForm: TFindReplaceForm
       Caption = 'Replace all'
       TabOrder = 3
     end
+  end
+  object Timer1: TTimer
+    Interval = 100
+    OnTimer = Timer1Timer
+    Left = 488
+    Top = 73
   end
 end
