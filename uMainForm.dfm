@@ -58,7 +58,6 @@ object MainForm: TMainForm
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 1
-    ExplicitHeight = 615
     object Splitter1: TSplitter
       Left = 99
       Top = 0
@@ -98,7 +97,6 @@ object MainForm: TMainForm
       OnMouseUp = PaneHexMouseUp
       Text = ''
       ShowCaret = False
-      ExplicitHeight = 615
     end
     object PaneHex: TEditorPane
       Left = 103
@@ -128,8 +126,6 @@ object MainForm: TMainForm
       OnKeyDown = PaneHexKeyDown
       OnKeyPress = PaneHexKeyPress
       OnMouseWheel = PaneHexMouseWheel
-      ExplicitLeft = 99
-      ExplicitTop = -6
     end
     object PaneText: TEditorPane
       Left = 792
@@ -159,9 +155,6 @@ object MainForm: TMainForm
       OnKeyDown = PaneHexKeyDown
       OnKeyPress = PaneTextKeyPress
       OnMouseWheel = PaneHexMouseWheel
-      ExplicitLeft = 790
-      ExplicitWidth = 221
-      ExplicitHeight = 615
     end
     object VertScrollBar: TScrollBar
       Left = 1011
@@ -174,7 +167,6 @@ object MainForm: TMainForm
       PageSize = 0
       TabOrder = 3
       OnChange = VertScrollBarChange
-      ExplicitHeight = 615
     end
   end
   object StatusBar: TStatusBar
@@ -191,9 +183,6 @@ object MainForm: TMainForm
         Text = 'Byte: ?'
         Width = 200
       end>
-    ExplicitLeft = 520
-    ExplicitTop = 344
-    ExplicitWidth = 0
   end
   object MainMenu1: TMainMenu
     Images = ImageList16
@@ -207,14 +196,33 @@ object MainForm: TMainForm
       object Open1: TMenuItem
         Action = ActionOpen
       end
+      object MIRecentFilesMenu: TMenuItem
+        AutoHotkeys = maManual
+        Caption = 'Open Recent'
+        OnClick = MIRecentFilesMenuClick
+        object MIDummyRecentFile: TMenuItem
+          Caption = 'MIDummyRecentFile'
+          Visible = False
+          OnClick = MIDummyRecentFileClick
+        end
+      end
       object Save1: TMenuItem
         Action = ActionSave
       end
       object Saveas1: TMenuItem
         Action = ActionSaveAs
       end
+      object Saveselectionas1: TMenuItem
+        Action = ActionSaveSelectionAs
+      end
       object Revert1: TMenuItem
         Action = ActionRevert
+      end
+      object N3: TMenuItem
+        Caption = '-'
+      end
+      object Exit1: TMenuItem
+        Action = ActionExit
       end
     end
     object Edit1: TMenuItem
@@ -318,6 +326,7 @@ object MainForm: TMainForm
       Caption = 'New'
       Hint = 'New file'
       ImageIndex = 0
+      ShortCut = 16462
       OnExecute = ActionNewExecute
     end
     object ActionOpen: TAction
@@ -325,6 +334,7 @@ object MainForm: TMainForm
       Caption = 'Open'
       Hint = 'Open file...'
       ImageIndex = 1
+      ShortCut = 16463
       OnExecute = ActionOpenExecute
     end
     object ActionSave: TAction
@@ -332,6 +342,7 @@ object MainForm: TMainForm
       Caption = 'Save'
       Hint = 'Save file'
       ImageIndex = 2
+      ShortCut = 16467
       OnExecute = ActionSaveExecute
     end
     object ActionSaveAs: TAction
@@ -405,6 +416,16 @@ object MainForm: TMainForm
       ShortCut = 16455
       OnExecute = ActionGoToAddrExecute
     end
+    object ActionSaveSelectionAs: TAction
+      Category = 'File'
+      Caption = 'Save selection as...'
+      OnExecute = ActionSaveSelectionAsExecute
+    end
+    object ActionExit: TAction
+      Category = 'File'
+      Caption = 'Exit'
+      OnExecute = ActionExitExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -415,7 +436,7 @@ object MainForm: TMainForm
     Left = 388
     Top = 69
     Bitmap = {
-      494C010104000800480010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010104000800540010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000002000000001002000000000000020
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

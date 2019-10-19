@@ -2,7 +2,7 @@ object FindReplaceForm: TFindReplaceForm
   Left = 900
   Top = 200
   Caption = 'Find/Replace'
-  ClientHeight = 240
+  ClientHeight = 264
   ClientWidth = 540
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -13,19 +13,21 @@ object FindReplaceForm: TFindReplaceForm
   KeyPreview = True
   OldCreateOrder = False
   Position = poDesigned
+  OnClose = FormClose
   OnKeyDown = FormKeyDown
   PixelsPerInch = 96
   TextHeight = 13
   object GBFind: TGroupBox
-    Left = 0
-    Top = 0
-    Width = 540
+    AlignWithMargins = True
+    Left = 3
+    Top = 3
+    Width = 534
     Height = 121
     Align = alTop
     Caption = 'Find'
     TabOrder = 0
     DesignSize = (
-      540
+      534
       121)
     object Label1: TLabel
       Left = 16
@@ -37,7 +39,7 @@ object FindReplaceForm: TFindReplaceForm
     object EditFindText: TComboBox
       Left = 87
       Top = 16
-      Width = 436
+      Width = 430
       Height = 21
       Anchors = [akLeft, akTop, akRight]
       TabOrder = 0
@@ -124,16 +126,17 @@ object FindReplaceForm: TFindReplaceForm
     end
   end
   object GBReplace: TGroupBox
-    Left = 0
-    Top = 121
-    Width = 540
-    Height = 119
+    AlignWithMargins = True
+    Left = 3
+    Top = 130
+    Width = 534
+    Height = 111
     Align = alClient
     Caption = 'Replace'
     TabOrder = 1
     DesignSize = (
-      540
-      119)
+      534
+      111)
     object Label2: TLabel
       Left = 16
       Top = 19
@@ -144,9 +147,10 @@ object FindReplaceForm: TFindReplaceForm
     object EditReplaceText: TComboBox
       Left = 87
       Top = 16
-      Width = 436
+      Width = 430
       Height = 21
       Anchors = [akLeft, akTop, akRight]
+      Enabled = False
       TabOrder = 0
     end
     object CBReplaceHex: TCheckBox
@@ -155,6 +159,7 @@ object FindReplaceForm: TFindReplaceForm
       Width = 97
       Height = 17
       Caption = 'Hex'
+      Enabled = False
       TabOrder = 1
     end
     object BtnReplaceNext: TButton
@@ -163,6 +168,7 @@ object FindReplaceForm: TFindReplaceForm
       Width = 90
       Height = 25
       Caption = 'Replace next'
+      Enabled = False
       TabOrder = 2
     end
     object BtnReplaceAll: TButton
@@ -171,7 +177,56 @@ object FindReplaceForm: TFindReplaceForm
       Width = 90
       Height = 25
       Caption = 'Replace all'
+      Enabled = False
       TabOrder = 3
+    end
+  end
+  object ProgressPanel: TPanel
+    Left = 0
+    Top = 244
+    Width = 540
+    Height = 20
+    Align = alBottom
+    BevelOuter = bvNone
+    TabOrder = 2
+    object Gauge1: TGauge
+      Left = 0
+      Top = 0
+      Width = 465
+      Height = 20
+      Align = alClient
+      ForeColor = clLime
+      Progress = 0
+      ShowText = False
+      ExplicitLeft = 144
+      ExplicitTop = 8
+      ExplicitWidth = 100
+      ExplicitHeight = 100
+    end
+    object LblProgress: TLabel
+      Left = 0
+      Top = 0
+      Width = 465
+      Height = 20
+      Align = alClient
+      Alignment = taCenter
+      AutoSize = False
+      Layout = tlCenter
+      ExplicitLeft = 136
+      ExplicitTop = 3
+      ExplicitWidth = 193
+      ExplicitHeight = 18
+    end
+    object BtnAbort: TButton
+      Left = 465
+      Top = 0
+      Width = 75
+      Height = 20
+      Align = alRight
+      Caption = 'Abort'
+      Enabled = False
+      TabOrder = 0
+      OnClick = BtnAbortClick
     end
   end
   object Timer1: TTimer

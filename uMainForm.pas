@@ -11,9 +11,9 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Menus,
   System.Math, Generics.Collections, Clipbrd, System.Actions, Vcl.ActnList,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
-  Vcl.ImgList, System.UITypes,
+  Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti,
 
-  uUtil, uLargeStr, uEditorPane, uLogFile{, ColoredPanel{, uPathCompressTest};
+  uUtil, uLargeStr, uEditorPane, uLogFile, superobject, uSuperRTTICustom{, uPathCompressTest};
 
 const
   KByte = 1024;
@@ -24,8 +24,6 @@ const
 
   Color_ChangedByte = $B0FFFF;
   Color_Selection = clHighlight;
-
-  ScrollWithWheel = 3;
 
 type
   TFilePointer = Int64;
@@ -42,6 +40,17 @@ type
   end;
 
   TCachedRegionsList = TObjectList<TCachedRegion>;
+
+  TDWHexSettings = class
+  public type
+    TRecentFileRec = record
+      FileName: string;
+    end;
+  public
+    ScrollWithWheel: Integer;
+    ByteColumns: Integer;  // -1 - auto
+    RecentFiles: array of TRecentFileRec;
+  end;
 
   TMainForm = class(TForm)
     MainMenu1: TMainMenu;
@@ -110,6 +119,13 @@ type
     FindPrevious1: TMenuItem;
     ActionGoToAddr: TAction;
     GoToaddress1: TMenuItem;
+    ActionSaveSelectionAs: TAction;
+    Saveselectionas1: TMenuItem;
+    MIRecentFilesMenu: TMenuItem;
+    MIDummyRecentFile: TMenuItem;
+    ActionExit: TAction;
+    N3: TMenuItem;
+    Exit1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure VertScrollBarChange(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
@@ -150,10 +166,13 @@ type
     procedure ActionFindNextExecute(Sender: TObject);
     procedure ActionFindPrevExecute(Sender: TObject);
     procedure ActionGoToAddrExecute(Sender: TObject);
+    procedure ActionSaveSelectionAsExecute(Sender: TObject);
+    procedure MIRecentFilesMenuClick(Sender: TObject);
+    procedure MIDummyRecentFileClick(Sender: TObject);
+    procedure ActionExitExecute(Sender: TObject);
   private
     { Private declarations }
     FCaretPos: TFilePointer;
-    ByteColumnsOption: Integer;  // -1 - auto
     SelDragStart, SelDragEnd: TFilePointer;
     WasLeftMouseDown: Boolean;
     FCaretInByte: Integer;
@@ -179,6 +198,11 @@ type
     procedure SetByteColumns(Value: Integer);
     procedure CalculateByteColumns();
     procedure ShowSelectionInfo();
+    function AskSaveChanges(): TModalResult;
+    procedure InitDefaultSettings();
+    procedure SaveSettings();
+    procedure LoadSettings();
+    procedure AddCurrentFileToRecentFiles();
   public
     { Public declarations }
     FileName: string;
@@ -187,9 +211,12 @@ type
     FileDataLoaded: Boolean;
     CachedRegions: TCachedRegionsList;
     SelStart, SelLength: TFilePointer;
+    Settings: TDWHexSettings;
+    SettingsFolder, SettingsFile: string;
     procedure OpenFile(const AFileName: string);
     procedure SaveFile(const AFileName: string);
-    function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean): TBytes;
+    function CloseCurrentFile(AskSave: Boolean): TModalResult;
+    function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
     function GetOrigFileSize(): TFilePointer;
     function GetFileSize(): TFilePointer;
     procedure UpdatePanes();
@@ -258,12 +285,17 @@ var
 begin
   if SelLength > 100*MByte then
     if Application.MessageBox(PChar('Try to copy '+IntToStr(SelLength)+' bytes to system clipboard?'), PChar('Copy'), MB_YESNO) <> IDYES then Exit;
-  Buf := GetEditedData(SelStart, SelLength, False);
+  Buf := GetEditedData(SelStart, SelLength);
   if ActiveControl=PaneHex then
     s := Data2Hex(Buf, True)
   else
     s := MakeStr(Buf);
   Clipboard.AsText := s;
+end;
+
+procedure TMainForm.ActionExitExecute(Sender: TObject);
+begin
+  Close();
 end;
 
 procedure TMainForm.ActionFindExecute(Sender: TObject);
@@ -273,12 +305,18 @@ end;
 
 procedure TMainForm.ActionFindNextExecute(Sender: TObject);
 begin
-  FindReplaceForm.FindNext(1);
+  if FindReplaceForm.ParamsDefined() then
+    FindReplaceForm.FindNext(1)
+  else
+    ActionFindExecute(Sender);
 end;
 
 procedure TMainForm.ActionFindPrevExecute(Sender: TObject);
 begin
-  FindReplaceForm.FindNext(-1);
+  if FindReplaceForm.ParamsDefined() then
+    FindReplaceForm.FindNext(-1)
+  else
+    ActionFindExecute(Sender);
 end;
 
 procedure TMainForm.ActionGoToAddrExecute(Sender: TObject);
@@ -325,15 +363,12 @@ end;
 
 procedure TMainForm.ActionNewExecute(Sender: TObject);
 begin
-  FileName := '';
-  FreeAndNil(FileStream);
-  FileDataLoaded := False;
-
-  NewFileOpened();
+  CloseCurrentFile(True);
 end;
 
 procedure TMainForm.ActionOpenExecute(Sender: TObject);
 begin
+  if AskSaveChanges() = mrCancel then Exit;
   if not OpenDialog1.Execute() then Exit;
   OpenFile(OpenDialog1.FileName);
 end;
@@ -362,21 +397,96 @@ begin
 end;
 
 procedure TMainForm.ActionSaveAsExecute(Sender: TObject);
+var
+  fn: string;
 begin
-  SaveDialog1.FileName := FileName;
+  fn := FileName;
+  SaveDialog1.FileName := fn;
   if not SaveDialog1.Execute() then Exit;
   SaveFile(SaveDialog1.FileName);
 end;
 
 procedure TMainForm.ActionSaveExecute(Sender: TObject);
 begin
-  SaveFile(FileName);
+  if ExtractFilePath(FileName) = '' then
+    ActionSaveAsExecute(Sender)
+  else
+    SaveFile(FileName);
+end;
+
+procedure TMainForm.ActionSaveSelectionAsExecute(Sender: TObject);
+// Save selected part to another file.
+// If same file is chosen, re-open it with new content
+var
+  SameFile: Boolean;
+  Data: TBytes;
+  fn: string;
+begin
+  if SelLength > MaxInt then
+    raise EInvalidUserInput.Create('This command is not supported for selection larger then 2 GBytes');
+
+  SaveDialog1.FileName := ChangeFileExt(FileName, '_part'+ExtractFileExt(FileName));
+  if not SaveDialog1.Execute() then Exit;
+  fn := SaveDialog1.FileName;
+
+  SameFile := SameFileName(fn, FileName);
+  if SameFile then
+    if Application.MessageBox('Current file will be overwritten and re-opened with new content', 'Replace file', MB_OKCANCEL) <> IDOK then Exit;
+
+  Data := GetEditedData(SelStart, SelLength);
+
+  if SameFile then CloseCurrentFile(False);
+
+  SaveEntireFile(fn, Data);
+
+  if SameFile then
+    OpenFile(fn);
 end;
 
 procedure TMainForm.ActionSelectAllExecute(Sender: TObject);
 begin
   SetSelection(0, GetFileSize()-1);
   UpdatePanes();
+end;
+
+procedure TMainForm.AddCurrentFileToRecentFiles;
+var
+  Recent: TDWHexSettings.TRecentFileRec;
+  n, i: Integer;
+begin
+  n := -1;
+  for i:=0 to Length(Settings.RecentFiles)-1 do
+    if SameFileName(Settings.RecentFiles[i].FileName, FileName) then
+    begin
+      n := i;
+      Break;
+    end;
+  if n < 0 then
+  begin
+    Recent.FileName := FileName;
+  end
+  else
+  begin
+    Recent := Settings.RecentFiles[n];
+    Delete(Settings.RecentFiles, n, 1);
+  end;
+  Insert([Recent], Settings.RecentFiles, 0);
+  if Length(Settings.RecentFiles) > 20 then
+    SetLength(Settings.RecentFiles, 20);
+
+  SaveSettings();
+end;
+
+function TMainForm.AskSaveChanges: TModalResult;
+begin
+  Result := mrNo;
+  if HasUnsavedChanges then
+  begin
+    Result := Application.MessageBox(PChar('Save changes to '#13#10+FileName+'?'), 'Closing', MB_YESNOCANCEL);
+    case Result of
+      mrYes: ActionSaveExecute(nil);
+    end;
+  end;
 end;
 
 procedure TMainForm.BeginUpdatePanes;
@@ -390,13 +500,12 @@ end;
 procedure TMainForm.CalculateByteColumns();
 // Choose byte columns count based on width of editor panes
 var
-  cw, Cols: Integer;
+  Cols: Integer;
 begin
-  if ByteColumnsOption > 0 then
-    ByteColumns := ByteColumnsOption
+  if Settings.ByteColumns > 0 then
+    ByteColumns := Settings.ByteColumns
   else
   begin
-    cw := PaneHex.CharWidth();
     Cols := Min( PaneHex.ClientWidth div (PaneHex.CharWidth*3),
                  PaneText.ClientWidth div (PaneText.CharWidth));
     if Cols < 1 then Cols := 1;
@@ -418,21 +527,29 @@ var
 begin
   FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
-  ActionSave.Enabled := (FileName<>'') and (HasUnsavedChanges);
+  ActionSave.Enabled := (FileName='') or (HasUnsavedChanges);
   ActionRevert.Enabled := (HasUnsavedChanges);
 
   ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
   ActionCut.Enabled := ActionCopy.Enabled;
   ActionPaste.Enabled := FocusInEditor;
-  ActionSelectAll.Enabled := FocusInEditor;
-  ActionFind.Enabled := FocusInEditor;
 
   ActionSelectAll.Enabled := FocusInEditor;
 end;
 
+function TMainForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
+begin
+  if (AskSave) and (AskSaveChanges() = mrCancel) then Exit;
+  FileName := 'New file';
+  FreeAndNil(FileStream);
+  FileDataLoaded := False;
+
+  NewFileOpened();
+end;
+
 procedure TMainForm.Columnscount1Click(Sender: TObject);
 begin
-  case ByteColumnsOption of
+  case Settings.ByteColumns of
     8: MIColumns8.Checked := True;
     16: MIColumns16.Checked := True;
     32: MIColumns32.Checked := True;
@@ -471,22 +588,28 @@ end;
 
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  CanClose := True;
-  if HasUnsavedChanges then
-  begin
-    case Application.MessageBox(PChar('Save changes to '#13#10+FileName+'?'), 'Closing', MB_YESNOCANCEL) of
-      IDYES: SaveFile(FileName);
-      IDNO: begin end;
-      IDCANCEL: CanClose := False;
-    end;
-  end;
+  if AskSaveChanges() = IDCANCEL then
+    CanClose := False;
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
+var
+  ws: string;
+  i: Integer;
 begin
   bWriteLogFile := True;
+  Settings := TDWHexSettings.Create();
 
-  ByteColumnsOption := -1;
+  // Get path to settings folder (AppData...)
+  SetLength(ws, MAX_PATH);
+  i:=SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @ws[Low(ws)]);
+  if i=0 then  SettingsFolder := AddSlash(PChar(ws)) + 'DWHex\'
+         else  SettingsFolder := ExePath + 'Settings\';
+  SettingsFile := SettingsFolder + 'Settings.json';
+
+  InitDefaultSettings();
+  LoadSettings();
+
 //  FByteColumns := 16;
   CachedRegions := TObjectList<TCachedRegion>.Create(True);
   CalculateByteColumns();
@@ -494,7 +617,9 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  SaveSettings();
   CachedRegions.Free;
+  Settings.Free;
 end;
 
 procedure TMainForm.FormResize(Sender: TObject);
@@ -514,7 +639,7 @@ begin
   OpenFile('d:\DWF\Delphi\Tools\DWHex\Test\Unit1.pas');
 end;
 
-function TMainForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean): TBytes;
+function TMainForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
 var
   OrigSize, CurrSize: TFilePointer;
   ReadSize, ReturnSize: Integer;
@@ -652,13 +777,64 @@ begin
   Result := PaneHex.Height div PaneHex.CharHeight();
 end;
 
+procedure TMainForm.InitDefaultSettings;
+begin
+  Settings.ScrollWithWheel := 3;
+  Settings.ByteColumns := -1;
+end;
+
+procedure TMainForm.LoadSettings;
+var
+  ctx: TSuperRttiContext;
+  json: ISuperObject;
+  Value: TValue;
+begin
+  if FileExists(SettingsFile) then
+    json := TSuperObject.ParseFile(SettingsFile, False)
+  else
+    json := SO('');
+
+  ctx := TSuperRttiContext.Create;
+  Value := TValue.From<TDWHexSettings>(Settings);
+
+  ctx.FromJson(TypeInfo(TDWHexSettings), json, Value);
+
+  ctx.Free;
+end;
+
 procedure TMainForm.MIColumns8Click(Sender: TObject);
 var
   n: Integer;
 begin
   n := (Sender as TMenuItem).Tag;
-  ByteColumnsOption := n;
+  Settings.ByteColumns := n;
   CalculateByteColumns();
+  SaveSettings();
+end;
+
+procedure TMainForm.MIDummyRecentFileClick(Sender: TObject);
+// Open file from "Recent files" menu
+begin
+  if AskSaveChanges() = mrCancel then Exit;
+  OpenFile((Sender as TMenuItem).Caption);
+end;
+
+procedure TMainForm.MIRecentFilesMenuClick(Sender: TObject);
+// Show menu items for "Recent files"
+var
+  i: Integer;
+  mi: TMenuItem;
+begin
+  for i:=MIRecentFilesMenu.Count-1 downto 1 do
+    MIRecentFilesMenu.Items[i].Free;
+
+  for i:=0 to Length(Settings.RecentFiles)-1 do
+  begin
+    mi := TMenuItem.Create(Self);
+    mi.Caption := Settings.RecentFiles[i].FileName;
+    mi.OnClick := MIDummyRecentFileClick;
+    MIRecentFilesMenu.Add(mi);
+  end;
 end;
 
 procedure TMainForm.MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
@@ -690,7 +866,8 @@ begin
 
     UpdateFormCaption();
     UpdateScrollBar();
-    TopVisibleRow := 0;
+//    TopVisibleRow := 0;
+    MoveCaret(0, []);
     UpdatePanes();
 
     CheckEnabledActions();
@@ -703,13 +880,14 @@ procedure TMainForm.OpenFile(const AFileName: string);
 begin
   FileName := AFileName;
 
-  //LoadEntireFile(OpenDialog1.FileName, FileData);
   FreeAndNil(FileStream);
   FileDataLoaded := False;
   if FileName <> '' then
     FileStream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
 
   NewFileOpened();
+
+  AddCurrentFileToRecentFiles();
 end;
 
 procedure TMainForm.PaneHexEnter(Sender: TObject);
@@ -870,7 +1048,7 @@ end;
 procedure TMainForm.PaneHexMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 begin
-  TopVisibleRow := TopVisibleRow - WheelDelta div 120 * ScrollWithWheel;
+  TopVisibleRow := TopVisibleRow - WheelDelta div 120 * Settings.ScrollWithWheel;
 end;
 
 procedure TMainForm.PaneMouseMove(Sender: TObject; IsMouseDown: Boolean;
@@ -990,6 +1168,26 @@ begin
   OpenFile(AFileName);
 end;
 
+procedure TMainForm.SaveSettings;
+const
+  BOM: array[0..1] of Byte = ($FF, $FE);
+var
+  ctx: TSuperRttiContext;
+  fs: TFileStream;
+begin
+  ForceDirectories(SettingsFolder);
+  fs := TFileStream.Create(SettingsFile, fmCreate);
+  try
+    fs.WriteBuffer(BOM, SizeOf(BOM));
+
+    ctx := TSuperRttiContext.Create;
+    ctx.AsJson<TDWHexSettings>(Settings).SaveTo(fs, True, False);
+    ctx.Free;
+  finally
+    fs.Free;
+  end;
+end;
+
 procedure TMainForm.ScrollToCaret;
 var
   CaretRow: TFilePointer;
@@ -1101,7 +1299,14 @@ begin
 
     FTopVisibleRow := Value;
     if VertScrollBar.Position<>FTopVisibleRow div FLinesPerScrollBarTick then
-      VertScrollBar.Position:=FTopVisibleRow div FLinesPerScrollBarTick;
+    begin
+      VertScrollBar.OnChange := nil;
+      try
+        VertScrollBar.Position:=FTopVisibleRow div FLinesPerScrollBarTick;
+      finally
+        VertScrollBar.OnChange := VertScrollBarChange;
+      end;
+    end;
     UpdatePanes();
   end;
 end;
@@ -1115,7 +1320,7 @@ begin
   if SelLength = 0 then
   begin
     StatusBar.Panels[0].Text := 'Addr: ' + IntToStr(CaretPos) + '( '+'0x' + IntToHex(CaretPos, 2) + ')';
-    Data := GetEditedData(CaretPos, 1, False);
+    Data := GetEditedData(CaretPos, 1);
     if Length(Data)>=1 then
       StatusBar.Panels[1].Text := 'Byte: ' + IntToStr(Data[0])
     else
@@ -1126,7 +1331,7 @@ begin
     StatusBar.Panels[0].Text := 'Selected: ' + IntToStr(SelLength) + ' bytes';
     if (SelLength <= 8) then
     begin
-      Data := GetEditedData(SelStart, SelLength, False);
+      Data := GetEditedData(SelStart, SelLength);
       x := 0;
       Move(Data[0], x, Length(Data));
       StatusBar.Panels[1].Text := 'As number: ' + IntToStr(x);
@@ -1231,7 +1436,7 @@ begin
   try
     Rows := GetVisibleRowsCount();
     FirstVisibleAddress := FirstVisibleAddr();
-    Data := GetEditedData(FirstVisibleAddress, Rows * ByteColumns, False);
+    Data := GetEditedData(FirstVisibleAddress, Rows * ByteColumns);
     IncludesFileEnd := (Length(Data) < Rows * ByteColumns);
     sb := TStringBuilder.Create();
     Lines := TStringList.Create();
