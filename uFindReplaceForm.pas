@@ -9,7 +9,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math,
 
-  uMainForm, uUtil, Vcl.ExtCtrls, Vcl.Samples.Gauges;
+  uDWHexTypes, uMainForm, uUtil, Vcl.ExtCtrls, Vcl.Samples.Gauges;
 
 type
   TSearchParams = record
@@ -153,7 +153,7 @@ var
   IPtr: Integer;
   Block: TFileRange;
 begin
-  if FSearchInProgress then Exit;
+  if FSearchInProgress then Exit(False);
   if Range.AEnd < 0 then Range.AEnd := MainForm.GetFileSize();
 
   Ptr := Start;

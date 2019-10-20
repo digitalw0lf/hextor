@@ -13,26 +13,14 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti,
 
-  uUtil, uLargeStr, uEditorPane, uLogFile, superobject, uSuperRTTICustom{, uPathCompressTest};
+  uUtil, uLargeStr, uEditorPane, uLogFile, superobject, uSuperRTTICustom,
+  uDWHexTypes, uDWHexDataSources{, uPathCompressTest};
 
 const
-  KByte = 1024;
-  MByte = 1024*1024;
-  GByte = 1024*1024*1024;
-
-  HexCharsSet: TSysCharSet = ['0'..'9', 'A'..'F', 'a'..'f'];
-
   Color_ChangedByte = $B0FFFF;
   Color_Selection = clHighlight;
 
 type
-  TFilePointer = Int64;
-
-  TFileRange = record
-    Start, AEnd: TFilePointer;
-    function Size(): TFilePointer;
-  end;
-
   TCachedRegion = class
     Addr: TFilePointer;
     Data: TBytes;
@@ -189,7 +177,7 @@ type
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
     procedure CheckEnabledActions();
-    procedure NewFileOpened();
+    procedure NewFileOpened(ResetCaret: Boolean);
     procedure SetCaretInByte(const Value: Integer);
     procedure SetHasUnsavedChanges(const Value: Boolean);
     procedure UpdateFormCaption();
@@ -205,10 +193,11 @@ type
     procedure AddCurrentFileToRecentFiles();
   public
     { Public declarations }
-    FileName: string;
-    FileStream: TFileStream;
-    FileData: TBytes;
-    FileDataLoaded: Boolean;
+//    FileName: string;
+//    FileStream: TFileStream;
+    DataSource: TDWHexDataSource;
+//    FileData: TBytes;
+//    FileDataLoaded: Boolean;
     CachedRegions: TCachedRegionsList;
     SelStart, SelLength: TFilePointer;
     Settings: TDWHexSettings;
@@ -216,6 +205,7 @@ type
     procedure OpenFile(const AFileName: string);
     procedure SaveFile(const AFileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
+    procedure OpenNewEmptyFile();
     function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
     function GetOrigFileSize(): TFilePointer;
     function GetFileSize(): TFilePointer;
@@ -364,6 +354,7 @@ end;
 procedure TMainForm.ActionNewExecute(Sender: TObject);
 begin
   CloseCurrentFile(True);
+  OpenNewEmptyFile();
 end;
 
 procedure TMainForm.ActionOpenExecute(Sender: TObject);
@@ -393,14 +384,14 @@ end;
 procedure TMainForm.ActionRevertExecute(Sender: TObject);
 begin
   if Application.MessageBox('Revert unsaved changes?', 'Revert', MB_OKCANCEL) <> IDOK then Exit;
-  OpenFile(FileName);
+  OpenFile(DataSource.Path);
 end;
 
 procedure TMainForm.ActionSaveAsExecute(Sender: TObject);
 var
   fn: string;
 begin
-  fn := FileName;
+  fn := DataSource.Path;
   SaveDialog1.FileName := fn;
   if not SaveDialog1.Execute() then Exit;
   SaveFile(SaveDialog1.FileName);
@@ -408,10 +399,10 @@ end;
 
 procedure TMainForm.ActionSaveExecute(Sender: TObject);
 begin
-  if ExtractFilePath(FileName) = '' then
+  if ExtractFilePath(DataSource.Path) = '' then
     ActionSaveAsExecute(Sender)
   else
-    SaveFile(FileName);
+    SaveFile(DataSource.Path);
 end;
 
 procedure TMainForm.ActionSaveSelectionAsExecute(Sender: TObject);
@@ -425,11 +416,11 @@ begin
   if SelLength > MaxInt then
     raise EInvalidUserInput.Create('This command is not supported for selection larger then 2 GBytes');
 
-  SaveDialog1.FileName := ChangeFileExt(FileName, '_part'+ExtractFileExt(FileName));
+  SaveDialog1.FileName := ChangeFileExt(DataSource.Path, '_part'+ExtractFileExt(DataSource.Path));
   if not SaveDialog1.Execute() then Exit;
   fn := SaveDialog1.FileName;
 
-  SameFile := SameFileName(fn, FileName);
+  SameFile := SameFileName(fn, DataSource.Path);
   if SameFile then
     if Application.MessageBox('Current file will be overwritten and re-opened with new content', 'Replace file', MB_OKCANCEL) <> IDOK then Exit;
 
@@ -454,16 +445,18 @@ var
   Recent: TDWHexSettings.TRecentFileRec;
   n, i: Integer;
 begin
+  if (not (DataSource is TFileDataSource)) or (ExtractFilePath(DataSource.Path) = '') then Exit;
+
   n := -1;
   for i:=0 to Length(Settings.RecentFiles)-1 do
-    if SameFileName(Settings.RecentFiles[i].FileName, FileName) then
+    if SameFileName(Settings.RecentFiles[i].FileName, DataSource.Path) then
     begin
       n := i;
       Break;
     end;
   if n < 0 then
   begin
-    Recent.FileName := FileName;
+    Recent.FileName := DataSource.Path;
   end
   else
   begin
@@ -482,7 +475,7 @@ begin
   Result := mrNo;
   if HasUnsavedChanges then
   begin
-    Result := Application.MessageBox(PChar('Save changes to '#13#10+FileName+'?'), 'Closing', MB_YESNOCANCEL);
+    Result := Application.MessageBox(PChar('Save changes to '#13#10+DataSource.Path+'?'), 'Closing', MB_YESNOCANCEL);
     case Result of
       mrYes: ActionSaveExecute(nil);
     end;
@@ -527,7 +520,7 @@ var
 begin
   FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
-  ActionSave.Enabled := (FileName='') or (HasUnsavedChanges);
+  ActionSave.Enabled := (DataSource is TFileDataSource) and ((DataSource.Path='') or (HasUnsavedChanges));
   ActionRevert.Enabled := (HasUnsavedChanges);
 
   ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
@@ -539,12 +532,15 @@ end;
 
 function TMainForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
 begin
-  if (AskSave) and (AskSaveChanges() = mrCancel) then Exit;
-  FileName := 'New file';
-  FreeAndNil(FileStream);
-  FileDataLoaded := False;
+  if (AskSave) then
+  begin
+    Result := AskSaveChanges();
+    if Result = mrCancel then Exit;
+  end;
+  Result := mrNo;
 
-  NewFileOpened();
+  FreeAndNil(DataSource);
+//  FileDataLoaded := False;
 end;
 
 procedure TMainForm.Columnscount1Click(Sender: TObject);
@@ -558,19 +554,19 @@ begin
 end;
 
 procedure TMainForm.Copyas6Nwords1Click(Sender: TObject);
-var
-  i: Integer;
-  s: TStringBuilder;
+//var
+//  i: Integer;
+//  s: TStringBuilder;
 begin
-  s := TStringBuilder.Create();
-  for i:=0 to Length(FileData) div 2-1 do
-  begin
-    s.Append(IntToStr(pSmallInt(@FileData[i*2])^)+#9);
-    if (i+1) mod 6=0 then
-      s.Append(#13#10);
-  end;
-  Clipboard.AsText := s.ToString;
-  s.Free;
+//  s := TStringBuilder.Create();
+//  for i:=0 to Length(FileData) div 2-1 do
+//  begin
+//    s.Append(IntToStr(pSmallInt(@FileData[i*2])^)+#9);
+//    if (i+1) mod 6=0 then
+//      s.Append(#13#10);
+//  end;
+//  Clipboard.AsText := s.ToString;
+//  s.Free;
 
 end;
 
@@ -667,15 +663,14 @@ begin
     ReadSize := OrigSize - Addr;
   if ReadSize > 0 then
   begin
-    if FileDataLoaded then
-      //Result := Copy(FileData, Addr, ReadSize)
-      Move(FileData[Addr], Result[0], ReadSize)
-    else
-    if FileStream<>nil then
-    begin
-      FileStream.Position := Addr;
-      FileStream.ReadBuffer(Result, ReadSize);
-    end;
+//    if FileDataLoaded then
+//      //Result := Copy(FileData, Addr, ReadSize)
+//      Move(FileData[Addr], Result[0], ReadSize)
+//    else
+//    begin
+      DataSource.GetData(Addr, ReadSize, Result);
+      // TODO: check result
+//    end;
   end;
 
   // Edited data
@@ -712,11 +707,11 @@ end;
 function TMainForm.GetOrigFileSize: TFilePointer;
 // Original file size
 begin
-  if FileDataLoaded then
-    Result := Length(FileData)
-  else
-  if FileStream<>nil then
-    Result := FileStream.Size
+//  if FileDataLoaded then
+//    Result := Length(FileData)
+//  else
+  if DataSource <> nil then
+    Result := DataSource.GetSize()
   else
     Result := 0;
 end;
@@ -857,7 +852,7 @@ begin
 //  TestCompress();
 end;
 
-procedure TMainForm.NewFileOpened;
+procedure TMainForm.NewFileOpened(ResetCaret: Boolean);
 begin
   BeginUpdatePanes();
   try
@@ -867,27 +862,34 @@ begin
     UpdateFormCaption();
     UpdateScrollBar();
 //    TopVisibleRow := 0;
-    MoveCaret(0, []);
+    if ResetCaret then
+      MoveCaret(0, []);
     UpdatePanes();
 
     CheckEnabledActions();
   finally
     EndUpdatePanes();
   end;
+
+  AddCurrentFileToRecentFiles();
 end;
 
 procedure TMainForm.OpenFile(const AFileName: string);
 begin
-  FileName := AFileName;
+  CloseCurrentFile(False);
 
-  FreeAndNil(FileStream);
-  FileDataLoaded := False;
-  if FileName <> '' then
-    FileStream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  DataSource := TFileDataSource.Create(AFileName);
+  DataSource.Open(fmOpenRead);
 
-  NewFileOpened();
+  NewFileOpened(True);
+end;
 
-  AddCurrentFileToRecentFiles();
+procedure TMainForm.OpenNewEmptyFile;
+begin
+  DataSource := TFileDataSource.Create('New file');
+//  FileDataLoaded := False;
+
+  NewFileOpened(True);
 end;
 
 procedure TMainForm.PaneHexEnter(Sender: TObject);
@@ -1123,49 +1125,48 @@ end;
 procedure TMainForm.SaveFile(const AFileName: string);
 var
   i: Integer;
-  FS: TFileStream;
+  //FS: TFileStream;
+  Dest: TDWHexDataSource;
 begin
   if (AFileName='') then Exit;
 
-  FreeAndNil(FileStream);
-
-  ForceDirectories(ExtractFilePath(AFileName));
-
-  // If saving to another file, copy original contents first
-  if not SameFileName(AFileName, FileName) then
+  if SameFileName(AFileName, DataSource.Path) then
+  // If saving to same file, re-open it for writing
   begin
-    if FileDataLoaded then
-    begin
-      FS := TFileStream.Create(FileName, fmCreate);
-      try
-        FS.WriteBuffer(FileData, Length(FileData));
-      finally
-        FreeAndNil(FS);
-      end;
-    end
-    else
-    begin
-      if (FileName<>'') then
-        CopyFile(PChar(FileName), PChar(AFileName), False);
-    end;
-  end;
-
-  if FileExists(AFileName) then
-    FS := TFileStream.Create(AFileName, fmOpenReadWrite)
+    DataSource.Open(fmOpenReadWrite);
+    Dest := DataSource;
+  end
   else
-    FS := TFileStream.Create(AFileName, fmCreate);
-  try
-    for i:=0 to CachedRegions.Count-1 do
-    begin
-      FS.Position := CachedRegions[i].Addr;
-      FS.WriteBuffer(CachedRegions[i].Data, CachedRegions[i].Size());
-    end;
-  finally
-    FreeAndNil(FS);
+  // If saving to another file, create another DataSource and copy original contents first
+  begin
+    Dest := TFileDataSource.Create(AFileName);
+    Dest.Open(fmCreate);
+//    if FileDataLoaded then
+//      Dest.ChangeData(0, FileData)
+//    else
+      Dest.CopyContentFrom(DataSource);
   end;
-  CachedRegions.Clear();
 
-  OpenFile(AFileName);
+  // Write changed regions
+  for i:=0 to CachedRegions.Count-1 do
+  begin
+    Dest.ChangeData(CachedRegions[i].Addr, CachedRegions[i].Data[0], CachedRegions[i].Size());
+  end;
+
+  // Open new saved file
+  if Dest <> DataSource then
+  begin
+    DataSource.Free;
+    DataSource := Dest;
+  end
+  else
+  begin
+
+  end;
+  DataSource.Open(fmOpenRead);
+
+  NewFileOpened(False);
+
 end;
 
 procedure TMainForm.SaveSettings;
@@ -1403,8 +1404,8 @@ var
   s: string;
 begin
   s := 'DWHex - [';
-  if FileName <> '' then
-    s := s + FileName
+  if DataSource.Path <> '' then
+    s := s + DataSource.Path
   else
     s := s + '(unnamed)';
   if HasUnsavedChanges then
@@ -1593,13 +1594,6 @@ end;
 function TCachedRegion.Size: TFilePointer;
 begin
   Result := Length(Data);
-end;
-
-{ TFileRange }
-
-function TFileRange.Size: TFilePointer;
-begin
-  Result := AEnd-Start;
 end;
 
 end.
