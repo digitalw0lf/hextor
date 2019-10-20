@@ -23,9 +23,11 @@ type
     function GetProperties(): TDataSourceProperties;
     function GetSize(): TFilePointer; virtual; abstract;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; virtual; abstract;
-    function ChangeData(Addr: TFilePointer; const Data; DataSize: Integer): Integer; virtual; abstract;
+    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; virtual; abstract;
     procedure CopyContentFrom(Source: TDWHexDataSource); virtual;
   end;
+
+  TDWHexDataSourceType = class of TDWHexDataSource;
 
   TFileDataSource = class (TDWHexDataSource)
   protected
@@ -37,8 +39,20 @@ type
     function GetProperties(): TDataSourceProperties;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
-    function ChangeData(Addr: TFilePointer; const Data; DataSize: Integer): Integer; override;
+    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
     procedure CopyContentFrom(Source: TDWHexDataSource); override;
+  end;
+
+  TDiskDataSource = class (TFileDataSource)
+  protected
+    const SectorAlign = 512;
+  public
+    constructor Create(const APath: string);
+    procedure Open(Mode: Word); override;
+    function GetProperties(): TDataSourceProperties;
+    function GetSize(): TFilePointer; override;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
+    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
   end;
 
 implementation
@@ -86,11 +100,13 @@ end;
 { TFileDataSource }
 
 function TFileDataSource.ChangeData(Addr: TFilePointer;
-  const Data; DataSize: Integer): Integer;
+  const Data; Size: Integer): Integer;
 begin
   FileStream.Position := Addr;
-  FileStream.WriteBuffer(Data, DataSize);
-  Result := DataSize;
+  //FileStream.WriteBuffer(Data, Size);
+  if FileStream.Write(Data, Size) <> Size then
+    RaiseLastOSError();
+  Result := Size;
 end;
 
 procedure TFileDataSource.CopyContentFrom(Source: TDWHexDataSource);
@@ -157,6 +173,80 @@ begin
     FreeAndNil(FileStream);
     FileStream := TFileStream.Create(Path, Mode or fmShareDenyWrite);
   end;
+end;
+
+{ TDiskDataSource }
+
+function TDiskDataSource.ChangeData(Addr: TFilePointer; const Data;
+  Size: Integer): Integer;
+var
+  Ptr1, Ptr2: TFilePointer;
+  Buf: TBytes;
+begin
+  if FileStream = nil then
+    Exit(0);
+
+  // Drive read/write operations must be aligned by 512 bytes
+  Ptr1 := (Addr div SectorAlign) * SectorAlign;
+  Ptr2 := ((Addr + Size - 1) div SectorAlign + 1) * SectorAlign;
+  SetLength(Buf, Ptr2 - Ptr1);
+
+  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf);
+//  Move(Buf[Addr - Ptr1], Data[0], Size);
+  Move(Data, Buf[Addr - Ptr1], Size);
+
+  inherited ChangeData(Ptr1, Buf[0], Ptr2 - Ptr1);
+
+  Result := Size;
+end;
+
+constructor TDiskDataSource.Create(const APath: string);
+begin
+  inherited;
+end;
+
+function TDiskDataSource.GetData(Addr: TFilePointer; Size: Integer;
+  var Data: TBytes): Integer;
+var
+  Ptr1, Ptr2: TFilePointer;
+  Buf: TBytes;
+begin
+  if FileStream = nil then
+    Exit(0);
+
+  // Drive read/write operations must be aligned by 512 bytes
+  Ptr1 := (Addr div SectorAlign) * SectorAlign;
+  Ptr2 := ((Addr + Size - 1) div SectorAlign + 1) * SectorAlign;
+  SetLength(Buf, Ptr2 - Ptr1);
+
+  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf);
+  Move(Buf[Addr - Ptr1], Data[0], Size);
+
+  Result := Size;
+end;
+
+function TDiskDataSource.GetProperties: TDataSourceProperties;
+begin
+  Result := [dspWritable];
+end;
+
+function TDiskDataSource.GetSize: TFilePointer;
+begin
+  if Length(Path) < 2 then Exit(0);
+  Result := DiskSize(Ord(Path[Low(Path)]) - Ord('A') + 1);
+end;
+
+procedure TDiskDataSource.Open(Mode: Word);
+begin
+  if Length(Path) <> 2 then Exit;
+  FreeAndNil(FileStream);
+  if Mode = fmCreate then
+    Mode := fmOpenReadWrite;
+  if Mode = fmOpenRead then
+    Mode := Mode or fmShareDenyNone
+  else
+    Mode := Mode or fmShareExclusive;
+  FileStream := TFileStream.Create('\\.\'+Path, Mode);
 end;
 
 end.

@@ -5,7 +5,7 @@
         <FrameworkType>VCL</FrameworkType>
         <MainSource>DWHex.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -129,19 +129,21 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="uEditorPane.pas"/>
+        <DCCReference Include="uDWHexTypes.pas"/>
+        <DCCReference Include="uDWHexDataSources.pas"/>
         <DCCReference Include="uMainForm.pas">
             <Form>MainForm</Form>
             <FormType>dfm</FormType>
-        </DCCReference>
-        <DCCReference Include="uEditorPane.pas">
-            <Form>$R *.res</Form>
         </DCCReference>
         <DCCReference Include="uFindReplaceForm.pas">
             <Form>FindReplaceForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="uDWHexDataSources.pas"/>
-        <DCCReference Include="uDWHexTypes.pas"/>
+        <DCCReference Include="uDiskSelectForm.pas">
+            <Form>DiskSelectForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

@@ -3,7 +3,9 @@ unit uDWHexTypes;
 interface
 
 uses
-  SysUtils;
+  SysUtils,
+
+  uUtil;
 
 const
   KByte = 1024;
@@ -20,7 +22,14 @@ type
     function Size(): TFilePointer;
   end;
 
+function MakeValidFileName(const S: string): string;
+
 implementation
+
+function MakeValidFileName(const S: string): string;
+begin
+  Result := ReplaceAllChars(S, CharsInvalidInFileName, '_');
+end;
 
 { TFileRange }
 

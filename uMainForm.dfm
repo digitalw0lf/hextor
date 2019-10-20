@@ -218,6 +218,12 @@ object MainForm: TMainForm
       object Revert1: TMenuItem
         Action = ActionRevert
       end
+      object N4: TMenuItem
+        Caption = '-'
+      end
+      object MIOpenDisk: TMenuItem
+        Action = ActionOpenDisk
+      end
       object N3: TMenuItem
         Caption = '-'
       end
@@ -426,6 +432,12 @@ object MainForm: TMainForm
       Caption = 'Exit'
       OnExecute = ActionExitExecute
     end
+    object ActionOpenDisk: TAction
+      Category = 'File'
+      Caption = 'Open Disk...'
+      Hint = 'Open logical volume'
+      OnExecute = ActionOpenDiskExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -436,7 +448,7 @@ object MainForm: TMainForm
     Left = 388
     Top = 69
     Bitmap = {
-      494C010104000800540010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010104000800600010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000002000000001002000000000000020
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

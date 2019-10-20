@@ -114,6 +114,9 @@ type
     ActionExit: TAction;
     N3: TMenuItem;
     Exit1: TMenuItem;
+    N4: TMenuItem;
+    ActionOpenDisk: TAction;
+    MIOpenDisk: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure VertScrollBarChange(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
@@ -158,6 +161,7 @@ type
     procedure MIRecentFilesMenuClick(Sender: TObject);
     procedure MIDummyRecentFileClick(Sender: TObject);
     procedure ActionExitExecute(Sender: TObject);
+    procedure ActionOpenDiskExecute(Sender: TObject);
   private
     { Private declarations }
     FCaretPos: TFilePointer;
@@ -202,7 +206,7 @@ type
     SelStart, SelLength: TFilePointer;
     Settings: TDWHexSettings;
     SettingsFolder, SettingsFile: string;
-    procedure OpenFile(const AFileName: string);
+    procedure OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
     procedure SaveFile(const AFileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure OpenNewEmptyFile();
@@ -243,7 +247,7 @@ implementation
 
 {$R *.dfm}
 
-uses uFindReplaceForm;
+uses uFindReplaceForm, uDiskSelectForm;
 
 function DivRoundUp(A, B: Int64): Int64; inline;
 begin
@@ -353,15 +357,28 @@ end;
 
 procedure TMainForm.ActionNewExecute(Sender: TObject);
 begin
-  CloseCurrentFile(True);
+  if CloseCurrentFile(True) = mrCancel then Exit;
   OpenNewEmptyFile();
+end;
+
+procedure TMainForm.ActionOpenDiskExecute(Sender: TObject);
+var
+  s: string;
+begin
+  if CloseCurrentFile(True) = mrCancel then Exit;
+
+  if DiskSelectForm.ShowModal() <> mrOk then Exit;
+  s := DiskSelectForm.SelectedDrive;
+  if Length(s)<2 then Exit;
+
+  OpenFile(TDiskDataSource, s);
 end;
 
 procedure TMainForm.ActionOpenExecute(Sender: TObject);
 begin
   if AskSaveChanges() = mrCancel then Exit;
   if not OpenDialog1.Execute() then Exit;
-  OpenFile(OpenDialog1.FileName);
+  OpenFile(TFileDataSource, OpenDialog1.FileName);
 end;
 
 procedure TMainForm.ActionPasteExecute(Sender: TObject);
@@ -384,7 +401,7 @@ end;
 procedure TMainForm.ActionRevertExecute(Sender: TObject);
 begin
   if Application.MessageBox('Revert unsaved changes?', 'Revert', MB_OKCANCEL) <> IDOK then Exit;
-  OpenFile(DataSource.Path);
+  OpenFile(TDWHexDataSourceType(DataSource.ClassType), DataSource.Path);
 end;
 
 procedure TMainForm.ActionSaveAsExecute(Sender: TObject);
@@ -392,6 +409,8 @@ var
   fn: string;
 begin
   fn := DataSource.Path;
+  if DataSource.ClassType <> TFileDataSource then
+    fn := MakeValidFileName(fn);
   SaveDialog1.FileName := fn;
   if not SaveDialog1.Execute() then Exit;
   SaveFile(SaveDialog1.FileName);
@@ -416,7 +435,12 @@ begin
   if SelLength > MaxInt then
     raise EInvalidUserInput.Create('This command is not supported for selection larger then 2 GBytes');
 
-  SaveDialog1.FileName := ChangeFileExt(DataSource.Path, '_part'+ExtractFileExt(DataSource.Path));
+  fn := DataSource.Path;
+  if DataSource.ClassType <> TFileDataSource then
+    fn := MakeValidFileName(fn);
+  fn := ChangeFileExt(fn, '_part'+ExtractFileExt(fn));
+
+  SaveDialog1.FileName := fn;
   if not SaveDialog1.Execute() then Exit;
   fn := SaveDialog1.FileName;
 
@@ -431,7 +455,7 @@ begin
   SaveEntireFile(fn, Data);
 
   if SameFile then
-    OpenFile(fn);
+    OpenFile(TDWHexDataSourceType(DataSource.ClassType), fn);
 end;
 
 procedure TMainForm.ActionSelectAllExecute(Sender: TObject);
@@ -445,7 +469,7 @@ var
   Recent: TDWHexSettings.TRecentFileRec;
   n, i: Integer;
 begin
-  if (not (DataSource is TFileDataSource)) or (ExtractFilePath(DataSource.Path) = '') then Exit;
+  if (DataSource.ClassType <> TFileDataSource) or (ExtractFilePath(DataSource.Path) = '') then Exit;
 
   n := -1;
   for i:=0 to Length(Settings.RecentFiles)-1 do
@@ -520,7 +544,7 @@ var
 begin
   FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
-  ActionSave.Enabled := (DataSource is TFileDataSource) and ((DataSource.Path='') or (HasUnsavedChanges));
+  ActionSave.Enabled := (dspWritable in DataSource.GetProperties()) and ((DataSource.Path='') or (HasUnsavedChanges));
   ActionRevert.Enabled := (HasUnsavedChanges);
 
   ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
@@ -632,7 +656,8 @@ end;
 
 procedure TMainForm.FormShow(Sender: TObject);
 begin
-  OpenFile('d:\DWF\Delphi\Tools\DWHex\Test\Unit1.pas');
+//  OpenFile('d:\DWF\Delphi\Tools\DWHex\Test\Unit1.pas');
+  OpenNewEmptyFile();
 end;
 
 function TMainForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
@@ -811,7 +836,7 @@ procedure TMainForm.MIDummyRecentFileClick(Sender: TObject);
 // Open file from "Recent files" menu
 begin
   if AskSaveChanges() = mrCancel then Exit;
-  OpenFile((Sender as TMenuItem).Caption);
+  OpenFile(TFileDataSource, (Sender as TMenuItem).Caption);
 end;
 
 procedure TMainForm.MIRecentFilesMenuClick(Sender: TObject);
@@ -874,11 +899,11 @@ begin
   AddCurrentFileToRecentFiles();
 end;
 
-procedure TMainForm.OpenFile(const AFileName: string);
+procedure TMainForm.OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
 begin
   CloseCurrentFile(False);
 
-  DataSource := TFileDataSource.Create(AFileName);
+  DataSource := DataSourceType.Create(AFileName);
   DataSource.Open(fmOpenRead);
 
   NewFileOpened(True);
@@ -928,7 +953,6 @@ procedure TMainForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
   end;
 
 begin
-//  Caption := Caption + ' ' + IntToStr(Key);
   BeginUpdatePanes();
   try
     case Key of
@@ -1073,18 +1097,9 @@ begin
       else
         ACaretInByte := 0;
       ACaretPos := FirstVisibleAddr() + (p.Y*ByteColumns + p.X);
-//      if (IsMouseDown) and (not (ssShift in Shift)) then
-//      begin
-//        SelDragStart := ACaretPos;
-//        SelDragEnd := -1;
-//      end
-//      else
-//        SelDragEnd := ACaretPos;
-//      SetSelection(SelDragStart, SelDragEnd);
       ss := Shift;
       if not IsMouseDown then
         ss := ss + [ssShift];
-      //CaretPos := ACaretPos;
       MoveCaret(ACaretPos, ss);
       CaretInByte := ACaretInByte;
     end;
@@ -1097,12 +1112,9 @@ procedure TMainForm.PaneTextKeyPress(Sender: TObject; var Key: Char);
 begin
   BeginUpdatePanes();
   try
-    Caption := Caption + ' ' + IntToStr(Ord(Key));
-    //if not CharInSet(Key, [AnsiChar(vkBack), AnsiChar(vkTab), AnsiChar(vkLineFeed), AnsiChar(vkReturn)]) then
     if Key >= ' ' then
     begin
       ChangeBytes(CaretPos, [Byte(Key)]);
-      //CaretPos := CaretPos + 1;
       MoveCaret(CaretPos + 1, []);
       UpdatePanes();
     end;
