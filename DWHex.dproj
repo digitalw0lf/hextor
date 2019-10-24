@@ -144,6 +144,14 @@
             <Form>DiskSelectForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uProcessSelectForm.pas">
+            <Form>ProcessSelectForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="uBitsEditorForm.pas">
+            <Form>BitsEditorForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

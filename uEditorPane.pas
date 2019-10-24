@@ -33,7 +33,7 @@ type
     { Public declarations }
     CharSize: TSize;
     CaretInsertMode: Boolean;
-    BgColors: array of TColor;
+    BgColors, TxColors: array of TColor;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     function CharHeight(): Integer;
@@ -128,7 +128,7 @@ end;
 procedure TEditorPane.InternalPaint;
 var
   i, j, j1, ColorIndex: Integer;
-  CurBgColor, PrevBgColor: TColor;
+  CurBgColor, PrevBgColor, CurTxColor, PrevTxColor: TColor;
   R: TRect;
   s, s1: string;
 begin
@@ -141,6 +141,7 @@ begin
   begin
     s := Lines[i];
     PrevBgColor := clNone;
+    PrevTxColor := clNone;
     j1 := 0;
     for j:=0 to Length(s) do
     begin
@@ -150,18 +151,27 @@ begin
           CurBgColor := BgColors[ColorIndex]
         else
           CurBgColor := Self.Color;
+        if ColorIndex<Length(TxColors) then
+          CurTxColor := TxColors[ColorIndex]
+        else
+          CurTxColor := Self.Font.Color;
       end
       else
+      begin
         CurBgColor := clNone;
-      if CurBgColor<>PrevBgColor then
+        CurTxColor := clNone;
+      end;
+      if (CurBgColor<>PrevBgColor) or (CurTxColor<>PrevTxColor) then
       begin
         if j>j1 then
         begin
           s1 := Copy(s, j1+1, j-j1);
           ScrBmp.Canvas.Brush.Color := PrevBgColor;
+          ScrBmp.Canvas.Font.Color := PrevTxColor;
           ScrBmp.Canvas.TextOut(j1*CharSize.cx, i * CharSize.cy, s1);
         end;
         PrevBgColor := CurBgColor;
+        PrevTxColor := CurTxColor;
         j1 := j;
       end;
       if j=Length(s) then Break;

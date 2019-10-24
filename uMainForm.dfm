@@ -227,6 +227,12 @@ object MainForm: TMainForm
       object N3: TMenuItem
         Caption = '-'
       end
+      object OpenProcessMemory1: TMenuItem
+        Action = ActionOpenProcMemory
+      end
+      object N5: TMenuItem
+        Caption = '-'
+      end
       object Exit1: TMenuItem
         Action = ActionExit
       end
@@ -438,6 +444,16 @@ object MainForm: TMainForm
       Hint = 'Open logical volume'
       OnExecute = ActionOpenDiskExecute
     end
+    object ActionOpenProcMemory: TAction
+      Category = 'File'
+      Caption = 'Open Process Memory...'
+      OnExecute = ActionOpenProcMemoryExecute
+    end
+    object ActionBitsEditor: TAction
+      Category = 'Edit'
+      Caption = 'Edit Bits'
+      OnExecute = ActionBitsEditorExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -448,7 +464,7 @@ object MainForm: TMainForm
     Left = 388
     Top = 69
     Bitmap = {
-      494C010104000800600010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010104000800700010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000002000000001002000000000000020
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -733,6 +749,12 @@ object MainForm: TMainForm
     end
     object PMISelectAll: TMenuItem
       Action = ActionSelectAll
+    end
+    object N6: TMenuItem
+      Caption = '-'
+    end
+    object BitsEditor1: TMenuItem
+      Action = ActionBitsEditor
     end
   end
 end

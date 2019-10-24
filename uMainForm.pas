@@ -13,12 +13,13 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti,
 
-  uUtil, uLargeStr, uEditorPane, uLogFile, superobject, uSuperRTTICustom,
+  uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources{, uPathCompressTest};
 
 const
   Color_ChangedByte = $B0FFFF;
-  Color_Selection = clHighlight;
+  Color_SelectionBg = clHighlight;
+  Color_SelectionTx = clHighlightText;
 
 type
   TCachedRegion = class
@@ -117,6 +118,12 @@ type
     N4: TMenuItem;
     ActionOpenDisk: TAction;
     MIOpenDisk: TMenuItem;
+    N5: TMenuItem;
+    ActionOpenProcMemory: TAction;
+    OpenProcessMemory1: TMenuItem;
+    ActionBitsEditor: TAction;
+    N6: TMenuItem;
+    BitsEditor1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure VertScrollBarChange(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
@@ -162,6 +169,8 @@ type
     procedure MIDummyRecentFileClick(Sender: TObject);
     procedure ActionExitExecute(Sender: TObject);
     procedure ActionOpenDiskExecute(Sender: TObject);
+    procedure ActionOpenProcMemoryExecute(Sender: TObject);
+    procedure ActionBitsEditorExecute(Sender: TObject);
   private
     { Private declarations }
     FCaretPos: TFilePointer;
@@ -247,7 +256,7 @@ implementation
 
 {$R *.dfm}
 
-uses uFindReplaceForm, uDiskSelectForm;
+uses uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm;
 
 function DivRoundUp(A, B: Int64): Int64; inline;
 begin
@@ -271,6 +280,42 @@ begin
 end;
 
 { TMainForm }
+
+procedure TMainForm.ActionBitsEditorExecute(Sender: TObject);
+var
+  Addr, Size: TFilePointer;
+  Buf: TBytes;
+  x: Int64;
+begin
+  if SelLength > 4 then Exit;
+  if SelLength > 0 then
+  begin
+    Addr := SelStart;
+    Size := SelLength;
+  end
+  else
+  begin
+    Addr := CaretPos;
+    Size := 1;
+  end;
+  Buf := GetEditedData(Addr, Size);
+//  if Length(Buf) < Size then Exit;
+  BitsEditorForm.OkEnabled := (Length(Buf) = Size);
+
+  x := 0;
+  Move(Buf[0], x, Length(Buf));
+  BitsEditorForm.Value := x;
+  BitsEditorForm.ValueSize := Size;
+
+  if BitsEditorForm.ShowModal() <> mrOk then Exit;
+
+  if Length(Buf) > 0 then
+  begin
+    x := BitsEditorForm.Value;
+    Move(x, Buf[0], Length(Buf));
+    ChangeBytes(Addr, Buf);
+  end;
+end;
 
 procedure TMainForm.ActionCopyExecute(Sender: TObject);
 var
@@ -381,6 +426,19 @@ begin
   OpenFile(TFileDataSource, OpenDialog1.FileName);
 end;
 
+procedure TMainForm.ActionOpenProcMemoryExecute(Sender: TObject);
+var
+  s: string;
+begin
+  if CloseCurrentFile(True) = mrCancel then Exit;
+
+  if ProcessSelectForm.ShowModal() <> mrOk then Exit;
+  s := ProcessSelectForm.SelectedPID;
+  if Length(s)=0 then Exit;
+
+  OpenFile(TProcMemDataSource, s);
+end;
+
 procedure TMainForm.ActionPasteExecute(Sender: TObject);
 var
   s: string;
@@ -393,9 +451,13 @@ begin
     Buf := Str2Bytes(AnsiString(s));
   if Length(Buf)=0 then Exit;
 
-  ChangeBytes(CaretPos, Buf);
-  MoveCaret(CaretPos + Length(Buf), []);
-  UpdatePanes();
+  BeginUpdatePanes();
+  try
+    ChangeBytes(CaretPos, Buf);
+    MoveCaret(CaretPos + Length(Buf), []);
+  finally
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TMainForm.ActionRevertExecute(Sender: TObject);
@@ -536,6 +598,7 @@ var
 begin
   Region := StartChanges(Addr, Length(Value));
   Move(Value[0], Region.Data[Addr-Region.Addr], Length(Value));
+  UpdatePanes();
 end;
 
 procedure TMainForm.CheckEnabledActions;
@@ -552,6 +615,8 @@ begin
   ActionPaste.Enabled := FocusInEditor;
 
   ActionSelectAll.Enabled := FocusInEditor;
+
+  ActionBitsEditor.Enabled := (SelLength<=4);
 end;
 
 function TMainForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
@@ -1039,7 +1104,6 @@ begin
         MoveCaret(CaretPos + 1, []);
         CaretInByte := 0;
       end;
-      UpdatePanes();
     finally
       EndUpdatePanes();
     end;
@@ -1116,7 +1180,6 @@ begin
     begin
       ChangeBytes(CaretPos, [Byte(Key)]);
       MoveCaret(CaretPos + 1, []);
-      UpdatePanes();
     end;
   finally
     EndUpdatePanes();
@@ -1533,8 +1596,13 @@ var
     L := VisSize*CharsPerByte;
     if Length(Pane.BgColors)<>L then
       SetLength(Pane.BgColors, L);
+    if Length(Pane.TxColors)<>L then
+      SetLength(Pane.TxColors, L);
     for i:=0 to L-1 do
+    begin
       Pane.BgColors[i] := Pane.Color;
+      Pane.TxColors[i] := Pane.Font.Color;
+    end;
     // Changed bytes
     for i:=0 to Cached.Count-1 do
     begin
@@ -1545,7 +1613,10 @@ var
     for i:=0 to L-1 do
     begin
       if (N0+(i div CharsPerByte)>=SelStart) and (N0+(i div CharsPerByte)<SelStart+SelLength) then
-        Pane.BgColors[i] := Color_Selection;
+      begin
+        Pane.BgColors[i] := Color_SelectionBg;
+        Pane.TxColors[i] := Color_SelectionTx;
+      end;
     end;
 
     // Caret position

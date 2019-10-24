@@ -1,5 +1,7 @@
 unit uDWHexDataSources;
 
+{$WARN SYMBOL_PLATFORM OFF}
+
 interface
 
 uses
@@ -20,7 +22,7 @@ type
     constructor Create(const APath: string);
     destructor Destroy(); override;
     procedure Open(Mode: Word); virtual; abstract;
-    function GetProperties(): TDataSourceProperties;
+    function GetProperties(): TDataSourceProperties; virtual;
     function GetSize(): TFilePointer; virtual; abstract;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; virtual; abstract;
     function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; virtual; abstract;
@@ -36,7 +38,7 @@ type
     constructor Create(const APath: string);
     destructor Destroy(); override;
     procedure Open(Mode: Word); override;
-    function GetProperties(): TDataSourceProperties;
+    function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
     function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
@@ -49,11 +51,25 @@ type
   public
     constructor Create(const APath: string);
     procedure Open(Mode: Word); override;
-    function GetProperties(): TDataSourceProperties;
+    function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
     function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
   end;
+
+  TProcMemDataSource = class (TDWHexDataSource)
+  protected
+    hProcess: Cardinal;
+  public
+    constructor Create(const APath: string);
+    destructor Destroy(); override;
+    procedure Open(Mode: Word); override;
+    function GetProperties(): TDataSourceProperties; override;
+    function GetSize(): TFilePointer; override;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
+    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
+  end;
+
 
 implementation
 
@@ -247,6 +263,62 @@ begin
   else
     Mode := Mode or fmShareExclusive;
   FileStream := TFileStream.Create('\\.\'+Path, Mode);
+end;
+
+{ TProcMemDataSource }
+
+function TProcMemDataSource.ChangeData(Addr: TFilePointer; const Data;
+  Size: Integer): Integer;
+begin
+  Win32Check( Bool( WriteProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) ) );
+  Result := Size;
+end;
+
+constructor TProcMemDataSource.Create(const APath: string);
+begin
+  inherited;
+end;
+
+destructor TProcMemDataSource.Destroy;
+begin
+  if hProcess <> 0 then
+    CloseHandle(hProcess);
+  inherited;
+end;
+
+function TProcMemDataSource.GetData(Addr: TFilePointer; Size: Integer;
+  var Data: TBytes): Integer;
+var
+  Res: Boolean;
+begin
+  Res := Bool( ReadProcessMemory(hProcess, Pointer(Addr), @Data[0], Size, NativeUInt(nil^)) );
+  if not Res then
+    ZeroMemory(@Data[0], Size);
+  Result := Size;
+end;
+
+function TProcMemDataSource.GetProperties: TDataSourceProperties;
+begin
+  Result := [dspWritable];
+end;
+
+function TProcMemDataSource.GetSize: TFilePointer;
+begin
+  Result := $100000000;
+end;
+
+procedure TProcMemDataSource.Open(Mode: Word);
+var
+  ProcID, Access: Cardinal;
+begin
+  ProcID := StrToInt(Path);
+  if hProcess <> 0 then  CloseHandle(hProcess);
+  case Mode of
+    fmCreate, fmOpenReadWrite: Access := PROCESS_ALL_ACCESS;
+    else Access := PROCESS_VM_READ;
+  end;
+  hProcess := OpenProcess(Access, false, ProcID);
+  Win32Check(Bool(hProcess));
 end;
 
 end.
