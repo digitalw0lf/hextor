@@ -11,7 +11,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Menus,
   System.Math, Generics.Collections, Clipbrd, System.Actions, Vcl.ActnList,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
-  Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti,
+  Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources{, uPathCompressTest};
@@ -204,6 +204,7 @@ type
     procedure SaveSettings();
     procedure LoadSettings();
     procedure AddCurrentFileToRecentFiles();
+    procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
   public
     { Public declarations }
 //    FileName: string;
@@ -698,6 +699,9 @@ begin
 //  FByteColumns := 16;
   CachedRegions := TObjectList<TCachedRegion>.Create(True);
   CalculateByteColumns();
+
+  // Будем ловить файлы, бросаемые в программу
+  DragAcceptFiles(Handle, True);
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -722,7 +726,10 @@ end;
 procedure TMainForm.FormShow(Sender: TObject);
 begin
 //  OpenFile('d:\DWF\Delphi\Tools\DWHex\Test\Unit1.pas');
-  OpenNewEmptyFile();
+  if ParamCount()>0 then
+    OpenFile(TFileDataSource, ParamStr(1))
+  else
+    OpenNewEmptyFile();
 end;
 
 function TMainForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
@@ -1670,6 +1677,26 @@ end;
 function TMainForm.VisibleBytesCount: Integer;
 begin
   Result := GetVisibleRowsCount() * ByteColumns;
+end;
+
+procedure TMainForm.WMDropFiles(var Msg: TWMDropFiles);
+var
+  i:Integer;
+  Catcher: TDropFileCatcher;
+  s:string;
+begin
+  inherited;
+  Catcher := TDropFileCatcher.Create(Msg.Drop);
+  try
+    for I := 0 to Catcher.FileCount-1 do
+    begin
+      s:=Catcher.Files[i];
+      if FileExists(s) then OpenFile(TFileDataSource, s);
+    end;
+  finally
+    Catcher.Free;
+  end;
+  Msg.Result := 0;
 end;
 
 { TCachedRegion }
