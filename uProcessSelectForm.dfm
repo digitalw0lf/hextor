@@ -154,7 +154,7 @@ object ProcessSelectForm: TProcessSelectForm
   end
   object ListView1: TListView
     Left = 8
-    Top = 48
+    Top = 47
     Width = 442
     Height = 329
     Anchors = [akLeft, akTop, akRight, akBottom]

@@ -9,7 +9,8 @@ uses
   uFindReplaceForm in 'uFindReplaceForm.pas' {FindReplaceForm},
   uDiskSelectForm in 'uDiskSelectForm.pas' {DiskSelectForm},
   uProcessSelectForm in 'uProcessSelectForm.pas' {ProcessSelectForm},
-  uBitsEditorForm in 'uBitsEditorForm.pas' {BitsEditorForm};
+  uBitsEditorForm in 'uBitsEditorForm.pas' {BitsEditorForm},
+  uEditorForm in 'uEditorForm.pas' {EditorForm};
 
 {$R *.res}
 

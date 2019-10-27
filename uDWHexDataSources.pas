@@ -23,6 +23,7 @@ type
     destructor Destroy(); override;
     procedure Open(Mode: Word); virtual; abstract;
     function GetProperties(): TDataSourceProperties; virtual;
+    function CanBeSaved(): Boolean; virtual;
     function GetSize(): TFilePointer; virtual; abstract;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; virtual; abstract;
     function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; virtual; abstract;
@@ -39,6 +40,7 @@ type
     destructor Destroy(); override;
     procedure Open(Mode: Word); override;
     function GetProperties(): TDataSourceProperties; override;
+    function CanBeSaved(): Boolean; override;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
     function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
@@ -74,6 +76,12 @@ type
 implementation
 
 { TDWHexDataSource }
+
+function TDWHexDataSource.CanBeSaved: Boolean;
+// Is it possible to execute "Save" action for currently assigned data source
+begin
+  Result := dspWritable in GetProperties();
+end;
 
 procedure TDWHexDataSource.CopyContentFrom(Source: TDWHexDataSource);
 const
@@ -114,6 +122,12 @@ begin
 end;
 
 { TFileDataSource }
+
+function TFileDataSource.CanBeSaved: Boolean;
+begin
+  // False if it is just a new empty "file" and not assigned with actual file on disk
+  Result := (inherited) and (ExtractFilePath(Path) <> '');
+end;
 
 function TFileDataSource.ChangeData(Addr: TFilePointer;
   const Data; Size: Integer): Integer;

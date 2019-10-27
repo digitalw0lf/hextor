@@ -3,7 +3,7 @@ unit uDWHexTypes;
 interface
 
 uses
-  SysUtils,
+  SysUtils, Generics.Collections,
 
   uUtil;
 
@@ -22,7 +22,19 @@ type
     function Size(): TFilePointer;
   end;
 
+  TCachedRegion = class
+    Addr: TFilePointer;
+    Data: TBytes;
+    function Size(): TFilePointer;
+  end;
+
+  TCachedRegionsList = TObjectList<TCachedRegion>;
+
+  ENoActiveEditor = class (EAbort);
+
 function MakeValidFileName(const S: string): string;
+function DivRoundUp(A, B: Int64): Int64; inline;
+function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
 
 implementation
 
@@ -31,11 +43,39 @@ begin
   Result := ReplaceAllChars(S, CharsInvalidInFileName, '_');
 end;
 
+function DivRoundUp(A, B: Int64): Int64; inline;
+begin
+  Result := (A-1) div B + 1;
+end;
+
+function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
+// Ограничивает X в диапазон [MinX,MaxX]
+var
+  t: TFilePointer;
+begin
+  Result:=X;
+  if MinX>MaxX then
+  begin
+    t:=MinX;
+    MinX:=MaxX;
+    MaxX:=t;
+  end;
+  if Result<MinX then Result:=MinX;
+  if Result>MaxX then Result:=MaxX;
+end;
+
 { TFileRange }
 
 function TFileRange.Size: TFilePointer;
 begin
   Result := AEnd-Start;
+end;
+
+{ TCachedRegion }
+
+function TCachedRegion.Size: TFilePointer;
+begin
+  Result := Length(Data);
 end;
 
 end.

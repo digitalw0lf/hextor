@@ -7,9 +7,9 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
 
-  uDWHexTypes, uMainForm, uUtil, Vcl.ExtCtrls, Vcl.Samples.Gauges;
+  uDWHexTypes, uMainForm, uEditorForm, uUtil;
 
 type
   TSearchParams = record
@@ -60,6 +60,7 @@ type
     procedure FillParams(aReplace: Boolean);
     procedure ShowProgress(Pos, Total: TFilePointer);
     procedure OperationDone();
+    function GetTargetEditor: TEditorForm;
   public
     { Public declarations }
     function ParamsDefined(): Boolean;
@@ -67,6 +68,7 @@ type
     function FindInBlock(const Data: PByte; DataSize: Integer; Start: Integer; Direction: Integer; var Ptr, Size: Integer): Boolean;
     function Find(Range: TFileRange; Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
     function FindNext(Direction: Integer): Boolean;
+    property TargetEditor: TEditorForm read GetTargetEditor;
   end;
 
 var
@@ -94,8 +96,8 @@ begin
   Count := 0;
   if Params.bFindInSel then
   begin
-    Range.Start := MainForm.SelStart;
-    Range.AEnd := MainForm.SelStart+MainForm.SelLength;
+    Range.Start := TargetEditor.SelStart;
+    Range.AEnd := TargetEditor.SelStart+TargetEditor.SelLength;
   end
   else
     Range := EntireFile;
@@ -154,7 +156,7 @@ var
   Block: TFileRange;
 begin
   if FSearchInProgress then Exit(False);
-  if Range.AEnd < 0 then Range.AEnd := MainForm.GetFileSize();
+  if Range.AEnd < 0 then Range.AEnd := TargetEditor.GetFileSize();
 
   Ptr := Start;
   // Dynamically load by 1 MB, overlapped by 100 KB if we go backwards
@@ -175,7 +177,7 @@ begin
       if Block.AEnd > Range.AEnd then Block.AEnd := Range.AEnd;
 
       // Take next data portion
-      Data := MainForm.GetEditedData(Block.Start, Block.Size(), False);
+      Data := TargetEditor.GetEditedData(Block.Start, Block.Size(), False);
       // Search in it
       Result := FindInBlock(@Data[0], Length(Data), Ptr - Block.Start, Direction, IPtr, Size);
       Ptr := Block.Start + IPtr;
@@ -219,28 +221,28 @@ begin
   FillParams(False);
   Dir := Direction;
   if Dir > 0 then
-    Start := MainForm.SelStart + MainForm.SelLength
+    Start := TargetEditor.SelStart + TargetEditor.SelLength
   else
   begin
-    Start := MainForm.SelStart - Length(Params.Needle);
-    if MainForm.SelLength=0 then Inc(Start);
-    if Start > MainForm.GetFileSize()-1 then Start := MainForm.GetFileSize()-1;
+    Start := TargetEditor.SelStart - Length(Params.Needle);
+    if TargetEditor.SelLength=0 then Inc(Start);
+    if Start > TargetEditor.GetFileSize()-1 then Start := TargetEditor.GetFileSize()-1;
   end;
 
   if Find(EntireFile, Start, Dir, Ptr, Size) then
   begin
-    MainForm.BeginUpdatePanes();
+    TargetEditor.BeginUpdatePanes();
     try
-      MainForm.MoveCaret(Ptr + IfThen(Dir>0, Size-1, 0), []);
-      MainForm.SetSelection(Ptr, Ptr + Size - 1);
+      TargetEditor.MoveCaret(Ptr + IfThen(Dir>0, Size-1, 0), []);
+      TargetEditor.SetSelection(Ptr, Ptr + Size - 1);
     finally
-      MainForm.EndUpdatePanes();
+      TargetEditor.EndUpdatePanes();
     end;
     Result := True;
   end
   else
   begin
-    MainForm.SetSelection(MainForm.CaretPos, -1);
+    TargetEditor.SetSelection(TargetEditor.CaretPos, -1);
     Result := False;
   end;
 end;
@@ -261,6 +263,11 @@ begin
     if Key = VK_RIGHT then
       FindNext(1);
   end;
+end;
+
+function TFindReplaceForm.GetTargetEditor: TEditorForm;
+begin
+  Result := TargetEditor;
 end;
 
 function TFindReplaceForm.Match(const Data: PByte; DataSize: Integer;
@@ -307,7 +314,7 @@ end;
 procedure TFindReplaceForm.Timer1Timer(Sender: TObject);
 begin
   if not Visible then Exit;
-  CBFindInSelection.Enabled := (MainForm.SelLength > 0);
+  CBFindInSelection.Enabled := (TargetEditor.SelLength > 0);
 end;
 
 end.
