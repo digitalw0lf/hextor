@@ -177,7 +177,7 @@ begin
       if Block.AEnd > Range.AEnd then Block.AEnd := Range.AEnd;
 
       // Take next data portion
-      Data := TargetEditor.GetEditedData(Block.Start, Block.Size(), False);
+      Data := TargetEditor.GetEditedData(Block.Start, Block.Size, False);
       // Search in it
       Result := FindInBlock(@Data[0], Length(Data), Ptr - Block.Start, Direction, IPtr, Size);
       Ptr := Block.Start + IPtr;
@@ -267,7 +267,7 @@ end;
 
 function TFindReplaceForm.GetTargetEditor: TEditorForm;
 begin
-  Result := TargetEditor;
+  Result := MainForm.ActiveEditor;
 end;
 
 function TFindReplaceForm.Match(const Data: PByte; DataSize: Integer;

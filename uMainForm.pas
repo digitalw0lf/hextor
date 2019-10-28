@@ -2,6 +2,7 @@ unit uMainForm;
 
 {$WARN IMPLICIT_STRING_CAST OFF}
 {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
+{$WARN SYMBOL_PLATFORM OFF}
 //{$WARN SYMBOL_DEPRECATED OFF}
 
 interface
@@ -15,7 +16,8 @@ uses
   Vcl.FileCtrl,
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
-  uDWHexTypes, uDWHexDataSources, uEditorForm
+  uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
+  uValueFrame, uStructFrame
   {, uPathCompressTest};
 
 const
@@ -109,6 +111,14 @@ type
     abs1: TMenuItem;
     RecentFilesMenu: TPopupMenu;
     MIDummyRecentFile1: TMenuItem;
+    RightPanel: TPanel;
+    RightPanelPageControl: TPageControl;
+    PgValue: TTabSheet;
+    Splitter1: TSplitter;
+    PgStruct: TTabSheet;
+    ValueFrame: TValueFrame;
+    StructFrame: TStructFrame;
+    EditorClosedTimer: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
     procedure Decompress1Click(Sender: TObject);
@@ -146,6 +156,7 @@ type
     procedure MDITabsMouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure RecentFilesMenuPopup(Sender: TObject);
+    procedure EditorClosedTimerTimer(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -168,6 +179,8 @@ type
     procedure SaveSettings();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
+    procedure ActiveEditorChanged();
+    procedure SelectionChanged();
     function GetIconIndex(DataSource: TDWHexDataSource): Integer;
     property ActiveEditor: TEditorForm read GetActiveEditor write SetActiveEditor;
     property EditorCount: Integer read GetEditorCount;
@@ -469,6 +482,13 @@ begin
   end;
 end;
 
+procedure TMainForm.ActiveEditorChanged;
+begin
+  UpdateMDITabs();
+//  CheckEnabledActions();
+  SelectionChanged();
+end;
+
 procedure TMainForm.AddEditor(AEditor: TEditorForm);
 begin
   FEditors.Add(AEditor);
@@ -480,20 +500,36 @@ procedure TMainForm.CheckEnabledActions;
 var
   FocusInEditor: Boolean;
 begin
-  with ActiveEditor do
-  begin
-    FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
+  try
+    with ActiveEditor do
+    begin
+      FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
-    ActionSave.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and ((DataSource.Path='') or (HasUnsavedChanges));
-    ActionRevert.Enabled := (HasUnsavedChanges);
+      ActionSave.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and ((DataSource.Path='') or (HasUnsavedChanges));
+      ActionRevert.Enabled := (HasUnsavedChanges);
 
-    ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
-    ActionCut.Enabled := ActionCopy.Enabled;
-    ActionPaste.Enabled := FocusInEditor;
+      ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
+      ActionCut.Enabled := ActionCopy.Enabled;
+      ActionPaste.Enabled := FocusInEditor;
 
-    ActionSelectAll.Enabled := FocusInEditor;
+      ActionSelectAll.Enabled := FocusInEditor;
 
-    ActionBitsEditor.Enabled := (SelLength<=4);
+      ActionBitsEditor.Enabled := (SelLength<=4);
+    end;
+  except
+    on E: ENoActiveEditor do
+    begin
+      ActionSave.Enabled := False;
+      ActionRevert.Enabled := False;
+
+      ActionCopy.Enabled := False;
+      ActionCut.Enabled := False;
+      ActionPaste.Enabled := False;
+
+      ActionSelectAll.Enabled := False;
+
+      ActionBitsEditor.Enabled := False;
+    end;
   end;
 end;
 
@@ -609,6 +645,7 @@ begin
   if (Frm <> nil) and (Frm is TEditorForm) then
     Result := TEditorForm(Frm)
   else
+    // Silently abort operation that requires active editor
     raise ENoActiveEditor.Create('No active editor');
 end;
 
@@ -618,13 +655,7 @@ begin
 end;
 
 function TMainForm.GetEditorCount: Integer;
-//var
-//  i: Integer;
 begin
-//  Result := 0;
-//  for i:=0 to MDIChildCount-1 do
-//    if MDIChildren[i] is TEditorForm then
-//      Inc(Result);
   Result := FEditors.Count;
 end;
 
@@ -768,7 +799,8 @@ end;
 procedure TMainForm.RemoveEditor(AEditor: TEditorForm);
 begin
   FEditors.Remove(AEditor);
-  UpdateMDITabs();
+  // Update tabs and interface when editor form will be destroyed
+  EditorClosedTimer.Enabled := True;
 end;
 
 procedure TMainForm.SaveSettings;
@@ -778,7 +810,7 @@ var
   ctx: TSuperRttiContext;
   fs: TFileStream;
 begin
-  ForceDirectories(SettingsFolder);
+  System.SysUtils.ForceDirectories(SettingsFolder);
   fs := TFileStream.Create(SettingsFile, fmCreate);
   try
     fs.WriteBuffer(BOM, SizeOf(BOM));
@@ -791,10 +823,22 @@ begin
   end;
 end;
 
+procedure TMainForm.SelectionChanged;
+begin
+  CheckEnabledActions();
+  ValueFrame.UpdateInfo();
+end;
+
 procedure TMainForm.SetActiveEditor(const Value: TEditorForm);
 begin
   if Value <> nil then
     Value.BringToFront();
+end;
+
+procedure TMainForm.EditorClosedTimerTimer(Sender: TObject);
+begin
+  EditorClosedTimer.Enabled := False;
+  ActiveEditorChanged();
 end;
 
 procedure TMainForm.UpdateMDITabs;

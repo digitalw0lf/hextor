@@ -10,7 +10,9 @@ uses
   uDiskSelectForm in 'uDiskSelectForm.pas' {DiskSelectForm},
   uProcessSelectForm in 'uProcessSelectForm.pas' {ProcessSelectForm},
   uBitsEditorForm in 'uBitsEditorForm.pas' {BitsEditorForm},
-  uEditorForm in 'uEditorForm.pas' {EditorForm};
+  uEditorForm in 'uEditorForm.pas' {EditorForm},
+  uValueFrame in 'uValueFrame.pas' {ValueFrame: TFrame},
+  uStructFrame in 'uStructFrame.pas' {StructFrame: TFrame};
 
 {$R *.res}
 

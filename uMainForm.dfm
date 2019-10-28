@@ -20,13 +20,24 @@ object MainForm: TMainForm
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
+  object Splitter1: TSplitter
+    Left = 740
+    Top = 47
+    Width = 4
+    Height = 592
+    Align = alRight
+    AutoSnap = False
+    ResizeStyle = rsUpdate
+    ExplicitLeft = 840
+    ExplicitTop = 49
+    ExplicitHeight = 590
+  end
   object ToolBar1: TToolBar
     Left = 0
     Top = 0
     Width = 1028
-    Height = 24
+    Height = 22
     AutoSize = True
-    ButtonHeight = 24
     ButtonWidth = 24
     Caption = 'ToolBar1'
     Images = ImageList16
@@ -53,7 +64,7 @@ object MainForm: TMainForm
   end
   object MDITabs: TTabControl
     Left = 0
-    Top = 24
+    Top = 22
     Width = 1028
     Height = 25
     Align = alTop
@@ -64,6 +75,71 @@ object MainForm: TMainForm
     OnChange = MDITabsChange
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseUp = MDITabsMouseUp
+    ExplicitTop = 24
+  end
+  object RightPanel: TPanel
+    Left = 744
+    Top = 47
+    Width = 284
+    Height = 592
+    Align = alRight
+    BevelOuter = bvNone
+    DoubleBuffered = True
+    ParentDoubleBuffered = False
+    TabOrder = 2
+    ExplicitTop = 49
+    ExplicitHeight = 590
+    object RightPanelPageControl: TPageControl
+      Left = 0
+      Top = 0
+      Width = 284
+      Height = 592
+      ActivePage = PgValue
+      Align = alClient
+      TabOrder = 0
+      ExplicitHeight = 590
+      object PgValue: TTabSheet
+        Caption = 'Value'
+        ExplicitHeight = 562
+        inline ValueFrame: TValueFrame
+          Left = 0
+          Top = 0
+          Width = 276
+          Height = 564
+          Align = alClient
+          TabOrder = 0
+          ExplicitWidth = 276
+          ExplicitHeight = 562
+          inherited ValuesGrid: TKGrid
+            Width = 276
+            Height = 564
+            ExplicitWidth = 276
+            ExplicitHeight = 562
+            ColWidths = (
+              64
+              207)
+            RowHeights = (
+              21
+              21)
+          end
+        end
+      end
+      object PgStruct: TTabSheet
+        Caption = 'Struct'
+        ImageIndex = 1
+        ExplicitHeight = 562
+        inline StructFrame: TStructFrame
+          Left = 0
+          Top = 0
+          Width = 276
+          Height = 564
+          Align = alClient
+          TabOrder = 0
+          ExplicitWidth = 276
+          ExplicitHeight = 562
+        end
+      end
+    end
   end
   object MainMenu1: TMainMenu
     Images = ImageList16
@@ -352,7 +428,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010108004001CC0010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010108004001DC0010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000003000000001002000000000000030
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -764,5 +840,12 @@ object MainForm: TMainForm
       Caption = 'MIDummyRecentFile'
       Visible = False
     end
+  end
+  object EditorClosedTimer: TTimer
+    Enabled = False
+    Interval = 1
+    OnTimer = EditorClosedTimerTimer
+    Left = 48
+    Top = 224
   end
 end

@@ -18,8 +18,12 @@ type
   TFilePointer = Int64;
 
   TFileRange = record
+  private
+    function GetSize(): TFilePointer;
+    procedure SetSize(Value: TFilePointer);
+  public
     Start, AEnd: TFilePointer;
-    function Size(): TFilePointer;
+    property Size: TFilePointer read GetSize write SetSize;
   end;
 
   TCachedRegion = class
@@ -35,6 +39,7 @@ type
 function MakeValidFileName(const S: string): string;
 function DivRoundUp(A, B: Int64): Int64; inline;
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
+function DataEqual(const Data1, Data2: TBytes): Boolean;
 
 implementation
 
@@ -64,11 +69,22 @@ begin
   if Result>MaxX then Result:=MaxX;
 end;
 
+function DataEqual(const Data1, Data2: TBytes): Boolean;
+begin
+  Result := (Length(Data1) = Length(Data2)) and
+            (CompareMem(@Data1[0], @Data2[0], Length(Data1)));
+end;
+
 { TFileRange }
 
-function TFileRange.Size: TFilePointer;
+function TFileRange.GetSize: TFilePointer;
 begin
   Result := AEnd-Start;
+end;
+
+procedure TFileRange.SetSize(Value: TFilePointer);
+begin
+  AEnd := Start + Value;
 end;
 
 { TCachedRegion }

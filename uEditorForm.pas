@@ -70,6 +70,7 @@ type
     procedure SetByteColumns(Value: Integer);
     procedure ShowSelectionInfo();
     procedure AddCurrentFileToRecentFiles();
+    procedure SelectionChanged();
   public
     { Public declarations }
     DataSource: TDWHexDataSource;
@@ -111,7 +112,7 @@ var
 implementation
 
 uses
-  uMainForm;
+  uMainForm, uValueFrame;
 
 {$R *.dfm}
 
@@ -188,6 +189,9 @@ begin
   Region := StartChanges(Addr, Length(Value));
   Move(Value[0], Region.Data[Addr-Region.Addr], Length(Value));
   UpdatePanes();
+
+  if (Addr <= SelStart + SelLength) and (Addr + Length(Value) >= SelStart) then
+    SelectionChanged();
 end;
 
 function TEditorForm.CreateCachedRegion(Addr, Size: TFilePointer): TCachedRegion;
@@ -204,8 +208,7 @@ end;
 
 procedure TEditorForm.FormActivate(Sender: TObject);
 begin
-  MainForm.CheckEnabledActions();
-  MainForm.UpdateMDITabs();
+  MainForm.ActiveEditorChanged();
 end;
 
 procedure TEditorForm.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -567,10 +570,12 @@ begin
     UpdateFormCaption();
     UpdateScrollBar();
     if ResetCaret then
-      MoveCaret(0, []);
+      MoveCaret(0, [])
+    else
+      CaretPos := CaretPos;  // Limit by file size
     UpdatePanes();
 
-    MainForm.CheckEnabledActions();
+    SelectionChanged();
   finally
     EndUpdatePanes();
   end;
@@ -610,12 +615,16 @@ begin
 end;
 
 procedure TEditorForm.PaneTextKeyPress(Sender: TObject; var Key: Char);
+var
+  c: AnsiChar;
 begin
   BeginUpdatePanes();
   try
     if Key >= ' ' then
     begin
-      ChangeBytes(CaretPos, [Byte(Key)]);
+      // Maybe some better way to convert single unicode char to current locale ansi char?
+      c := AnsiString(string(Key))[Low(AnsiString)];
+      ChangeBytes(CaretPos, [Byte(c)]);
       MoveCaret(CaretPos + 1, []);
     end;
   finally
@@ -691,6 +700,13 @@ begin
     TopVisibleRow := CaretRow-GetVisibleRowsCount()+1;
 end;
 
+procedure TEditorForm.SelectionChanged;
+begin
+  ShowSelectionInfo();
+  if Self = MainForm.ActiveEditor then
+    MainForm.SelectionChanged();
+end;
+
 procedure TEditorForm.SetByteColumns(Value: Integer);
 var
   NewTopRow: TFilePointer;
@@ -743,7 +759,7 @@ begin
       FCaretPos := Value;
       ScrollToCaret();
       UpdatePanesCarets();
-      ShowSelectionInfo();
+      SelectionChanged();
     finally
       EndUpdatePanes();
     end;
@@ -775,7 +791,7 @@ begin
     SelLength := AEnd-AStart+1;
   end;
   UpdatePanes();
-  MainForm.CheckEnabledActions();
+  SelectionChanged();
 end;
 
 procedure TEditorForm.SetTopVisibleRow(Value: TFilePointer);

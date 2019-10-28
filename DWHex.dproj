@@ -5,7 +5,7 @@
         <FrameworkType>VCL</FrameworkType>
         <MainSource>DWHex.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -158,6 +158,16 @@
         <DCCReference Include="uEditorForm.pas">
             <Form>EditorForm</Form>
             <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="uValueFrame.pas">
+            <Form>ValueFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
+        <DCCReference Include="uStructFrame.pas">
+            <Form>StructFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <None Include="ModelSupport_DWHex\DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\default.txaPackage"/>
