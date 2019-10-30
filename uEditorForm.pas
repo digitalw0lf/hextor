@@ -104,6 +104,7 @@ type
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property ByteColumns: Integer read FByteColumns write SetByteColumns;
     procedure CalculateByteColumns();
+    function GetSelectedOrAfterCaret(MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
   end;
 
 var
@@ -496,6 +497,29 @@ begin
   Result := GetOverlappingRegions(Addr, Size, Index1, Index2);
 end;
 
+function TEditorForm.GetSelectedOrAfterCaret(MaxSize: Integer; var Addr: TFilePointer;
+  NothingIfMore: Boolean): TBytes;
+// Return selected data or data block after caret, if nothing selected.
+// NothingIfMore: return nothing if selection length is more then specified.
+var
+  Size: Integer;
+begin
+  if SelLength > 0 then
+  begin
+    if (NothingIfMore) and (SelLength > MaxSize) then
+      Exit(nil);
+    Size := Min(MaxSize, SelLength);
+    Addr := SelStart;
+  end
+  else
+  begin
+    Size := Min(MaxSize, GetFileSize()-CaretPos);
+    Addr := CaretPos;
+  end;
+
+  Result := GetEditedData(Addr, Size);
+end;
+
 function TEditorForm.FindCachedRegion(Addr: TFilePointer; var Index: Integer): Boolean;
 var
   i: Integer;
@@ -841,7 +865,7 @@ begin
       Data := GetEditedData(SelStart, SelLength);
       x := 0;
       Move(Data[0], x, Length(Data));
-      StatusBar.Panels[1].Text := 'As number: ' + IntToStr(x);
+      StatusBar.Panels[1].Text := 'As '+IntToStr(Length(Data))+'-byte value: ' + IntToStr(x);
     end
     else
       StatusBar.Panels[1].Text := '';

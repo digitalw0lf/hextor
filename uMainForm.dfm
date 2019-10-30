@@ -75,7 +75,6 @@ object MainForm: TMainForm
     OnChange = MDITabsChange
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseUp = MDITabsMouseUp
-    ExplicitTop = 24
   end
   object RightPanel: TPanel
     Left = 744
@@ -87,20 +86,16 @@ object MainForm: TMainForm
     DoubleBuffered = True
     ParentDoubleBuffered = False
     TabOrder = 2
-    ExplicitTop = 49
-    ExplicitHeight = 590
     object RightPanelPageControl: TPageControl
       Left = 0
       Top = 0
       Width = 284
       Height = 592
-      ActivePage = PgValue
+      ActivePage = PgStruct
       Align = alClient
       TabOrder = 0
-      ExplicitHeight = 590
       object PgValue: TTabSheet
         Caption = 'Value'
-        ExplicitHeight = 562
         inline ValueFrame: TValueFrame
           Left = 0
           Top = 0
@@ -109,15 +104,15 @@ object MainForm: TMainForm
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 276
-          ExplicitHeight = 562
+          ExplicitHeight = 564
           inherited ValuesGrid: TKGrid
             Width = 276
             Height = 564
             ExplicitWidth = 276
-            ExplicitHeight = 562
+            ExplicitHeight = 564
             ColWidths = (
               64
-              207)
+              211)
             RowHeights = (
               21
               21)
@@ -127,7 +122,6 @@ object MainForm: TMainForm
       object PgStruct: TTabSheet
         Caption = 'Struct'
         ImageIndex = 1
-        ExplicitHeight = 562
         inline StructFrame: TStructFrame
           Left = 0
           Top = 0
@@ -136,7 +130,7 @@ object MainForm: TMainForm
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 276
-          ExplicitHeight = 562
+          ExplicitHeight = 564
         end
       end
     end
@@ -260,6 +254,13 @@ object MainForm: TMainForm
           RadioItem = True
           OnClick = MIColumns8Click
         end
+      end
+    end
+    object Tools1: TMenuItem
+      Caption = 'Tools'
+      object CRC321: TMenuItem
+        Caption = 'CRC32'
+        OnClick = CRC321Click
       end
     end
     object est1: TMenuItem
@@ -428,7 +429,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010108004001DC0010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010108004001E80010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000003000000001002000000000000030
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

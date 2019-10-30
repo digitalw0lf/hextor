@@ -17,7 +17,7 @@ uses
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
-  uValueFrame, uStructFrame
+  uValueFrame, uStructFrame, uCRC
   {, uPathCompressTest};
 
 const
@@ -119,6 +119,8 @@ type
     ValueFrame: TValueFrame;
     StructFrame: TStructFrame;
     EditorClosedTimer: TTimer;
+    Tools1: TMenuItem;
+    CRC321: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
     procedure Decompress1Click(Sender: TObject);
@@ -157,6 +159,7 @@ type
       Shift: TShiftState; X, Y: Integer);
     procedure RecentFilesMenuPopup(Sender: TObject);
     procedure EditorClosedTimerTimer(Sender: TObject);
+    procedure CRC321Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -217,25 +220,29 @@ var
 begin
   with ActiveEditor do
   begin
-    if SelLength > 4 then Exit;
-    if SelLength > 0 then
-    begin
-      Addr := SelStart;
-      Size := SelLength;
-    end
-    else
-    begin
-      Addr := CaretPos;
-      Size := 1;
-    end;
-    Buf := GetEditedData(Addr, Size);
+//    if SelLength > 4 then Exit;
+//    if SelLength > 0 then
+//    begin
+//      Addr := SelStart;
+//      Size := SelLength;
+//    end
+//    else
+//    begin
+//      Addr := CaretPos;
+//      Size := 1;
+//    end;
+//    Buf := GetEditedData(Addr, Size);
+
+    Buf := GetSelectedOrAfterCaret(4, Addr, True);
+
+
   //  if Length(Buf) < Size then Exit;
-    BitsEditorForm.OkEnabled := (Length(Buf) = Size);
+    BitsEditorForm.OkEnabled := (Length(Buf) > 0);
 
     x := 0;
     Move(Buf[0], x, Length(Buf));
     BitsEditorForm.Value := x;
-    BitsEditorForm.ValueSize := Size;
+    BitsEditorForm.ValueSize := Max(Length(Buf), 1);
 
     if BitsEditorForm.ShowModal() <> mrOk then Exit;
 
@@ -574,6 +581,25 @@ begin
 //  Clipboard.AsText := s.ToString;
 //  s.Free;
 
+end;
+
+procedure TMainForm.CRC321Click(Sender: TObject);
+var
+  AData: TBytes;
+  crc: Cardinal;
+  s: string;
+begin
+  with ActiveEditor do
+  begin
+    AData := GetEditedData(SelStart, SelLength);
+  end;
+
+//  crc := 0;
+//  crc := AddToCRC32(crc, @AData[0], Length(AData));
+  crc := CalcCRC32(@AData[0], Length(AData));
+
+  s := IntToHex(crc, 8);
+  InputQuery('CRC32', 'CRC32:', s);
 end;
 
 function TMainForm.CreateNewEditor: TEditorForm;

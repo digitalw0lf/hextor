@@ -60,6 +60,7 @@ type
     destructor Destroy(); override;
     procedure UpdateInfo();
     procedure RegisterInterpretor(const AName: string; AToString: TDataToStrFunc; AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE);
+    function FindInterpretor(const AName: string): TValueInterpretor;
   end;
 
 implementation
@@ -183,6 +184,15 @@ begin
   inherited;
 end;
 
+function TValueFrame.FindInterpretor(const AName: string): TValueInterpretor;
+var
+  i: Integer;
+begin
+  for i:=0 to FInterpretors.Count-1 do
+    if FInterpretors[i].Name = AName then Exit(FInterpretors[i]);
+  Result := nil;
+end;
+
 procedure TValueFrame.MICopyValueClick(Sender: TObject);
 begin
   Clipboard.AsText := ValuesGrid.Cells[ValuesGrid.Col, ValuesGrid.Row];
@@ -224,6 +234,7 @@ begin
 end;
 
 procedure TValueFrame.UpdateInfo;
+// Show selection/data under cursor as values
 var
   Data: TBytes;
   Greedy: Boolean;
@@ -240,22 +251,26 @@ begin
       Exit;
     end;
   end;
+
   with FEditor do
   begin
-    if SelLength > 0 then
-    begin
-      FShownRange.Start := SelStart;
-      FShownRange.Size := Min(SelLength, MAX_STR_VALUE_LENGTH);
-      Greedy := True;
-    end
-    else
-    begin
-      FShownRange.Start := CaretPos;
-      FShownRange.Size := MAX_STR_VALUE_LENGTH;
-      Greedy := False;
-    end;
+//    if SelLength > 0 then
+//    begin
+//      FShownRange.Start := SelStart;
+//      FShownRange.Size := Min(SelLength, MAX_STR_VALUE_LENGTH);
+//      Greedy := True;
+//    end
+//    else
+//    begin
+//      FShownRange.Start := CaretPos;
+//      FShownRange.Size := MAX_STR_VALUE_LENGTH;
+//      Greedy := False;
+//    end;
+//
+//    Data := GetEditedData(FShownRange.Start, FShownRange.Size);
 
-    Data := GetEditedData(FShownRange.Start, FShownRange.Size);
+    Data := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
+    Greedy := (SelLength > 0);
 
     SetKGridRowCount(ValuesGrid, Interpretors.Count + 1);
     for i:=0 to Interpretors.Count-1 do
@@ -268,7 +283,7 @@ begin
                   else Size := Interpretors[i].MinSize;
         (ValuesGrid.Rows[i+1] as TValueGridRow).OrigDataSize := Size;
 
-        S := Interpretors[i].ToString(Data[0], Size);
+        S := Interpretors[i].ToString(Data[0], Size);  // <--
       except
         S := SUndefinedValue;
       end;
