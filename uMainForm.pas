@@ -24,6 +24,7 @@ const
   Color_ChangedByte = $B0FFFF;
   Color_SelectionBg = clHighlight;
   Color_SelectionTx = clHighlightText;
+  Color_ValueHighlightBg = $FFD0A0;
 
 //  MAX_TAB_WIDTH = 200;
 
@@ -37,6 +38,9 @@ type
     ScrollWithWheel: Integer;
     ByteColumns: Integer;  // -1 - auto
     RecentFiles: array of TRecentFileRec;
+//    Colors: record
+//      ValueHighlightBg: TColor;
+//    end;
   end;
 
   TMainForm = class(TForm)
@@ -121,6 +125,7 @@ type
     EditorClosedTimer: TTimer;
     Tools1: TMenuItem;
     CRC321: TMenuItem;
+    Timer1: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
     procedure Decompress1Click(Sender: TObject);
@@ -160,6 +165,7 @@ type
     procedure RecentFilesMenuPopup(Sender: TObject);
     procedure EditorClosedTimerTimer(Sender: TObject);
     procedure CRC321Click(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -214,7 +220,7 @@ end;
 
 procedure TMainForm.ActionBitsEditorExecute(Sender: TObject);
 var
-  Addr, Size: TFilePointer;
+  Addr{, Size}: TFilePointer;
   Buf: TBytes;
   x: Int64;
 begin
@@ -614,6 +620,7 @@ var
   i: Integer;
 begin
   bWriteLogFile := True;
+  bThreadedLogWrite := False;
   AppSettings := TDWHexSettings.Create();
 
   // Get path to settings folder (AppData\DWHex)
@@ -700,6 +707,8 @@ procedure TMainForm.InitDefaultSettings;
 begin
   AppSettings.ScrollWithWheel := 3;
   AppSettings.ByteColumns := -1;
+
+//  AppSettings.Colors.ValueHighlightBg := $FFD0A0;
 end;
 
 procedure TMainForm.LoadSettings;
@@ -859,6 +868,11 @@ procedure TMainForm.SetActiveEditor(const Value: TEditorForm);
 begin
   if Value <> nil then
     Value.BringToFront();
+end;
+
+procedure TMainForm.Timer1Timer(Sender: TObject);
+begin
+//  Caption := Screen.ActiveControl.Name;
 end;
 
 procedure TMainForm.EditorClosedTimerTimer(Sender: TObject);

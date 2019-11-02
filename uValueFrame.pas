@@ -21,10 +21,18 @@ type
   TStrToDataFunc = reference to procedure(const S: string; var Data; Size: Integer);  // Raises EConvertError if failed
 
   TValueInterpretor = class
-    Name: string;
+  private
+    function GetName: string;
+  public
+    //Name: string;
+    Names: TStringList;
     MinSize, MaxSize: Integer;
     ToString: TDataToStrFunc;
     FromString: TStrToDataFunc;
+    constructor Create();
+    destructor Destroy(); override;
+    property Name: string read GetName;
+    procedure AddNames(const ANames: array of string);
   end;
 
   TValueFrame = class(TFrame)
@@ -40,11 +48,14 @@ type
     procedure MICopyValueClick(Sender: TObject);
     procedure ValuesGridEditorSelect(Sender: TObject; AEditor: TWinControl;
       ACol, ARow: Integer; SelectAll, CaretToLeft, SelectedByMouse: Boolean);
+    procedure ValuesGridClick(Sender: TObject);
+    procedure ValuesGridExit(Sender: TObject);
   private
     type
       TValueGridRow = class (TKGridRow)
       public
         OrigDataSize: Integer;
+        Defined: Boolean;
         Hint: string;
       end;
   private
@@ -59,8 +70,10 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure UpdateInfo();
-    procedure RegisterInterpretor(const AName: string; AToString: TDataToStrFunc; AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE);
+    function RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
+      AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE): TValueInterpretor;
     function FindInterpretor(const AName: string): TValueInterpretor;
+    function GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
   end;
 
 implementation
@@ -189,8 +202,24 @@ var
   i: Integer;
 begin
   for i:=0 to FInterpretors.Count-1 do
-    if FInterpretors[i].Name = AName then Exit(FInterpretors[i]);
+    if FInterpretors[i].Names.IndexOf(AName) >= 0 then Exit(FInterpretors[i]);
   Result := nil;
+end;
+
+function TValueFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
+  Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
+var
+  VRow: TValueGridRow;
+begin
+  Result := False;
+  if Screen.ActiveControl <> ValuesGrid then Exit;
+  if Editor <> FEditor then Exit;
+
+  VRow := ValuesGrid.Rows[ValuesGrid.Row] as TValueGridRow;
+  if not VRow.Defined then Exit;
+
+  Result := FillRangeInColorArray(BgColors, Addr,
+    FShownRange.Start, FShownRange.Start+VRow.OrigDataSize, Color_ValueHighlightBg);
 end;
 
 procedure TValueFrame.MICopyValueClick(Sender: TObject);
@@ -199,15 +228,21 @@ begin
 end;
 
 procedure TValueFrame.RegisterBuiltinInterpretors;
+var
+  i: Integer;
 begin
   RegisterInterpretor('int8', Int2Str, Str2Int, 1);
-  RegisterInterpretor('uint8', UInt2Str, Str2UInt, 1);
+  RegisterInterpretor('uint8', UInt2Str, Str2UInt, 1).AddNames(['char']);
   RegisterInterpretor('int16', Int2Str, Str2Int, 2);
   RegisterInterpretor('uint16', UInt2Str, Str2UInt, 2);
-  RegisterInterpretor('int32', Int2Str, Str2Int, 4);
+  RegisterInterpretor('int32', Int2Str, Str2Int, 4).AddNames(['int']);
   RegisterInterpretor('uint32', UInt2Str, Str2UInt, 4);
   RegisterInterpretor('int64', Int2Str, Str2Int, 8);
   RegisterInterpretor('uint64', UInt2Str, Str2UInt, 8);
+
+  // int8_t etc.
+  for i:=0 to Interpretors.Count-1 do
+    Interpretors[i].AddNames([Interpretors[i].Name+'_t']);
 
   RegisterInterpretor('float', Float2Str, Str2Float, 4);
   RegisterInterpretor('double', Double2Str, Str2Double, 8);
@@ -216,21 +251,21 @@ begin
   RegisterInterpretor('unicode', Unicode2Str, Str2Unicode, 2, MAX_STR_VALUE_LENGTH);
 end;
 
-procedure TValueFrame.RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
-  AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE);
-var
-  Intr:  TValueInterpretor;
+function TValueFrame.RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
+  AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE): TValueInterpretor;
+//var
+//  Intr:  TValueInterpretor;
 begin
-  Intr := TValueInterpretor.Create();
-  Intr.Name := AName;
-  Intr.MinSize := AMinSize;
+  Result := TValueInterpretor.Create();
+  Result.Names.Add(AName);
+  Result.MinSize := AMinSize;
   if AMaxSize = SAME_AS_MIN_SIZE then
-    Intr.MaxSize := AMinSize
+    Result.MaxSize := AMinSize
   else
-    Intr.MaxSize := AMaxSize;
-  Intr.ToString := AToString;
-  Intr.FromString := AFromString;
-  Interpretors.Add(Intr);
+    Result.MaxSize := AMaxSize;
+  Result.ToString := AToString;
+  Result.FromString := AFromString;
+  Interpretors.Add(Result);
 end;
 
 procedure TValueFrame.UpdateInfo;
@@ -240,6 +275,7 @@ var
   Greedy: Boolean;
   i, Size: Integer;
   S: string;
+  VRow: TValueGridRow;
 begin
   ValuesGrid.EditorMode := False;
   try
@@ -254,43 +290,45 @@ begin
 
   with FEditor do
   begin
-//    if SelLength > 0 then
-//    begin
-//      FShownRange.Start := SelStart;
-//      FShownRange.Size := Min(SelLength, MAX_STR_VALUE_LENGTH);
-//      Greedy := True;
-//    end
-//    else
-//    begin
-//      FShownRange.Start := CaretPos;
-//      FShownRange.Size := MAX_STR_VALUE_LENGTH;
-//      Greedy := False;
-//    end;
-//
-//    Data := GetEditedData(FShownRange.Start, FShownRange.Size);
-
     Data := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
     Greedy := (SelLength > 0);
 
     SetKGridRowCount(ValuesGrid, Interpretors.Count + 1);
     for i:=0 to Interpretors.Count-1 do
     begin
+      VRow := ValuesGrid.Rows[i+1] as TValueGridRow;
+      VRow.Defined := False;
+      VRow.Hint := '';
       if Length(Data) < Interpretors[i].MinSize then
-        S := SUndefinedValue
+      begin
+        S := SUndefinedValue;
+        VRow.Hint := 'Not enough data';
+      end
       else
       try
         if Greedy then Size := Min(Interpretors[i].MaxSize, Length(Data))
                   else Size := Interpretors[i].MinSize;
-        (ValuesGrid.Rows[i+1] as TValueGridRow).OrigDataSize := Size;
+        VRow.OrigDataSize := Size;
 
         S := Interpretors[i].ToString(Data[0], Size);  // <--
+
+        VRow.Defined := True;
       except
-        S := SUndefinedValue;
+        on E:Exception do
+        begin
+          S := SUndefinedValue;
+          VRow.Hint := E.Message;
+        end;
       end;
       ValuesGrid.Cells[0, i+1] := Interpretors[i].Name;
       ValuesGrid.Cells[1, i+1] := S;
     end;
   end;
+end;
+
+procedure TValueFrame.ValuesGridClick(Sender: TObject);
+begin
+  FEditor.UpdatePanes();
 end;
 
 procedure TValueFrame.ValuesGridEditorDataToGrid(Sender: TObject;
@@ -318,6 +356,7 @@ begin
       FEditor.ChangeBytes(FShownRange.Start, Data);
     end;
   except
+    // Catch exception here so ValuesGrid can proprtly destroy editor etc.
     on E: Exception do
       Application.MessageBox(PChar(E.Message), PChar(E.ClassName), MB_OK or MB_ICONERROR);
   end;
@@ -330,11 +369,17 @@ begin
   (AEditor as TEdit).SelectAll;
 end;
 
+procedure TValueFrame.ValuesGridExit(Sender: TObject);
+begin
+  FEditor.UpdatePanes();
+end;
+
 procedure TValueFrame.ValuesGridMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
   ACol, ARow: Integer;
 begin
+  ValuesGrid.SetFocus();
   if (Button=mbRight) and (ValuesGrid.MouseToCell(X, Y, ACol, ARow)) and (ACol = 1) then
     ValuesGrid.FocusCell(ACol, ARow);
 end;
@@ -350,6 +395,35 @@ begin
     p := ValuesGrid.ClientToScreen(Point(X, Y));
     ValuePopupMenu.Popup(p.X, p.Y);
   end;
+end;
+
+{ TValueInterpretor }
+
+procedure TValueInterpretor.AddNames(const ANames: array of string);
+var
+  i: Integer;
+begin
+  for i:=0 to Length(ANames)-1 do
+    Names.Add(ANames[i]);
+end;
+
+constructor TValueInterpretor.Create;
+begin
+  Names := TStringList.Create();
+end;
+
+destructor TValueInterpretor.Destroy;
+begin
+  Names.Free;
+  inherited;
+end;
+
+function TValueInterpretor.GetName: string;
+begin
+  if Names.Count > 0 then
+    Result := Names[0]
+  else
+    Result := '';
 end;
 
 end.

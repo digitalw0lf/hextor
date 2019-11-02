@@ -64,6 +64,7 @@ object EditorForm: TEditorForm
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
+  OnDeactivate = FormDeactivate
   OnResize = FormResize
   PixelsPerInch = 96
   TextHeight = 13

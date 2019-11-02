@@ -10,6 +10,11 @@ uses
   uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, Vcl.Menus;
 
 type
+  TEditorForm = class;
+
+  // Callback that is used by tools to colorise displayed data in editor
+  TGetDataColors = function (Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
+
   TEditorForm = class(TForm)
     PaneHex: TEditorPane;
     PaneLnNum: TEditorPane;
@@ -46,6 +51,7 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormActivate(Sender: TObject);
+    procedure FormDeactivate(Sender: TObject);
   private
     { Private declarations }
     FCaretPos: TFilePointer;
@@ -231,6 +237,11 @@ begin
   MainForm.AddEditor(Self);
 end;
 
+procedure TEditorForm.FormDeactivate(Sender: TObject);
+begin
+  UpdatePanesCarets();  // Gray caret
+end;
+
 procedure TEditorForm.FormDestroy(Sender: TObject);
 begin
   CachedRegions.Free;
@@ -381,6 +392,8 @@ procedure TEditorForm.PaneHexMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   ActiveControl := (Sender as TWinControl);
+  if not ActiveControl.Focused then
+    ActiveControl.SetFocus();
   if (Sender <> PaneLnNum) and (Button = mbLeft) then
   begin
     WasLeftMouseDown := True;
@@ -1030,39 +1043,47 @@ var
   p, FirstVis: TFilePointer;
   VisSize: Integer;
   Cached: TCachedRegionsList;
+  TxColors, BgColors: TColorArray;
+  i: Integer;
+//  j: TFilePointer;
 
   procedure Update(Pane: TEditorPane; CharsPerByte: Integer);
   var
     L, i: Integer;
-    j: TFilePointer;
-    N0: TFilePointer;
+//    j: TFilePointer;
+//    N0: TFilePointer;
   begin
-    // Background colors
-    N0 := FirstVis;
+//    // Background colors
+//    N0 := FirstVis;
     L := VisSize*CharsPerByte;
     if Length(Pane.BgColors)<>L then
       SetLength(Pane.BgColors, L);
     if Length(Pane.TxColors)<>L then
       SetLength(Pane.TxColors, L);
+//    for i:=0 to L-1 do
+//    begin
+//      Pane.BgColors[i] := Pane.Color;
+//      Pane.TxColors[i] := Pane.Font.Color;
+//    end;
+//    // Changed bytes
+//    for i:=0 to Cached.Count-1 do
+//    begin
+//      for j:=Max(FirstVis, Cached[i].Addr)*CharsPerByte to Min(FirstVis+VisSize, Cached[i].Addr+Cached[i].Size)*CharsPerByte-1 do
+//        Pane.BgColors[j - FirstVis*CharsPerByte] := Color_ChangedByte;
+//    end;
+//    // Selection background
+//    for i:=0 to L-1 do
+//    begin
+//      if (N0+(i div CharsPerByte)>=SelStart) and (N0+(i div CharsPerByte)<SelStart+SelLength) then
+//      begin
+//        Pane.BgColors[i] := Color_SelectionBg;
+//        Pane.TxColors[i] := Color_SelectionTx;
+//      end;
+//    end;
     for i:=0 to L-1 do
     begin
-      Pane.BgColors[i] := Pane.Color;
-      Pane.TxColors[i] := Pane.Font.Color;
-    end;
-    // Changed bytes
-    for i:=0 to Cached.Count-1 do
-    begin
-      for j:=Max(FirstVis, Cached[i].Addr)*CharsPerByte to Min(FirstVis+VisSize, Cached[i].Addr+Cached[i].Size)*CharsPerByte-1 do
-        Pane.BgColors[j - FirstVis*CharsPerByte] := Color_ChangedByte;
-    end;
-    // Selection background
-    for i:=0 to L-1 do
-    begin
-      if (N0+(i div CharsPerByte)>=SelStart) and (N0+(i div CharsPerByte)<SelStart+SelLength) then
-      begin
-        Pane.BgColors[i] := Color_SelectionBg;
-        Pane.TxColors[i] := Color_SelectionTx;
-      end;
+      Pane.TxColors[i] := TxColors[i div CharsPerByte];
+      Pane.BgColors[i] := BgColors[i div CharsPerByte];
     end;
 
     // Caret position
@@ -1078,6 +1099,25 @@ begin
   Cached := GetOverlappingRegions(FirstVis, VisSize);
 
   try
+    SetLength(TxColors, VisSize);
+    SetLength(BgColors, VisSize);
+
+    // Background colors
+    for i:=0 to VisSize-1 do
+    begin
+      BgColors[i] := PaneHex.Color;
+      TxColors[i] := PaneHex.Font.Color;
+    end;
+    // Changed bytes
+    for i:=0 to Cached.Count-1 do
+      FillRangeInColorArray(BgColors, FirstVis, Cached[i].Addr, Cached[i].Addr+Cached[i].Size, Color_ChangedByte);
+    // Selection background
+    FillRangeInColorArray(TxColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionTx);
+    FillRangeInColorArray(BgColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionBg);
+
+    MainForm.ValueFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
+    MainForm.StructFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
+
     Update(PaneHex, 3);
     Update(PaneText, 1);
   finally

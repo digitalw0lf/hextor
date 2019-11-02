@@ -14,13 +14,15 @@ object ValueFrame: TValueFrame
     Options = [goAlignLastCol, goColSizing, goDrawFocusSelected, goEditing, goFixedHorzLine, goFixedVertLine, goHeader, goHeaderAlignment, goHorzLine, goIndicateHiddenCells, goMouseOverCells, goThemes, goThemedCells, goVertLine]
     RowCount = 2
     TabOrder = 0
+    OnClick = ValuesGridClick
     OnEditorDataToGrid = ValuesGridEditorDataToGrid
     OnEditorSelect = ValuesGridEditorSelect
+    OnExit = ValuesGridExit
     OnMouseDown = ValuesGridMouseDown
     OnMouseUp = ValuesGridMouseUp
     ColWidths = (
       64
-      259)
+      263)
     RowHeights = (
       10
       21)
