@@ -5,9 +5,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
-  Vcl.ExtCtrls, Generics.Collections, Math, System.Types,
+  Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
 
-  uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, Vcl.Menus;
+  uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData;
 
 type
   TEditorForm = class;
@@ -31,7 +31,6 @@ type
     N6: TMenuItem;
     PMIBitsEditor: TMenuItem;
     procedure FormCreate(Sender: TObject);
-    procedure FormDestroy(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
     procedure PaneHexKeyDown(Sender: TObject; var Key: Word;
@@ -54,6 +53,7 @@ type
     procedure FormDeactivate(Sender: TObject);
   private
     { Private declarations }
+    FDestroyed: Boolean;  // Some events (e.g. FormResize) are oddly called after form destruction
     FCaretPos: TFilePointer;
     SelDragStart, SelDragEnd: TFilePointer;
     WasLeftMouseDown: Boolean;
@@ -64,6 +64,7 @@ type
     FNeedUpdatePanes: Boolean;
     FByteColumns: Integer;
     FLinesPerScrollBarTick: Integer;
+    FInsertMode: Boolean;
 
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
@@ -77,11 +78,17 @@ type
     procedure ShowSelectionInfo();
     procedure AddCurrentFileToRecentFiles();
     procedure SelectionChanged();
+    procedure CopyDataRegion(Source, Dest: TDWHexDataSource; SourceAddr, DestAddr, Size: TFilePointer);
+    procedure SetInsertMode(Value: Boolean);
+    function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
+    procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
   public
     { Public declarations }
     DataSource: TDWHexDataSource;
-    CachedRegions: TCachedRegionsList;
+    EditedData: TEditedData;
+//    CachedRegions: TCachedRegionsList;
     SelStart, SelLength: TFilePointer;
+    destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
     procedure SaveFile(DataSourceType: TDWHexDataSourceType; const APath: string);
@@ -95,13 +102,10 @@ type
     function FirstVisibleAddr(): TFilePointer;
     function VisibleBytesCount(): Integer;
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
-    function GetOverlappingRegions(Addr, Size: TFilePointer; var Index1, Index2: Integer): TCachedRegionsList; overload;
-    function GetOverlappingRegions(Addr, Size: TFilePointer): TCachedRegionsList; overload;
-    function FindCachedRegion(Addr: TFilePointer; var Index: Integer): Boolean;
-    function CreateCachedRegion(Addr, Size: TFilePointer): TCachedRegion;
-    function StartChanges(Addr, Size: TFilePointer): TCachedRegion;
+    function DeleteSelected(): TFilePointer;
     property CaretPos: TFilePointer read FCaretPos write SetCaretPos;
     property CaretInByte: Integer read FCaretInByte write SetCaretInByte;
+    property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     procedure SetSelection(AStart, AEnd: TFilePointer);
     procedure BeginUpdatePanes();
@@ -111,6 +115,9 @@ type
     property ByteColumns: Integer read FByteColumns write SetByteColumns;
     procedure CalculateByteColumns();
     function GetSelectedOrAfterCaret(MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
+    procedure DataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
+    procedure DataInserted(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
+    procedure DataDeleted(Addr: TFilePointer; Size: TFilePointer);
   end;
 
 var
@@ -153,6 +160,31 @@ begin
   MainForm.SaveSettings();
 end;
 
+procedure TEditorForm.AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
+// Adjust Caret position, bookmarks etc. after operation that inserted or deleted data
+var
+  ASelEnd: TFilePointer;
+begin
+  AdjustPositionInData(FCaretPos, OpAddr, OpSize);
+  ASelEnd := SelStart + SelLength;
+  AdjustPositionInData(SelStart, OpAddr, OpSize);
+  AdjustPositionInData(ASelEnd, OpAddr, OpSize);
+  SelLength := ASelEnd - SelStart;
+
+  AdjustPositionInData(SelDragStart, OpAddr, OpSize);
+  AdjustPositionInData(SelDragEnd, OpAddr, OpSize);
+end;
+
+function TEditorForm.AdjustPositionInData(var Pos: TFilePointer; OpAddr,
+  OpSize: TFilePointer): Boolean;
+// Adjust position Pos according to operation that inserted or deleted data at position OpAddr.
+// OpSize < 0 for deletion
+begin
+  if Pos < OpAddr then Exit(False);
+  Pos := Max(Pos + OpSize, OpAddr);  // Works for both deletion and insertion
+  Result := True;
+end;
+
 function TEditorForm.AskSaveChanges: TModalResult;
 begin
   Result := mrNo;
@@ -190,27 +222,73 @@ begin
 end;
 
 procedure TEditorForm.ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
-var
-  Region: TCachedRegion;
 begin
-  Region := StartChanges(Addr, Length(Value));
-  Move(Value[0], Region.Data[Addr-Region.Addr], Length(Value));
-  UpdatePanes();
+  EditedData.Change(Addr, Length(Value), @Value[0]);
+end;
 
-  if (Addr <= SelStart + SelLength) and (Addr + Length(Value) >= SelStart) then
+procedure TEditorForm.CopyDataRegion(Source, Dest: TDWHexDataSource; SourceAddr,
+  DestAddr, Size: TFilePointer);
+const
+  BlockSize = 10*MByte;
+var
+  Buf: TBytes;
+  Pos: TFilePointer;
+  PortionSize: Integer;
+begin
+  SetLength(Buf, BlockSize);
+  Pos := 0;
+
+  while Pos < Size do
+  begin
+    PortionSize := Min(BlockSize, Size - Pos);
+    Source.GetData(SourceAddr + Pos, PortionSize, Buf[0]);
+    Dest.ChangeData(DestAddr + Pos, PortionSize, Buf[0]);
+    Pos := Pos + PortionSize;
+  end;
+end;
+
+procedure TEditorForm.DataChanged(Addr, Size: TFilePointer;
+  const Value: PByteArray);
+begin
+  HasUnsavedChanges := True;
+  UpdatePanes();
+  if (Addr <= SelStart + SelLength) and (Addr + Size >= SelStart) then
     SelectionChanged();
 end;
 
-function TEditorForm.CreateCachedRegion(Addr, Size: TFilePointer): TCachedRegion;
-var
-  n: Integer;
+procedure TEditorForm.DataDeleted(Addr, Size: TFilePointer);
 begin
-  Result := TCachedRegion.Create();
-  Result.Addr := Addr;
-  Result.Data := GetEditedData(Addr, Size, True);
-  if FindCachedRegion(Addr, n) then
-    raise Exception.Create('Trying to create overlapping region');
-  CachedRegions.Insert(n, Result);
+  AdjustPointersPositions(Addr, -Size);
+
+  HasUnsavedChanges := True;
+  UpdatePanes();
+
+  if (Addr <= SelStart + SelLength) and (Addr + Size >= SelStart) then
+    SelectionChanged();
+end;
+
+procedure TEditorForm.DataInserted(Addr, Size: TFilePointer;
+  const Value: PByteArray);
+begin
+  AdjustPointersPositions(Addr, Size);
+  DataChanged(Addr, Size, Value);
+end;
+
+function TEditorForm.DeleteSelected(): TFilePointer;
+begin
+  if (not InsertMode) or (SelLength = 0) then Exit(0);
+
+  Result := SelLength;
+  EditedData.Delete(SelStart, SelLength);
+end;
+
+destructor TEditorForm.Destroy;
+begin
+  FDestroyed := True;
+  EditedData.Free;
+  DataSource.Free;
+  MainForm.RemoveEditor(Self);
+  inherited;
 end;
 
 procedure TEditorForm.FormActivate(Sender: TObject);
@@ -231,25 +309,20 @@ end;
 
 procedure TEditorForm.FormCreate(Sender: TObject);
 begin
-//  FByteColumns := 16;
-  CachedRegions := TObjectList<TCachedRegion>.Create(True);
+  EditedData := TEditedData.Create(Self);
   CalculateByteColumns();
   MainForm.AddEditor(Self);
 end;
 
 procedure TEditorForm.FormDeactivate(Sender: TObject);
 begin
+  if FDestroyed then Exit;
   UpdatePanesCarets();  // Gray caret
-end;
-
-procedure TEditorForm.FormDestroy(Sender: TObject);
-begin
-  CachedRegions.Free;
-  MainForm.RemoveEditor(Self);
 end;
 
 procedure TEditorForm.FormResize(Sender: TObject);
 begin
+  if FDestroyed then Exit;
   BeginUpdatePanes();
   try
     CalculateByteColumns();
@@ -296,6 +369,8 @@ procedure TEditorForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
     CaretInByte := cb;
   end;
 
+var
+  ARange: TFileRange;
 begin
   BeginUpdatePanes();
   try
@@ -335,6 +410,38 @@ begin
             ActiveControl := PaneHex;
           UpdatePanesCarets();
         end;
+
+      VK_INSERT:
+        if Shift = [] then
+          InsertMode := not InsertMode;
+
+      VK_DELETE:
+        if (Shift = []) and (InsertMode) then
+          begin
+            if SelLength > 0 then
+              DeleteSelected()
+            else
+            if (Sender = PaneText) and (CaretPos < EditedData.GetSize()) then
+              EditedData.Delete(CaretPos, 1);
+          end;
+
+      VK_BACK:
+        begin
+          if InsertMode then
+          begin
+            if SelLength > 0 then
+              DeleteSelected()
+            else
+            if (Sender = PaneText) and (CaretPos > 0) then
+              EditedData.Delete(CaretPos - 1, 1);
+          end
+          else
+          begin
+            // In overwrite mode, allow to backspace-delete appended portion of file
+            if (Sender = PaneText) and (CaretPos > GetOrigFileSize()) then
+              EditedData.Delete(CaretPos - 1, 1);
+          end;
+        end;
     end;
 
     if ssCtrl in Shift then
@@ -354,6 +461,8 @@ begin
 end;
 
 procedure TEditorForm.PaneHexKeyPress(Sender: TObject; var Key: Char);
+const
+  Zero: Byte = 0;
 var
   APos: TFilePointer;
   Buf: TBytes;
@@ -364,8 +473,19 @@ begin
   begin
     BeginUpdatePanes();
     try
+      if InsertMode then
+      begin
+        if DeleteSelected() > 0 then
+          CaretInByte := 0;
+      end;
+
       APos := CaretPos;
-      Buf := GetEditedData(APos, 1, True);
+      if InsertMode and (CaretInByte = 0) then
+      begin
+        EditedData.Insert(APos, 1, @Zero);
+        FCaretPos := FCaretPos - 1;
+      end;
+      Buf := GetEditedData(APos, 1, dspResizable in DataSource.GetProperties());
       if Length(Buf)<>1 then Exit;
       x := Buf[0];
       Digit := StrToInt('$'+Key);
@@ -373,7 +493,7 @@ begin
         x := (x and $0F) or (Digit shl 4)
       else
         x := (x and $F0) or (Digit);
-      ChangeBytes(CaretPos, [x]);
+      ChangeBytes(APos, [x]);
 
       if CaretInByte=0 then
         CaretInByte := 1
@@ -422,72 +542,14 @@ begin
 end;
 
 function TEditorForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
-var
-  OrigSize, CurrSize: TFilePointer;
-  ReadSize, ReturnSize: Integer;
-  i: Integer;
-  oPos, oSize: TFilePointer;
-  Regions: TCachedRegionsList;
 begin
-  OrigSize := GetOrigFileSize();
-  CurrSize := GetFileSize();
-  if (Addr<0) or (Addr>CurrSize) then Exit(nil);
-  if (not ZerosBeyondEoF) and (Addr>=CurrSize) then Exit(nil);
-
-  if ZerosBeyondEoF then
-    ReturnSize := Size
-  else
-  begin
-    ReturnSize := Min(Size, CurrSize-Addr);
-  end;
-  SetLength(Result, ReturnSize);
-
-
-  // Original data
-  ReadSize := Size;
-  if Addr + ReadSize > OrigSize then
-    ReadSize := OrigSize - Addr;
-  if ReadSize > 0 then
-  begin
-//    if FileDataLoaded then
-//      //Result := Copy(FileData, Addr, ReadSize)
-//      Move(FileData[Addr], Result[0], ReadSize)
-//    else
-//    begin
-      DataSource.GetData(Addr, ReadSize, Result);
-      // TODO: check result
-//    end;
-  end;
-
-  // Edited data
-  Regions := GetOverlappingRegions(Addr, Size);
-  for i:=0 to Regions.Count-1 do
-  begin
-    oPos := Max(Addr, Regions[i].Addr);
-    oSize := Min(Regions[i].Addr+Regions[i].Size, Addr+Size) - oPos;
-    Move(Regions[i].Data[oPos-Regions[i].Addr], Result[oPos-Addr], oSize);
-  end;
-
-  if (ZerosBeyondEoF) and (Addr+ReturnSize > CurrSize) then
-  // Fill with zeros beyond end of file
-  begin
-    ZeroMemory(@Result[CurrSize-Addr], Addr+ReturnSize-CurrSize);
-  end;
+  Result := EditedData.Get(Addr, Size, ZerosBeyondEoF);
 end;
 
 function TEditorForm.GetFileSize: TFilePointer;
 // Edited file size (including appended region)
-var
-  p: TFilePointer;
 begin
-  Result := GetOrigFileSize();
-  if (CachedRegions.Count>0) then
-  with CachedRegions.Last do
-  begin
-    p := Addr + Size;
-    if p > Result then
-      Result := p;
-  end;
+  Result := EditedData.GetSize();
 end;
 
 function TEditorForm.GetOrigFileSize: TFilePointer;
@@ -500,14 +562,6 @@ begin
     Result := DataSource.GetSize()
   else
     Result := 0;
-end;
-
-function TEditorForm.GetOverlappingRegions(Addr,
-  Size: TFilePointer): TCachedRegionsList;
-var
-  Index1, Index2: Integer;
-begin
-  Result := GetOverlappingRegions(Addr, Size, Index1, Index2);
 end;
 
 function TEditorForm.GetSelectedOrAfterCaret(MaxSize: Integer; var Addr: TFilePointer;
@@ -533,47 +587,9 @@ begin
   Result := GetEditedData(Addr, Size);
 end;
 
-function TEditorForm.FindCachedRegion(Addr: TFilePointer; var Index: Integer): Boolean;
-var
-  i: Integer;
-begin
-  for i:=0 to CachedRegions.Count-1 do
-  begin
-    if CachedRegions[i].Addr>Addr then
-    begin
-      Index := i;
-      Exit(False);
-    end;
-    if CachedRegions[i].Addr+CachedRegions[i].Size>Addr then
-    begin
-      Index := i;
-      Exit(True);
-    end;
-  end;
-  Index := CachedRegions.Count;
-  Result := False;
-end;
-
 function TEditorForm.FirstVisibleAddr: TFilePointer;
 begin
   Result := TopVisibleRow * ByteColumns;
-end;
-
-function TEditorForm.GetOverlappingRegions(Addr,
-  Size: TFilePointer; var Index1, Index2: Integer): TCachedRegionsList;
-var
-  i: Integer;
-begin
-  Result := TCachedRegionsList.Create(False);
-  Index1 := MaxInt;
-  Index2 := -1;
-  for i:=0 to CachedRegions.Count-1 do
-    if (CachedRegions[i].Addr<Addr+Size) and (CachedRegions[i].Addr+CachedRegions[i].Size>Addr) then
-    begin
-      Result.Add(CachedRegions[i]);
-      if i < Index1 then Index1 := i;
-      if i > Index2 then Index2 := i;
-    end;
 end;
 
 function TEditorForm.GetVisibleRowsCount: Integer;
@@ -584,6 +600,7 @@ end;
 procedure TEditorForm.MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
 // Move caret and adjust/remove selection
 begin
+  NewPos := BoundValue(NewPos, 0, EditedData.GetSize());
   if ssShift in Shift then
     SelDragEnd := NewPos
   else
@@ -601,7 +618,9 @@ begin
   BeginUpdatePanes();
   try
     HasUnsavedChanges := False;
-    CachedRegions.Clear();
+    EditedData.DataSource := DataSource;
+    EditedData.Resizable := (dspResizable in DataSource.GetProperties());
+    EditedData.ResetParts();
 
     MainForm.ImageList16.GetIcon(MainForm.GetIconIndex(DataSource), Icon);
     UpdateFormCaption();
@@ -610,6 +629,7 @@ begin
       MoveCaret(0, [])
     else
       CaretPos := CaretPos;  // Limit by file size
+    InsertMode := InsertMode;  // Only for resizable sources
     UpdatePanes();
 
     SelectionChanged();
@@ -661,8 +681,16 @@ begin
     begin
       // Maybe some better way to convert single unicode char to current locale ansi char?
       c := AnsiString(string(Key))[Low(AnsiString)];
-      ChangeBytes(CaretPos, [Byte(c)]);
-      MoveCaret(CaretPos + 1, []);
+      if InsertMode then
+      begin
+        DeleteSelected();
+        EditedData.Insert(CaretPos, 1, @c);
+      end
+      else
+      begin
+        ChangeBytes(CaretPos, [Byte(c)]);
+        MoveCaret(CaretPos + 1, []);
+      end;
     end;
   finally
     EndUpdatePanes();
@@ -684,45 +712,99 @@ var
   i: Integer;
   //FS: TFileStream;
   Dest: TDWHexDataSource;
-  SameSource: Boolean;
+  SameSource, InplaceSaving, UseTempFile: Boolean;
+  TempFileName: string;
 begin
   if (DataSourceType=nil) or (APath='') then Exit;
 
-  SameSource := (DataSourceType = DataSource.ClassType) and (SameFileName(APath, DataSource.Path));
+  SameSource := (DataSourceType = DataSource.ClassType) and
+                (SameFileName(APath, DataSource.Path));
+  InplaceSaving := SameSource and (not EditedData.HasMovements());
+  UseTempFile := (SameSource) and (not InplaceSaving);
 
-  if SameSource then
+//  if (not InplaceSaving) and (DataSourceType<>TFileDataSource) then
+//    raise Exception.Create('Unsupported save attempt');
+
+  if InplaceSaving then
   // If saving to same file, re-open it for writing
   begin
     DataSource.Open(fmOpenReadWrite);
     Dest := DataSource;
   end
   else
-  // If saving to another file, create another DataSource and copy original contents first
+  // If saving to another file, create another DataSource
   begin
-    Dest := DataSourceType.Create(APath);
+    if UseTempFile then
+    // Overwrite using temporary file
+    begin
+      if DataSourceType = TFileDataSource then
+        TempFileName := APath+'_temp'+IntToStr(Random(10000))
+      else
+        TempFileName := TempPath + 'save'+IntToStr(Random(10000));
+      Dest := TFileDataSource.Create(TempFileName);
+    end
+    else
+      // Save to new file
+      Dest := DataSourceType.Create(APath);
     Dest.Open(fmCreate);
-    Dest.CopyContentFrom(DataSource);
   end;
 
   // Write changed regions
-  for i:=0 to CachedRegions.Count-1 do
+  for i:=0 to EditedData.Parts.Count-1 do
   begin
-    Dest.ChangeData(CachedRegions[i].Addr, CachedRegions[i].Data[0], CachedRegions[i].Size());
+    if (InplaceSaving) and (EditedData.Parts[i].PartType = ptSource) then Continue;
+    case EditedData.Parts[i].PartType of
+      ptSource:
+        CopyDataRegion(DataSource, Dest, EditedData.Parts[i].SourceAddr, EditedData.Parts[i].Addr, EditedData.Parts[i].Size);
+      ptBuffer:
+        Dest.ChangeData(EditedData.Parts[i].Addr, EditedData.Parts[i].Size, EditedData.Parts[i].Data[0]);
+    end;
   end;
+  // TODO: Handle write errors
 
-  // Open new saved file
-  if not SameSource then
+  // If saving in-place, we may have to truncate file
+  if (InplaceSaving) and (dspResizable in Dest.GetProperties()) and
+     (EditedData.GetSize() <> Dest.GetSize) then
+    Dest.SetSize(EditedData.GetSize());
+
+
+  if UseTempFile then
+  // Saving throught temporary file
   begin
-    DataSource.Free;
-    DataSource := Dest;
+    if DataSourceType = TFileDataSource then
+    // Destination is file - rename TempFile to target filename
+    begin
+      DataSource.Free;
+      Dest.Free;
+      DeleteFile(APath);
+      RenameFile(TempFileName, APath);
+      DataSource := TFileDataSource.Create(APath);
+    end
+    else
+    // Not a file - copy tempfile content to destination
+    begin
+      DataSource.Free;
+      DataSource := DataSourceType.Create(APath);
+      DataSource.Open(fmCreate);
+      DataSource.CopyContentFrom(Dest);
+      Dest.Free;
+      DeleteFile(TempFileName);
+    end;
   end
   else
   begin
-
+    if not InplaceSaving then
+    // Switch to new file
+    begin
+      DataSource.Free;
+      DataSource := Dest;
+    end;
   end;
+
+  // Open new saved file for reading
   DataSource.Open(fmOpenRead);
 
-  NewFileOpened(not SameSource);
+  NewFileOpened(False);
 end;
 
 procedure TEditorForm.ScrollToCaret;
@@ -813,7 +895,18 @@ begin
   end;
 end;
 
+procedure TEditorForm.SetInsertMode(Value: Boolean);
+begin
+  if not (dspResizable in DataSource.GetProperties) then Value := False;
+  if FInsertMode <> Value then
+  begin
+    FInsertMode := Value;
+    UpdatePanesCarets();
+  end;
+end;
+
 procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer);
+// AEnd is after last byte of selection
 begin
   if AEnd=-1 then
   begin
@@ -825,7 +918,7 @@ begin
     if AStart>AEnd then
       Swap8Bytes(AStart, AEnd);
     SelStart := AStart;
-    SelLength := AEnd-AStart+1;
+    SelLength := AEnd-AStart;
   end;
   UpdatePanes();
   SelectionChanged();
@@ -883,38 +976,6 @@ begin
     else
       StatusBar.Panels[1].Text := '';
   end;
-end;
-
-function TEditorForm.StartChanges(Addr, Size: TFilePointer): TCachedRegion;
-// Find or create CachedRegion covering given range.
-// May combine several old regions that are overlapped by range.
-var
-  i1, i2: Integer;
-  Regions: TCachedRegionsList;
-  p1, p2: TFilePointer;
-  Data: TBytes;
-begin
-  Regions := GetOverlappingRegions(Addr-1, Size+2, i1, i2);
-  try
-    if Regions.Count = 0 then
-    begin
-      Result := CreateCachedRegion(Addr, Size);
-    end
-    else
-    begin
-      p1 := Min(Addr, Regions.First.Addr);
-      p2 := Max(Addr+Size, Regions.Last.Addr+Regions.Last.Size);
-      Data := GetEditedData(p1, p2-p1, True);
-      Result := Regions[0];
-      Result.Data := Data;
-      Result.Addr := p1;
-      if i2>i1 then
-        CachedRegions.DeleteRange(i1+1, i2-i1);
-    end;
-  finally
-    Regions.Free;
-  end;
-  HasUnsavedChanges := True;
 end;
 
 procedure TEditorForm.EndUpdatePanes;
@@ -1038,48 +1099,24 @@ begin
 end;
 
 procedure TEditorForm.UpdatePanesCarets;
+// Update panes carets and text/background colors
 var
   cp: TPoint;
   p, FirstVis: TFilePointer;
   VisSize: Integer;
-  Cached: TCachedRegionsList;
+  Parts: TEditedData.TDataPartList;
   TxColors, BgColors: TColorArray;
   i: Integer;
-//  j: TFilePointer;
 
   procedure Update(Pane: TEditorPane; CharsPerByte: Integer);
   var
     L, i: Integer;
-//    j: TFilePointer;
-//    N0: TFilePointer;
   begin
-//    // Background colors
-//    N0 := FirstVis;
     L := VisSize*CharsPerByte;
     if Length(Pane.BgColors)<>L then
       SetLength(Pane.BgColors, L);
     if Length(Pane.TxColors)<>L then
       SetLength(Pane.TxColors, L);
-//    for i:=0 to L-1 do
-//    begin
-//      Pane.BgColors[i] := Pane.Color;
-//      Pane.TxColors[i] := Pane.Font.Color;
-//    end;
-//    // Changed bytes
-//    for i:=0 to Cached.Count-1 do
-//    begin
-//      for j:=Max(FirstVis, Cached[i].Addr)*CharsPerByte to Min(FirstVis+VisSize, Cached[i].Addr+Cached[i].Size)*CharsPerByte-1 do
-//        Pane.BgColors[j - FirstVis*CharsPerByte] := Color_ChangedByte;
-//    end;
-//    // Selection background
-//    for i:=0 to L-1 do
-//    begin
-//      if (N0+(i div CharsPerByte)>=SelStart) and (N0+(i div CharsPerByte)<SelStart+SelLength) then
-//      begin
-//        Pane.BgColors[i] := Color_SelectionBg;
-//        Pane.TxColors[i] := Color_SelectionTx;
-//      end;
-//    end;
     for i:=0 to L-1 do
     begin
       Pane.TxColors[i] := TxColors[i div CharsPerByte];
@@ -1088,6 +1125,7 @@ var
 
     // Caret position
     Pane.CaretPos := Point(cp.X*CharsPerByte + IfThen(CharsPerByte>1, CaretInByte, 0), cp.Y);
+    Pane.InsertModeCaret := InsertMode;
   end;
 
 begin
@@ -1096,33 +1134,37 @@ begin
 
   p := FCaretPos - FirstVis;
   cp := Point(p mod ByteColumns, p div ByteColumns);
-  Cached := GetOverlappingRegions(FirstVis, VisSize);
 
-  try
-    SetLength(TxColors, VisSize);
-    SetLength(BgColors, VisSize);
+  SetLength(TxColors, VisSize);
+  SetLength(BgColors, VisSize);
 
-    // Background colors
-    for i:=0 to VisSize-1 do
-    begin
-      BgColors[i] := PaneHex.Color;
-      TxColors[i] := PaneHex.Font.Color;
-    end;
-    // Changed bytes
-    for i:=0 to Cached.Count-1 do
-      FillRangeInColorArray(BgColors, FirstVis, Cached[i].Addr, Cached[i].Addr+Cached[i].Size, Color_ChangedByte);
-    // Selection background
-    FillRangeInColorArray(TxColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionTx);
-    FillRangeInColorArray(BgColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionBg);
-
-    MainForm.ValueFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
-    MainForm.StructFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
-
-    Update(PaneHex, 3);
-    Update(PaneText, 1);
-  finally
-    Cached.Free;
+  // Background colors
+  for i:=0 to VisSize-1 do
+  begin
+    BgColors[i] := PaneHex.Color;
+    TxColors[i] := PaneHex.Font.Color;
   end;
+
+  // Changed bytes
+  Parts := TEditedData.TDataPartList.Create(False);
+  try
+    EditedData.GetOverlappingParts(FirstVis, VisSize, Parts);
+    for i:=0 to Parts.Count-1 do
+      if Parts[i].PartType = ptBuffer then
+        FillRangeInColorArray(BgColors, FirstVis, Parts[i].Addr, Parts[i].Addr+Parts[i].Size, Color_ChangedByte);
+  finally
+    Parts.Free;
+  end;
+
+  // Selection background
+  FillRangeInColorArray(TxColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionTx);
+  FillRangeInColorArray(BgColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionBg);
+
+  MainForm.ValueFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
+  MainForm.StructFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
+
+  Update(PaneHex, 3);
+  Update(PaneText, 1);
 end;
 
 procedure TEditorForm.UpdateScrollBar;

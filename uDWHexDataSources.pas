@@ -25,8 +25,9 @@ type
     function GetProperties(): TDataSourceProperties; virtual;
     function CanBeSaved(): Boolean; virtual;
     function GetSize(): TFilePointer; virtual; abstract;
-    function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; virtual; abstract;
-    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; virtual; abstract;
+    procedure SetSize(NewSize: TFilePointer); virtual;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
     procedure CopyContentFrom(Source: TDWHexDataSource); virtual;
   end;
 
@@ -42,8 +43,9 @@ type
     function GetProperties(): TDataSourceProperties; override;
     function CanBeSaved(): Boolean; override;
     function GetSize(): TFilePointer; override;
-    function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
-    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
+    procedure SetSize(NewSize: TFilePointer); override;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
     procedure CopyContentFrom(Source: TDWHexDataSource); override;
   end;
 
@@ -55,8 +57,8 @@ type
     procedure Open(Mode: Word); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
-    function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
-    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
   end;
 
   TProcMemDataSource = class (TDWHexDataSource)
@@ -68,8 +70,8 @@ type
     procedure Open(Mode: Word); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
-    function GetData(Addr: TFilePointer; Size: Integer; var Data: TBytes): Integer; override;
-    function ChangeData(Addr: TFilePointer; const Data; Size: Integer): Integer; override;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
   end;
 
 
@@ -85,7 +87,7 @@ end;
 
 procedure TDWHexDataSource.CopyContentFrom(Source: TDWHexDataSource);
 const
-  BlockSize = 1*MByte;
+  BlockSize = 10*MByte;
 var
   Buf: TBytes;
   SourceSize, Pos: TFilePointer;
@@ -98,8 +100,8 @@ begin
   while Pos < SourceSize do
   begin
     Size := Min(BlockSize, SourceSize - Pos);
-    Source.GetData(Pos, Size, Buf);
-    ChangeData(Pos, Buf[0], Size);
+    Source.GetData(Pos, Size, Buf[0]);
+    ChangeData(Pos, Size, Buf[0]);
     Pos := Pos + Size;
   end;
 end;
@@ -121,6 +123,11 @@ begin
   Result := [];
 end;
 
+procedure TDWHexDataSource.SetSize(NewSize: TFilePointer);
+begin
+  //raise Exception.Create('Size change not supported');
+end;
+
 { TFileDataSource }
 
 function TFileDataSource.CanBeSaved: Boolean;
@@ -129,8 +136,8 @@ begin
   Result := (inherited) and (ExtractFilePath(Path) <> '');
 end;
 
-function TFileDataSource.ChangeData(Addr: TFilePointer;
-  const Data; Size: Integer): Integer;
+function TFileDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
 begin
   FileStream.Position := Addr;
   //FileStream.WriteBuffer(Data, Size);
@@ -170,7 +177,7 @@ begin
 end;
 
 function TFileDataSource.GetData(Addr: TFilePointer; Size: Integer;
-  var Data: TBytes): Integer;
+  var Data): Integer;
 begin
   if FileStream = nil then
     Exit(0);
@@ -205,10 +212,16 @@ begin
   end;
 end;
 
+procedure TFileDataSource.SetSize(NewSize: TFilePointer);
+begin
+  if FileStream <> nil then
+    FileStream.Size := NewSize;
+end;
+
 { TDiskDataSource }
 
-function TDiskDataSource.ChangeData(Addr: TFilePointer; const Data;
-  Size: Integer): Integer;
+function TDiskDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
 var
   Ptr1, Ptr2: TFilePointer;
   Buf: TBytes;
@@ -221,11 +234,11 @@ begin
   Ptr2 := ((Addr + Size - 1) div SectorAlign + 1) * SectorAlign;
   SetLength(Buf, Ptr2 - Ptr1);
 
-  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf);
+  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf[0]);
 //  Move(Buf[Addr - Ptr1], Data[0], Size);
   Move(Data, Buf[Addr - Ptr1], Size);
 
-  inherited ChangeData(Ptr1, Buf[0], Ptr2 - Ptr1);
+  inherited ChangeData(Ptr1, Ptr2 - Ptr1, Buf[0]);
 
   Result := Size;
 end;
@@ -236,7 +249,7 @@ begin
 end;
 
 function TDiskDataSource.GetData(Addr: TFilePointer; Size: Integer;
-  var Data: TBytes): Integer;
+  var Data): Integer;
 var
   Ptr1, Ptr2: TFilePointer;
   Buf: TBytes;
@@ -249,8 +262,8 @@ begin
   Ptr2 := ((Addr + Size - 1) div SectorAlign + 1) * SectorAlign;
   SetLength(Buf, Ptr2 - Ptr1);
 
-  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf);
-  Move(Buf[Addr - Ptr1], Data[0], Size);
+  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf[0]);
+  Move(Buf[Addr - Ptr1], Data, Size);
 
   Result := Size;
 end;
@@ -281,8 +294,8 @@ end;
 
 { TProcMemDataSource }
 
-function TProcMemDataSource.ChangeData(Addr: TFilePointer; const Data;
-  Size: Integer): Integer;
+function TProcMemDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
 begin
   Win32Check( Bool( WriteProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) ) );
   Result := Size;
@@ -301,13 +314,13 @@ begin
 end;
 
 function TProcMemDataSource.GetData(Addr: TFilePointer; Size: Integer;
-  var Data: TBytes): Integer;
+  var Data): Integer;
 var
   Res: Boolean;
 begin
-  Res := Bool( ReadProcessMemory(hProcess, Pointer(Addr), @Data[0], Size, NativeUInt(nil^)) );
+  Res := Bool( ReadProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) );
   if not Res then
-    ZeroMemory(@Data[0], Size);
+    ZeroMemory(@Data, Size);
   Result := Size;
 end;
 

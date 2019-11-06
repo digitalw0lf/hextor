@@ -63,7 +63,6 @@ object EditorForm: TEditorForm
   OnClose = FormClose
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
-  OnDestroy = FormDestroy
   OnDeactivate = FormDeactivate
   OnResize = FormResize
   PixelsPerInch = 96

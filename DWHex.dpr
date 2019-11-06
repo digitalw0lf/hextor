@@ -12,7 +12,8 @@ uses
   uBitsEditorForm in 'uBitsEditorForm.pas' {BitsEditorForm},
   uEditorForm in 'uEditorForm.pas' {EditorForm},
   uValueFrame in 'uValueFrame.pas' {ValueFrame: TFrame},
-  uStructFrame in 'uStructFrame.pas' {StructFrame: TFrame};
+  uStructFrame in 'uStructFrame.pas' {StructFrame: TFrame},
+  uEditedData in 'uEditedData.pas';
 
 {$R *.res}
 

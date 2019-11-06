@@ -3,6 +3,7 @@ unit uMainForm;
 {$WARN IMPLICIT_STRING_CAST OFF}
 {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
 {$WARN SYMBOL_PLATFORM OFF}
+{$WARN UNIT_PLATFORM OFF}
 //{$WARN SYMBOL_DEPRECATED OFF}
 
 interface
@@ -126,6 +127,7 @@ type
     Tools1: TMenuItem;
     CRC321: TMenuItem;
     Timer1: TTimer;
+    estchangespeed1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure Copyas6Nwords1Click(Sender: TObject);
     procedure Decompress1Click(Sender: TObject);
@@ -166,6 +168,7 @@ type
     procedure EditorClosedTimerTimer(Sender: TObject);
     procedure CRC321Click(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
+    procedure estchangespeed1Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -406,8 +409,17 @@ begin
 
     BeginUpdatePanes();
     try
-      ChangeBytes(CaretPos, Buf);
-      MoveCaret(CaretPos + Length(Buf), []);
+      if InsertMode then
+      begin
+        if SelLength > 0 then
+          DeleteSelected();
+        EditedData.Insert(CaretPos, Length(Buf), @Buf[0]);
+      end
+      else
+      begin
+        ChangeBytes(CaretPos, Buf);
+        MoveCaret(CaretPos + Length(Buf), []);
+      end;
     finally
       EndUpdatePanes();
     end;
@@ -490,7 +502,7 @@ procedure TMainForm.ActionSelectAllExecute(Sender: TObject);
 begin
   with ActiveEditor do
   begin
-    SetSelection(0, GetFileSize()-1);
+    SetSelection(0, GetFileSize());
     UpdatePanes();
   end;
 end;
@@ -620,7 +632,7 @@ var
   i: Integer;
 begin
   bWriteLogFile := True;
-  bThreadedLogWrite := False;
+//  bThreadedLogWrite := False;
   AppSettings := TDWHexSettings.Create();
 
   // Get path to settings folder (AppData\DWHex)
@@ -821,14 +833,15 @@ begin
 end;
 
 procedure TMainForm.Regions1Click(Sender: TObject);
-//var
-//  s: string;
-//  i: Integer;
+var
+  s: string;
+  i: Integer;
 begin
-//  s := '';
-//  for i:=0 to CachedRegions.Count-1 do
-//    s := s + IntToStr(CachedRegions[i].Addr)+' '+IntToStr(CachedRegions[i].Size)+' '+RemUnprintable(MakeStr(CachedRegions[i].Data))+#13#10;
-//  Application.MessageBox(PChar(s),'');
+  s := '';
+  with ActiveEditor.EditedData do
+    for i:=0 to Parts.Count-1 do
+      s := s + IntToStr(Ord(Parts[i].PartType)) + ' ' + IntToStr(Parts[i].Addr)+' '+IntToStr(Parts[i].Size)+' '+RemUnprintable(MakeStr(Copy(Parts[i].Data, 0, 50)))+#13#10;
+  Application.MessageBox(PChar(s),'');
 end;
 
 procedure TMainForm.RemoveEditor(AEditor: TEditorForm);
@@ -879,6 +892,26 @@ procedure TMainForm.EditorClosedTimerTimer(Sender: TObject);
 begin
   EditorClosedTimer.Enabled := False;
   ActiveEditorChanged();
+end;
+
+procedure TMainForm.estchangespeed1Click(Sender: TObject);
+var
+  i: Integer;
+  b: TBytes;
+begin
+  b := Str2Bytes(AnsiString('#SPEEDTEST'));
+
+  with ActiveEditor do
+  begin
+    BeginUpdatePanes();
+    for i:=1 to 10000 do
+    begin
+      StartTimeMeasure();
+      ChangeBytes(Random(GetFileSize() - Length(b)), b);
+      EndTimeMeasure('change', True, 'Timing');
+    end;
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TMainForm.UpdateMDITabs;

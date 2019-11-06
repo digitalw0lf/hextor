@@ -32,7 +32,7 @@ type
   public
     { Public declarations }
     CharSize: TSize;
-    CaretInsertMode: Boolean;
+    InsertModeCaret: Boolean;
     BgColors, TxColors: array of TColor;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -113,11 +113,20 @@ end;
 
 function TEditorPane.GetCharAt(x, y: Integer; var Pos: TPoint): Boolean;
 begin
+  Result := True;
+  if (Lines.Count = 0) then
+  begin
+    Pos.X := 0;
+    Pos.Y := 0;
+    Exit;
+  end;
   Pos.X := x div CharSize.cx;
   Pos.Y := y div CharSize.cy;
-  Result := (Pos.Y>=0) and (Pos.Y<Lines.Count) and (Pos.X>=0) and (Pos.X<Length(Lines[Pos.Y]));
-  // After last char
-  if (Pos.Y=Lines.Count-1) and (Pos.X=Length(Lines[Pos.Y])) then Result := True;
+//  Result := (Pos.Y>=0) and (Pos.Y<Lines.Count) and (Pos.X>=0) and (Pos.X<Length(Lines[Pos.Y]));
+//  // After last char
+//  if (Pos.Y=Lines.Count-1) and (Pos.X=Length(Lines[Pos.Y])) then Result := True;
+  Pos.Y := BoundValue(Pos.Y, 0, Lines.Count-1);
+  Pos.X := BoundValue(Pos.X, 0, Length(Lines[Pos.Y]));
 end;
 
 function TEditorPane.GetText: string;
@@ -137,6 +146,7 @@ begin
   ScrBmp.Canvas.FillRect(ClientRect);
   CharSize := ScrBmp.Canvas.TextExtent('O');
   ColorIndex := 0;
+  // Draw text
   for i:=0 to Lines.Count-1 do
   begin
     s := Lines[i];
@@ -161,6 +171,7 @@ begin
         CurBgColor := clNone;
         CurTxColor := clNone;
       end;
+      // When color changes, draw accumulated chars
       if (CurBgColor<>PrevBgColor) or (CurTxColor<>PrevTxColor) then
       begin
         if j>j1 then
@@ -168,7 +179,7 @@ begin
           s1 := Copy(s, j1+1, j-j1);
           ScrBmp.Canvas.Brush.Color := PrevBgColor;
           ScrBmp.Canvas.Font.Color := PrevTxColor;
-          ScrBmp.Canvas.TextOut(j1*CharSize.cx, i * CharSize.cy, s1);
+          ScrBmp.Canvas.TextOut(j1 * CharSize.cx + 1, i * CharSize.cy, s1);
         end;
         PrevBgColor := CurBgColor;
         PrevTxColor := CurTxColor;
@@ -179,11 +190,12 @@ begin
     end;
   end;
 
+  // Draw caret
   if (FShowCaret) and (CaretPos.Y >= 0) and (CaretPos.Y < Lines.Count) then
   with ScrBmp.Canvas do
   begin
-    R := Rect(CharSize.cx * CaretPos.X, CharSize.cy * CaretPos.Y,
-              CharSize.cx * (CaretPos.X+1), CharSize.cy * (CaretPos.Y+1));
+    R := Rect(CharSize.cx * CaretPos.X + 1, CharSize.cy * CaretPos.Y,
+              CharSize.cx * (CaretPos.X+1) + 1, CharSize.cy * (CaretPos.Y+1));
     if Focused then
     begin
       Pen.Color := clBlack;
@@ -194,12 +206,12 @@ begin
       Pen.Color := clGray;
       Brush.Color := clGray;
     end;
-    if CaretInsertMode then
+    if InsertModeCaret then
     begin
       MoveTo(R.Left, R.Top);
       LineTo(R.Left, R.Bottom);
-      MoveTo(R.Left+1, R.Top);
-      LineTo(R.Left+1, R.Bottom);
+      MoveTo(R.Left-1, R.Top);
+      LineTo(R.Left-1, R.Bottom);
     end
     else
     begin

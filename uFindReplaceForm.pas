@@ -234,7 +234,7 @@ begin
     TargetEditor.BeginUpdatePanes();
     try
       TargetEditor.MoveCaret(Ptr + IfThen(Dir>0, Size-1, 0), []);
-      TargetEditor.SetSelection(Ptr, Ptr + Size - 1);
+      TargetEditor.SetSelection(Ptr, Ptr + Size);
     finally
       TargetEditor.EndUpdatePanes();
     end;

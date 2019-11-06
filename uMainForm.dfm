@@ -112,7 +112,7 @@ object MainForm: TMainForm
             ExplicitHeight = 564
             ColWidths = (
               64
-              207)
+              211)
             RowHeights = (
               21
               21)
@@ -306,6 +306,10 @@ object MainForm: TMainForm
         Caption = 'Tabs'
         OnClick = abs1Click
       end
+      object estchangespeed1: TMenuItem
+        Caption = 'Test change speed'
+        OnClick = estchangespeed1Click
+      end
     end
   end
   object OpenDialog1: TOpenDialog
@@ -450,7 +454,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010109004001040110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010109004001100110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000003000000001002000000000000030
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000001587210000000000000000000000000000000000000000000000

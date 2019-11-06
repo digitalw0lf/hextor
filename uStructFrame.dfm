@@ -17,9 +17,6 @@ object StructFrame: TStructFrame
     Font.Height = -11
     Font.Name = 'Courier New'
     Font.Style = []
-    Lines.Strings = (
-      'int16 n;'
-      'int8 a[n];')
     ParentFont = False
     ScrollBars = ssBoth
     TabOrder = 0
