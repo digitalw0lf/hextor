@@ -74,21 +74,47 @@ object EditorForm: TEditorForm
     Height = 624
     AutoSnap = False
     ResizeStyle = rsUpdate
+    Visible = False
     OnMoved = Splitter1Moved
-    ExplicitHeight = 596
+    ExplicitLeft = 97
+    ExplicitTop = -6
   end
   object Splitter2: TSplitter
-    Left = 788
+    Left = 792
     Top = 0
     Width = 4
     Height = 624
     AutoSnap = False
     ResizeStyle = rsUpdate
+    Visible = False
     OnMoved = Splitter1Moved
+    ExplicitLeft = 788
     ExplicitHeight = 596
   end
-  object PaneHex: TEditorPane
+  object Shape1: TShape
     Left = 103
+    Top = 0
+    Width = 4
+    Height = 624
+    Align = alLeft
+    Brush.Color = 14737632
+    Pen.Style = psClear
+    ExplicitLeft = 93
+    ExplicitTop = -6
+  end
+  object Shape2: TShape
+    Left = 796
+    Top = 0
+    Width = 4
+    Height = 624
+    Align = alLeft
+    Brush.Color = 14737632
+    Pen.Style = psClear
+    ExplicitLeft = 835
+    ExplicitTop = -6
+  end
+  object PaneHex: TEditorPane
+    Left = 107
     Top = 0
     Width = 685
     Height = 624
@@ -136,9 +162,9 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
   end
   object PaneText: TEditorPane
-    Left = 792
+    Left = 800
     Top = 0
-    Width = 240
+    Width = 232
     Height = 624
     Align = alClient
     BevelOuter = bvNone

@@ -5,7 +5,7 @@
         <FrameworkType>VCL</FrameworkType>
         <MainSource>DWHex.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -170,6 +170,12 @@
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uEditedData.pas"/>
+        <DCCReference Include="uCompareFrame.pas">
+            <Form>CompareFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
+        <DCCReference Include="uCallbackList.pas"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txvpck"/>

@@ -18,7 +18,7 @@ uses
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
-  uValueFrame, uStructFrame, uCRC
+  uValueFrame, uStructFrame, uCRC, uCompareFrame
   {, uPathCompressTest};
 
 const
@@ -26,6 +26,7 @@ const
   Color_SelectionBg = clHighlight;
   Color_SelectionTx = clHighlightText;
   Color_ValueHighlightBg = $FFD0A0;
+  Color_DiffBg = $05CBEF;
 
 //  MAX_TAB_WIDTH = 200;
 
@@ -63,12 +64,6 @@ type
     ActionOpen: TAction;
     ActionSave: TAction;
     ActionSaveAs: TAction;
-    View1: TMenuItem;
-    Columnscount1: TMenuItem;
-    MIColumns8: TMenuItem;
-    MIColumns16: TMenuItem;
-    MIColumns32: TMenuItem;
-    MIColumnsByWidth: TMenuItem;
     Regions1: TMenuItem;
     SaveDialog1: TSaveDialog;
     ActionCut: TAction;
@@ -126,6 +121,13 @@ type
     MsgPanel: TPanel;
     Image1: TImage;
     MsgTextBox: TStaticText;
+    ActionCompare: TAction;
+    Compare1: TMenuItem;
+    PgCompare: TTabSheet;
+    CompareFrame: TCompareFrame;
+    ToolButton4: TToolButton;
+    EditByteCols: TComboBox;
+    Timer1: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -140,8 +142,6 @@ type
     procedure ActionGoToEndExecute(Sender: TObject);
     procedure ActionRevertExecute(Sender: TObject);
     procedure ActionFindExecute(Sender: TObject);
-    procedure MIColumns8Click(Sender: TObject);
-    procedure Columnscount1Click(Sender: TObject);
     procedure ActionFindNextExecute(Sender: TObject);
     procedure ActionFindPrevExecute(Sender: TObject);
     procedure ActionGoToAddrExecute(Sender: TObject);
@@ -162,6 +162,11 @@ type
     procedure EditorClosedTimerTimer(Sender: TObject);
     procedure CRC321Click(Sender: TObject);
     procedure estchangespeed1Click(Sender: TObject);
+    procedure ActionCompareExecute(Sender: TObject);
+    procedure EditByteColsKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure EditByteColsSelect(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -169,6 +174,7 @@ type
     procedure InitDefaultSettings();
     procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
+    function GetActiveEditorNoEx: TEditorForm;
     function GetActiveEditor: TEditorForm;
     procedure SetActiveEditor(const Value: TEditorForm);
     function CreateNewEditor(): TEditorForm;
@@ -176,6 +182,7 @@ type
     function GetEditor(Index: Integer): TEditorForm;
     procedure OpenInitialFiles();
     procedure GenerateRecentFilesMenu(Menu: TMenuItem);
+    procedure ApplyByteColEdit();
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
@@ -193,6 +200,7 @@ type
     property Editors[Index: Integer]: TEditorForm read GetEditor;
     procedure AddEditor(AEditor: TEditorForm);
     procedure RemoveEditor(AEditor: TEditorForm);
+    function GetEditorIndex(AEditor: TEditorForm): Integer;
   end;
 
 const
@@ -251,6 +259,12 @@ begin
       ChangeBytes(Addr, Buf);
     end;
   end;
+end;
+
+procedure TMainForm.ActionCompareExecute(Sender: TObject);
+begin
+  PgCompare.Show();
+  CompareFrame.ShowCompareDialog();
 end;
 
 procedure TMainForm.ActionCopyExecute(Sender: TObject);
@@ -513,10 +527,24 @@ begin
 //  Tabs will be updated when editor changes caption
 end;
 
+procedure TMainForm.ApplyByteColEdit;
+// Apply byte column count from edit field
+var
+  n: Integer;
+begin
+  n := StrToIntDef(EditByteCols.Text, -1);
+  AppSettings.ByteColumns := n;
+  SaveSettings();
+  with ActiveEditor do
+    ByteColumnsSetting := n;
+end;
+
 procedure TMainForm.CheckEnabledActions;
 var
   FocusInEditor: Boolean;
 begin
+  ActionCompare.Enabled := (EditorCount >= 2);
+
   try
     with ActiveEditor do
     begin
@@ -566,16 +594,6 @@ begin
   end;
 end;
 
-procedure TMainForm.Columnscount1Click(Sender: TObject);
-begin
-  case AppSettings.ByteColumns of
-    8: MIColumns8.Checked := True;
-    16: MIColumns16.Checked := True;
-    32: MIColumns32.Checked := True;
-    else MIColumnsByWidth.Checked := True;
-  end;
-end;
-
 procedure TMainForm.CRC321Click(Sender: TObject);
 var
   AData: TBytes;
@@ -598,6 +616,7 @@ end;
 function TMainForm.CreateNewEditor: TEditorForm;
 begin
   Result := TEditorForm.Create(Application);
+  Result.ByteColumnsSetting := AppSettings.ByteColumns;
   Result.Visible := True;
 end;
 
@@ -658,6 +677,14 @@ begin
 end;
 
 function TMainForm.GetActiveEditor: TEditorForm;
+begin
+  Result := GetActiveEditorNoEx();
+  if Result = nil then
+    // Silently abort operation that requires active editor
+    raise ENoActiveEditor.Create('No active editor');
+end;
+
+function TMainForm.GetActiveEditorNoEx: TEditorForm;
 var
   Frm: TForm;
 begin
@@ -665,8 +692,7 @@ begin
   if (Frm <> nil) and (Frm is TEditorForm) then
     Result := TEditorForm(Frm)
   else
-    // Silently abort operation that requires active editor
-    raise ENoActiveEditor.Create('No active editor');
+    Result := nil;
 end;
 
 function TMainForm.GetEditor(Index: Integer): TEditorForm;
@@ -677,6 +703,11 @@ end;
 function TMainForm.GetEditorCount: Integer;
 begin
   Result := FEditors.Count;
+end;
+
+function TMainForm.GetEditorIndex(AEditor: TEditorForm): Integer;
+begin
+  Result := FEditors.IndexOf(AEditor);
 end;
 
 function TMainForm.GetIconIndex(DataSource: TDWHexDataSource): Integer;
@@ -750,19 +781,6 @@ begin
           Editors[n].Close();
         end;
     end;
-  end;
-end;
-
-procedure TMainForm.MIColumns8Click(Sender: TObject);
-var
-  n: Integer;
-begin
-  with ActiveEditor do
-  begin
-    n := (Sender as TMenuItem).Tag;
-    AppSettings.ByteColumns := n;
-    CalculateByteColumns();
-    SaveSettings();
   end;
 end;
 
@@ -851,6 +869,35 @@ procedure TMainForm.SetActiveEditor(const Value: TEditorForm);
 begin
   if Value <> nil then
     Value.BringToFront();
+end;
+
+procedure TMainForm.Timer1Timer(Sender: TObject);
+var
+  Editor: TEditorForm;
+begin
+  Editor := GetActiveEditorNoEx();
+  if Editor <> nil then
+  begin
+    EditByteCols.Enabled := True;
+    if Editor.ByteColumnsSetting < 0 then
+      EditByteCols.Text := 'Auto (' + IntToStr(Editor.ByteColumns) + ')'
+    else
+      EditByteCols.Text := IntToStr(Editor.ByteColumns);
+  end
+  else
+    EditByteCols.Enabled := False;
+end;
+
+procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_RETURN then
+    ApplyByteColEdit();
+end;
+
+procedure TMainForm.EditByteColsSelect(Sender: TObject);
+begin
+  ApplyByteColEdit();
 end;
 
 procedure TMainForm.EditorClosedTimerTimer(Sender: TObject);

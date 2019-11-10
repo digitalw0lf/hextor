@@ -13,7 +13,9 @@ uses
   uEditorForm in 'uEditorForm.pas' {EditorForm},
   uValueFrame in 'uValueFrame.pas' {ValueFrame: TFrame},
   uStructFrame in 'uStructFrame.pas' {StructFrame: TFrame},
-  uEditedData in 'uEditedData.pas';
+  uEditedData in 'uEditedData.pas',
+  uCompareFrame in 'uCompareFrame.pas' {CompareFrame: TFrame},
+  uCallbackList in 'uCallbackList.pas';
 
 {$R *.res}
 

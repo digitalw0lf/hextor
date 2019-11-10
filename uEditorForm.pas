@@ -7,7 +7,8 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
 
-  uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData;
+  uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData,
+  uCallbackList;
 
 type
   TEditorForm = class;
@@ -30,6 +31,8 @@ type
     PMISelectAll: TMenuItem;
     N6: TMenuItem;
     PMIBitsEditor: TMenuItem;
+    Shape1: TShape;
+    Shape2: TShape;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -65,6 +68,7 @@ type
     FByteColumns: Integer;
     FLinesPerScrollBarTick: Integer;
     FInsertMode: Boolean;
+    FByteColumnsSetting: Integer;
 
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
@@ -83,6 +87,7 @@ type
     function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
     procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
     procedure SomeDataChanged();
+    procedure SetByteColumnsSetting(const Value: Integer);
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
@@ -91,6 +96,8 @@ type
     EditedData: TEditedData;
 //    CachedRegions: TCachedRegionsList;
     SelStart, SelLength: TFilePointer;
+    OnClosed: TCallbackListP1<TEditorForm>;
+    OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
@@ -118,6 +125,7 @@ type
       var InplaceSaving, UseTempFile: Boolean): Boolean;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property ByteColumns: Integer read FByteColumns write SetByteColumns;
+    property ByteColumnsSetting: Integer read FByteColumnsSetting write SetByteColumnsSetting;
     procedure CalculateByteColumns();
     function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
     procedure DataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
@@ -215,12 +223,14 @@ procedure TEditorForm.CalculateByteColumns();
 var
   Cols: Integer;
 begin
-  if AppSettings.ByteColumns > 0 then
-    ByteColumns := AppSettings.ByteColumns
+  if ByteColumnsSetting > 0 then
+    ByteColumns := ByteColumnsSetting
   else
   begin
-    Cols := Min( PaneHex.ClientWidth div (PaneHex.CharWidth*3),
-                 PaneText.ClientWidth div (PaneText.CharWidth));
+//    Cols := Min( PaneHex.ClientWidth div (PaneHex.CharWidth*3),
+//                 PaneText.ClientWidth div (PaneText.CharWidth));
+    //Cols := (PaneHex.ClientWidth + PaneText.ClientWidth - PaneText.CharWidth) div (PaneHex.CharWidth*3 + PaneText.CharWidth);
+    Cols := (VertScrollBar.Left - PaneHex.Left - PaneHex.CharWidth - PaneText.CharWidth) div (PaneHex.CharWidth*3 + PaneText.CharWidth);
     if Cols < 1 then Cols := 1;
     ByteColumns :=  Cols;
   end;
@@ -317,6 +327,7 @@ end;
 procedure TEditorForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   Action := caFree;
+  OnClosed.Call(Self);
 end;
 
 procedure TEditorForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -387,8 +398,6 @@ procedure TEditorForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
     CaretInByte := cb;
   end;
 
-var
-  ARange: TFileRange;
 begin
   BeginUpdatePanes();
   try
@@ -718,7 +727,7 @@ end;
 
 procedure TEditorForm.Splitter1Moved(Sender: TObject);
 begin
-  CalculateByteColumns();
+//  CalculateByteColumns();
 end;
 
 procedure TEditorForm.VertScrollBarChange(Sender: TObject);
@@ -849,25 +858,36 @@ begin
   begin
     BeginUpdatePanes();
     try
-      // Keep caret in view, if it is now
       if ByteColumns > 0 then
         CaretLineOnScreen := CaretPos div ByteColumns - TopVisibleRow
       else
         CaretLineOnScreen := 0;
-      // else approximately track view position in file
       NewTopRow := Round((TopVisibleRow * ByteColumns) / Value);
 
       FByteColumns := Value;
 
+      PaneHex.Width := (FByteColumns * 3 + 1) * PaneHex.CharWidth;
+
       UpdateScrollBar();
+      // Keep caret in view, if it is now
       if (CaretLineOnScreen >= 0) and (CaretLineOnScreen < GetVisibleRowsCount()) then
         TopVisibleRow := CaretPos div ByteColumns - CaretLineOnScreen
+      // else approximately track view position in file
       else
         TopVisibleRow := NewTopRow;
       UpdatePanes();
     finally
       EndUpdatePanes();
     end;
+  end;
+end;
+
+procedure TEditorForm.SetByteColumnsSetting(const Value: Integer);
+begin
+  if FByteColumnsSetting <> Value then
+  begin
+    FByteColumnsSetting := Value;
+    CalculateByteColumns();
   end;
 end;
 
@@ -959,6 +979,8 @@ begin
       end;
     end;
     UpdatePanes();
+
+    OnVisibleRangeChanged.Call(Self);
   end;
 end;
 
@@ -1181,8 +1203,10 @@ begin
   FillRangeInColorArray(TxColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionTx);
   FillRangeInColorArray(BgColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionBg);
 
-  MainForm.ValueFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
+  // Tools
+  MainForm.CompareFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
   MainForm.StructFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
+  MainForm.ValueFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
 
   Update(PaneHex, 3);
   Update(PaneText, 1);

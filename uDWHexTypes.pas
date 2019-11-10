@@ -29,14 +29,6 @@ type
     constructor Create(BStart, BEnd: TFilePointer);
   end;
 
-//  TCachedRegion = class
-//    Addr: TFilePointer;
-//    Data: TBytes;
-//    function Size(): TFilePointer;
-//  end;
-//
-//  TCachedRegionsList = TObjectList<TCachedRegion>;
-
   ENoActiveEditor = class (EAbort);
 
   TColorArray = array of TColor;
@@ -130,12 +122,5 @@ procedure TFileRange.SetSize(Value: TFilePointer);
 begin
   AEnd := Start + Value;
 end;
-
-//{ TCachedRegion }
-//
-//function TCachedRegion.Size: TFilePointer;
-//begin
-//  Result := Length(Data);
-//end;
 
 end.
