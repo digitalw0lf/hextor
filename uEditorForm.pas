@@ -82,6 +82,9 @@ type
     procedure SetInsertMode(Value: Boolean);
     function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
     procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
+    procedure SomeDataChanged();
+//  public type
+//    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
     { Public declarations }
     DataSource: TDWHexDataSource;
@@ -111,10 +114,12 @@ type
     procedure BeginUpdatePanes();
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
+    function ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
+      var InplaceSaving, UseTempFile: Boolean): Boolean;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property ByteColumns: Integer read FByteColumns write SetByteColumns;
     procedure CalculateByteColumns();
-    function GetSelectedOrAfterCaret(MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
+    function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
     procedure DataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataInserted(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataDeleted(Addr: TFilePointer; Size: TFilePointer);
@@ -226,6 +231,21 @@ begin
   EditedData.Change(Addr, Length(Value), @Value[0]);
 end;
 
+function TEditorForm.ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
+  var InplaceSaving, UseTempFile: Boolean): Boolean;
+// How can we save our modified data to given target:
+// Can we only write changed parts, or maybe we'll have to use temp file?
+var
+  SameSource: Boolean;
+begin
+  SameSource := (DataSourceType = DataSource.ClassType) and
+                (SameFileName(APath, DataSource.Path));
+
+  InplaceSaving := SameSource and (not EditedData.HasMovements());
+  UseTempFile := (SameSource) and (not InplaceSaving);
+  Result := True;
+end;
+
 procedure TEditorForm.CopyDataRegion(Source, Dest: TDWHexDataSource; SourceAddr,
   DestAddr, Size: TFilePointer);
 const
@@ -250,8 +270,7 @@ end;
 procedure TEditorForm.DataChanged(Addr, Size: TFilePointer;
   const Value: PByteArray);
 begin
-  HasUnsavedChanges := True;
-  UpdatePanes();
+  SomeDataChanged();
   if (Addr <= SelStart + SelLength) and (Addr + Size >= SelStart) then
     SelectionChanged();
 end;
@@ -260,8 +279,7 @@ procedure TEditorForm.DataDeleted(Addr, Size: TFilePointer);
 begin
   AdjustPointersPositions(Addr, -Size);
 
-  HasUnsavedChanges := True;
-  UpdatePanes();
+  SomeDataChanged();
 
   if (Addr <= SelStart + SelLength) and (Addr + Size >= SelStart) then
     SelectionChanged();
@@ -448,6 +466,7 @@ begin
     begin
       case Key of
         Ord('A'): MainForm.ActionSelectAll.Execute();
+        Ord('X'): MainForm.ActionCut.Execute();
         Ord('C'): MainForm.ActionCopy.Execute();
         Ord('V'): MainForm.ActionPaste.Execute();
         Ord('F'): MainForm.ActionFind.Execute();
@@ -564,7 +583,7 @@ begin
     Result := 0;
 end;
 
-function TEditorForm.GetSelectedOrAfterCaret(MaxSize: Integer; var Addr: TFilePointer;
+function TEditorForm.GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer;
   NothingIfMore: Boolean): TBytes;
 // Return selected data or data block after caret, if nothing selected.
 // NothingIfMore: return nothing if selection length is more then specified.
@@ -580,7 +599,7 @@ begin
   end
   else
   begin
-    Size := Min(MaxSize, GetFileSize()-CaretPos);
+    Size := Min(DefaultSize, GetFileSize()-CaretPos);
     Addr := CaretPos;
   end;
 
@@ -617,10 +636,10 @@ procedure TEditorForm.NewFileOpened(ResetCaret: Boolean);
 begin
   BeginUpdatePanes();
   try
-    HasUnsavedChanges := False;
     EditedData.DataSource := DataSource;
     EditedData.Resizable := (dspResizable in DataSource.GetProperties());
     EditedData.ResetParts();
+    HasUnsavedChanges := False;
 
     MainForm.ImageList16.GetIcon(MainForm.GetIconIndex(DataSource), Icon);
     UpdateFormCaption();
@@ -710,20 +729,14 @@ end;
 procedure TEditorForm.SaveFile(DataSourceType: TDWHexDataSourceType; const APath: string);
 var
   i: Integer;
-  //FS: TFileStream;
   Dest: TDWHexDataSource;
-  SameSource, InplaceSaving, UseTempFile: Boolean;
+  InplaceSaving, UseTempFile: Boolean;
   TempFileName: string;
 begin
   if (DataSourceType=nil) or (APath='') then Exit;
 
-  SameSource := (DataSourceType = DataSource.ClassType) and
-                (SameFileName(APath, DataSource.Path));
-  InplaceSaving := SameSource and (not EditedData.HasMovements());
-  UseTempFile := (SameSource) and (not InplaceSaving);
-
-//  if (not InplaceSaving) and (DataSourceType<>TFileDataSource) then
-//    raise Exception.Create('Unsupported save attempt');
+  if not ChooseSaveMethod(DataSourceType, APath, InplaceSaving, UseTempFile) then
+    raise Exception.Create('Cannot save this data to this target');
 
   if InplaceSaving then
   // If saving to same file, re-open it for writing
@@ -892,6 +905,7 @@ begin
     FHasUnsavedChanges := Value;
     MainForm.CheckEnabledActions();
     UpdateFormCaption();
+    MainForm.UpdateMsgPanel();
   end;
 end;
 
@@ -976,6 +990,13 @@ begin
     else
       StatusBar.Panels[1].Text := '';
   end;
+end;
+
+procedure TEditorForm.SomeDataChanged;
+begin
+  HasUnsavedChanges := True;
+  UpdatePanes();
+  MainForm.UpdateMsgPanel();
 end;
 
 procedure TEditorForm.EndUpdatePanes;

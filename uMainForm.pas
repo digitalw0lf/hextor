@@ -55,9 +55,6 @@ type
     ToolBar1: TToolBar;
     OpenDialog1: TOpenDialog;
     est1: TMenuItem;
-    Copyas6Nwords1: TMenuItem;
-    N1: TMenuItem;
-    Decompress1: TMenuItem;
     ToolButton1: TToolButton;
     ToolButton2: TToolButton;
     ToolButton3: TToolButton;
@@ -113,7 +110,6 @@ type
     OpenProcessMemory1: TMenuItem;
     ActionBitsEditor: TAction;
     MDITabs: TTabControl;
-    abs1: TMenuItem;
     RecentFilesMenu: TPopupMenu;
     MIDummyRecentFile1: TMenuItem;
     RightPanel: TPanel;
@@ -126,18 +122,17 @@ type
     EditorClosedTimer: TTimer;
     Tools1: TMenuItem;
     CRC321: TMenuItem;
-    Timer1: TTimer;
     estchangespeed1: TMenuItem;
+    MsgPanel: TPanel;
+    Image1: TImage;
+    MsgTextBox: TStaticText;
     procedure FormCreate(Sender: TObject);
-    procedure Copyas6Nwords1Click(Sender: TObject);
-    procedure Decompress1Click(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure ActionSaveExecute(Sender: TObject);
     procedure Regions1Click(Sender: TObject);
     procedure ActionSaveAsExecute(Sender: TObject);
     procedure ActionNewExecute(Sender: TObject);
-    procedure N1Click(Sender: TObject);
     procedure ActionCopyExecute(Sender: TObject);
     procedure ActionPasteExecute(Sender: TObject);
     procedure ActionSelectAllExecute(Sender: TObject);
@@ -157,7 +152,6 @@ type
     procedure ActionOpenDiskExecute(Sender: TObject);
     procedure ActionOpenProcMemoryExecute(Sender: TObject);
     procedure ActionBitsEditorExecute(Sender: TObject);
-    procedure abs1Click(Sender: TObject);
     procedure MDITabsChange(Sender: TObject);
     procedure MDITabsGetImageIndex(Sender: TObject; TabIndex: Integer;
       var ImageIndex: Integer);
@@ -167,7 +161,6 @@ type
     procedure RecentFilesMenuPopup(Sender: TObject);
     procedure EditorClosedTimerTimer(Sender: TObject);
     procedure CRC321Click(Sender: TObject);
-    procedure Timer1Timer(Sender: TObject);
     procedure estchangespeed1Click(Sender: TObject);
   private
     { Private declarations }
@@ -191,6 +184,7 @@ type
     procedure SaveSettings();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
+    procedure UpdateMsgPanel();
     procedure ActiveEditorChanged();
     procedure SelectionChanged();
     function GetIconIndex(DataSource: TDWHexDataSource): Integer;
@@ -216,11 +210,6 @@ uses uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm;
 
 { TMainForm }
 
-procedure TMainForm.abs1Click(Sender: TObject);
-begin
-  UpdateMDITabs();
-end;
-
 procedure TMainForm.ActionBitsEditorExecute(Sender: TObject);
 var
   Addr{, Size}: TFilePointer;
@@ -242,7 +231,7 @@ begin
 //    end;
 //    Buf := GetEditedData(Addr, Size);
 
-    Buf := GetSelectedOrAfterCaret(4, Addr, True);
+    Buf := GetSelectedOrAfterCaret(1, 4, Addr, True);
 
 
   //  if Length(Buf) < Size then Exit;
@@ -279,6 +268,9 @@ begin
     else
       s := MakeStr(Buf);
     Clipboard.AsText := s;
+
+    if Sender = ActionCut then
+      DeleteSelected();
   end;
 end;
 
@@ -510,7 +502,7 @@ end;
 procedure TMainForm.ActiveEditorChanged;
 begin
   UpdateMDITabs();
-//  CheckEnabledActions();
+  UpdateMsgPanel();
   SelectionChanged();
 end;
 
@@ -534,7 +526,7 @@ begin
       ActionRevert.Enabled := (HasUnsavedChanges);
 
       ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
-      ActionCut.Enabled := ActionCopy.Enabled;
+      ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
       ActionPaste.Enabled := FocusInEditor;
 
       ActionSelectAll.Enabled := FocusInEditor;
@@ -582,23 +574,6 @@ begin
     32: MIColumns32.Checked := True;
     else MIColumnsByWidth.Checked := True;
   end;
-end;
-
-procedure TMainForm.Copyas6Nwords1Click(Sender: TObject);
-//var
-//  i: Integer;
-//  s: TStringBuilder;
-begin
-//  s := TStringBuilder.Create();
-//  for i:=0 to Length(FileData) div 2-1 do
-//  begin
-//    s.Append(IntToStr(pSmallInt(@FileData[i*2])^)+#9);
-//    if (i+1) mod 6=0 then
-//      s.Append(#13#10);
-//  end;
-//  Clipboard.AsText := s.ToString;
-//  s.Free;
-
 end;
 
 procedure TMainForm.CRC321Click(Sender: TObject);
@@ -802,11 +777,6 @@ begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
 end;
 
-procedure TMainForm.N1Click(Sender: TObject);
-begin
-//  TestCompress();
-end;
-
 procedure TMainForm.OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
 begin
   with CreateNewEditor() do
@@ -883,11 +853,6 @@ begin
     Value.BringToFront();
 end;
 
-procedure TMainForm.Timer1Timer(Sender: TObject);
-begin
-//  Caption := Screen.ActiveControl.Name;
-end;
-
 procedure TMainForm.EditorClosedTimerTimer(Sender: TObject);
 begin
   EditorClosedTimer.Enabled := False;
@@ -940,9 +905,40 @@ begin
   RedrawWindow(Handle, nil, 0, RDW_FRAME or RDW_INVALIDATE);
 end;
 
-procedure TMainForm.Decompress1Click(Sender: TObject);
+procedure TMainForm.UpdateMsgPanel();
+// Show warning for active editor if there is any
+const
+  WarnSize = 100*MByte;
+var
+  InplaceSaving, UseTempFile: Boolean;
+  ShowMsg: Boolean;
+  ASize: TFilePointer;
 begin
-//  TestDecompress();
+  with ActiveEditor do
+  begin
+    ShowMsg := False;
+    if (DataSource <> nil) then
+    begin
+      if ChooseSaveMethod(TDWHexDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
+      begin
+        ASize := EditedData.GetSize();
+        if ASize > WarnSize then
+        begin
+          if UseTempFile then
+          begin
+            ShowMsg := True;
+            MsgTextBox.Caption := 'Saving your changes will require temporary file of ' + FileSize2Str(ASize);
+          end;
+        end;
+      end
+      else
+      begin
+        ShowMsg := True;
+        MsgTextBox.Caption := 'Cannot save such changes to original source';
+      end;
+    end;
+    MsgPanel.Visible := ShowMsg;
+  end;
 end;
 
 procedure TMainForm.WMDropFiles(var Msg: TWMDropFiles);

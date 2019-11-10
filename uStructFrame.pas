@@ -522,7 +522,7 @@ var
 begin
   FEditor := MainForm.ActiveEditor;
   with FEditor do
-    AData := GetSelectedOrAfterCaret(100*KByte, Addr, True);
+    AData := GetSelectedOrAfterCaret(100*KByte, 100*KByte, Addr, True);
   Analyze(MainForm.ActiveEditor.SelStart, AData, DSDescrMemo.Text);
 end;
 

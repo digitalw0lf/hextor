@@ -29,7 +29,9 @@ type
     function SplitPart(Index: Integer; Addr: TFilePointer): Boolean;
     procedure CombineParts(Index1, Index2: Integer);
     function StartPartChange(Addr, Size: TFilePointer; InitContents: Boolean): TDataPart;
-//    function FindPart(Addr: TFilePointer; var Index: Integer): Boolean;
+//    procedure BeforeDataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
+//    procedure BeforeDataInserted(Addr: TFilePointer; Size: TFilePointer);
+//    procedure BeforeDataDeleted(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataInserted(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataDeleted(Addr: TFilePointer; Size: TFilePointer);
@@ -142,27 +144,6 @@ begin
   Parts.Free;
   inherited;
 end;
-
-//function TEditedData.FindPart(Addr: TFilePointer; var Index: Integer): Boolean;
-//var
-//  i: Integer;
-//begin
-//  for i:=0 to Parts.Count-1 do
-//  begin
-//    if Parts[i].Addr>Addr then
-//    begin
-//      Index := i;
-//      Exit(False);
-//    end;
-//    if Parts[i].Addr+Parts[i].Size>Addr then
-//    begin
-//      Index := i;
-//      Exit(True);
-//    end;
-//  end;
-//  Index := Parts.Count;
-//  Result := False;
-//end;
 
 function TEditedData.Get(Addr: TFilePointer; Size: TFilePointer;
   ZerosBeyondEoF: Boolean): TBytes;

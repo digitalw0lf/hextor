@@ -290,7 +290,7 @@ begin
 
   with FEditor do
   begin
-    Data := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
+    Data := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
     Greedy := (SelLength > 0);
 
     SetKGridRowCount(ValuesGrid, Interpretors.Count + 1);
