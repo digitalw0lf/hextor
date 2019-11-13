@@ -69,7 +69,7 @@ type
     FLinesPerScrollBarTick: Integer;
     FInsertMode: Boolean;
     FByteColumnsSetting: Integer;
-
+    FPrevVisibleRange: TFileRange;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
@@ -321,7 +321,8 @@ end;
 
 procedure TEditorForm.FormActivate(Sender: TObject);
 begin
-  MainForm.ActiveEditorChanged();
+  if DataSource <> nil then
+    MainForm.ActiveEditorChanged();
 end;
 
 procedure TEditorForm.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -979,8 +980,6 @@ begin
       end;
     end;
     UpdatePanes();
-
-    OnVisibleRangeChanged.Call(Self);
   end;
 end;
 
@@ -1061,7 +1060,7 @@ var
   Lines: TStringList;
   s: AnsiString;
   c: AnsiChar;
-  FirstVisibleAddress: TFilePointer;
+  FirstVisibleAddress, VisibleRangeEnd: TFilePointer;
   IncludesFileEnd: Boolean;
 begin
   if FUpdating>0 then
@@ -1076,6 +1075,7 @@ begin
     Rows := GetVisibleRowsCount();
     FirstVisibleAddress := FirstVisibleAddr();
     Data := GetEditedData(FirstVisibleAddress, Rows * ByteColumns);
+    VisibleRangeEnd := FirstVisibleAddress + Length(Data);
     IncludesFileEnd := (Length(Data) < Rows * ByteColumns);
     sb := TStringBuilder.Create();
     Lines := TStringList.Create();
@@ -1136,6 +1136,13 @@ begin
     Lines.Free;
 
     UpdatePanesCarets();
+
+    if (FirstVisibleAddress <> FPrevVisibleRange.Start) or (VisibleRangeEnd <> FPrevVisibleRange.AEnd) then
+    begin
+      OnVisibleRangeChanged.Call(Self);
+      FPrevVisibleRange.Start := FirstVisibleAddress;
+      FPrevVisibleRange.AEnd := VisibleRangeEnd;
+    end;
   finally
     EndUpdatePanes();
   end;

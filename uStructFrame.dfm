@@ -32,6 +32,7 @@ object StructFrame: TStructFrame
     RightClickSelect = True
     TabOrder = 1
     OnChange = DSTreeViewChange
+    OnDblClick = DSTreeViewDblClick
     OnEnter = DSTreeViewEnter
     OnExit = DSTreeViewExit
   end
@@ -142,6 +143,17 @@ object StructFrame: TStructFrame
       TabOrder = 0
       OnClick = Button1Click
     end
+  end
+  object EditFieldValue: TEdit
+    Left = 144
+    Top = 304
+    Width = 121
+    Height = 21
+    TabOrder = 4
+    Text = 'EditFieldValue'
+    Visible = False
+    OnExit = EditFieldValueExit
+    OnKeyDown = EditFieldValueKeyDown
   end
   object SavedDescrsMenu: TPopupMenu
     AutoHotkeys = maManual

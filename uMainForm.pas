@@ -39,6 +39,7 @@ type
   public
     ScrollWithWheel: Integer;
     ByteColumns: Integer;  // -1 - auto
+    ActiveRightPage: Integer;
     RecentFiles: array of TRecentFileRec;
 //    Colors: record
 //      ValueHighlightBg: TColor;
@@ -114,7 +115,7 @@ type
     PgStruct: TTabSheet;
     ValueFrame: TValueFrame;
     StructFrame: TStructFrame;
-    EditorClosedTimer: TTimer;
+    AfterEventTimer: TTimer;
     Tools1: TMenuItem;
     CRC321: TMenuItem;
     estchangespeed1: TMenuItem;
@@ -159,18 +160,19 @@ type
     procedure MDITabsMouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure RecentFilesMenuPopup(Sender: TObject);
-    procedure EditorClosedTimerTimer(Sender: TObject);
+    procedure AfterEventTimerTimer(Sender: TObject);
     procedure CRC321Click(Sender: TObject);
     procedure estchangespeed1Click(Sender: TObject);
     procedure ActionCompareExecute(Sender: TObject);
     procedure EditByteColsKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure EditByteColsSelect(Sender: TObject);
-    procedure Timer1Timer(Sender: TObject);
+    procedure RightPanelPageControlChange(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
     FInitialFilesOpened: Boolean;
+    FDoAfterEvent: array of TProc;
     procedure InitDefaultSettings();
     procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
@@ -183,6 +185,7 @@ type
     procedure OpenInitialFiles();
     procedure GenerateRecentFilesMenu(Menu: TMenuItem);
     procedure ApplyByteColEdit();
+    procedure UpdateByteColEdit();
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
@@ -201,6 +204,7 @@ type
     procedure AddEditor(AEditor: TEditorForm);
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
+    procedure DoAfterEvent(Proc: TProc);
   end;
 
 const
@@ -516,6 +520,7 @@ end;
 procedure TMainForm.ActiveEditorChanged;
 begin
   UpdateMDITabs();
+  UpdateByteColEdit();
   UpdateMsgPanel();
   SelectionChanged();
 end;
@@ -537,6 +542,7 @@ begin
   SaveSettings();
   with ActiveEditor do
     ByteColumnsSetting := n;
+  DoAfterEvent(UpdateByteColEdit);
 end;
 
 procedure TMainForm.CheckEnabledActions;
@@ -617,7 +623,18 @@ function TMainForm.CreateNewEditor: TEditorForm;
 begin
   Result := TEditorForm.Create(Application);
   Result.ByteColumnsSetting := AppSettings.ByteColumns;
-  Result.Visible := True;
+  Result.OnVisibleRangeChanged.Add(procedure (Sender: TEditorForm)
+    begin
+      if Sender = GetActiveEditorNoEx() then UpdateByteColEdit();
+    end);
+  // Call ActiveEditorChanged when this editor has DataSource etc.
+  DoAfterEvent(ActiveEditorChanged);
+end;
+
+procedure TMainForm.DoAfterEvent(Proc: TProc);
+begin
+  FDoAfterEvent := FDoAfterEvent + [TProc(Proc)];
+  AfterEventTimer.Enabled := True;
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -643,6 +660,7 @@ begin
   DragAcceptFiles(Handle, True);
 
   FEditors := TObjectList<TEditorForm>.Create(False);
+  RightPanelPageControl.ActivePageIndex := AppSettings.ActiveRightPage;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -836,7 +854,12 @@ procedure TMainForm.RemoveEditor(AEditor: TEditorForm);
 begin
   FEditors.Remove(AEditor);
   // Update tabs and interface when editor form will be destroyed
-  EditorClosedTimer.Enabled := True;
+  DoAfterEvent(ActiveEditorChanged);
+end;
+
+procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
+begin
+  AppSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
 end;
 
 procedure TMainForm.SaveSettings;
@@ -871,23 +894,6 @@ begin
     Value.BringToFront();
 end;
 
-procedure TMainForm.Timer1Timer(Sender: TObject);
-var
-  Editor: TEditorForm;
-begin
-  Editor := GetActiveEditorNoEx();
-  if Editor <> nil then
-  begin
-    EditByteCols.Enabled := True;
-    if Editor.ByteColumnsSetting < 0 then
-      EditByteCols.Text := 'Auto (' + IntToStr(Editor.ByteColumns) + ')'
-    else
-      EditByteCols.Text := IntToStr(Editor.ByteColumns);
-  end
-  else
-    EditByteCols.Enabled := False;
-end;
-
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
@@ -900,10 +906,19 @@ begin
   ApplyByteColEdit();
 end;
 
-procedure TMainForm.EditorClosedTimerTimer(Sender: TObject);
+procedure TMainForm.AfterEventTimerTimer(Sender: TObject);
+var
+  i: Integer;
+  AProc: TProc;
 begin
-  EditorClosedTimer.Enabled := False;
-  ActiveEditorChanged();
+  AfterEventTimer.Enabled := False;
+
+  for i:=0 to Length(FDoAfterEvent)-1 do
+  begin
+    AProc := FDoAfterEvent[0];
+    Delete(FDoAfterEvent, 0, 1);
+    AProc();
+  end;
 end;
 
 procedure TMainForm.estchangespeed1Click(Sender: TObject);
@@ -924,6 +939,23 @@ begin
     end;
     EndUpdatePanes();
   end;
+end;
+
+procedure TMainForm.UpdateByteColEdit;
+var
+  Editor: TEditorForm;
+begin
+  Editor := GetActiveEditorNoEx();
+  if Editor <> nil then
+  begin
+    EditByteCols.Enabled := True;
+    if Editor.ByteColumnsSetting <= 0 then
+      EditByteCols.Text := 'Auto (' + IntToStr(Editor.ByteColumns) + ')'
+    else
+      EditByteCols.Text := IntToStr(Editor.ByteColumns);
+  end
+  else
+    EditByteCols.Enabled := False;
 end;
 
 procedure TMainForm.UpdateMDITabs;

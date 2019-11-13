@@ -75,6 +75,7 @@ object MainForm: TMainForm
       Width = 74
       Height = 21
       Hint = 'Byte column count'
+      AutoComplete = False
       ItemIndex = 0
       TabOrder = 0
       Text = 'Auto'
@@ -116,9 +117,12 @@ object MainForm: TMainForm
       Top = 0
       Width = 284
       Height = 551
-      ActivePage = PgCompare
+      ActivePage = PgValue
       Align = alClient
       TabOrder = 0
+      OnChange = RightPanelPageControlChange
+      ExplicitLeft = 6
+      ExplicitTop = -3
       object PgValue: TTabSheet
         Caption = 'Value'
         inline ValueFrame: TValueFrame
@@ -137,7 +141,7 @@ object MainForm: TMainForm
             ExplicitHeight = 523
             ColWidths = (
               64
-              211)
+              207)
             RowHeights = (
               21
               21)
@@ -180,6 +184,7 @@ object MainForm: TMainForm
         end
       end
       object PgCompare: TTabSheet
+        Hint = 'Compare two opened files'
         Caption = 'Compare'
         ImageIndex = 2
         inline CompareFrame: TCompareFrame
@@ -187,12 +192,10 @@ object MainForm: TMainForm
           Top = 0
           Width = 276
           Height = 523
-          Hint = 'Exit compare mode'
           Align = alClient
           DoubleBuffered = True
+          ParentBackground = False
           ParentDoubleBuffered = False
-          ParentShowHint = False
-          ShowHint = True
           TabOrder = 0
           ExplicitWidth = 276
           ExplicitHeight = 523
@@ -525,7 +528,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010D004001400110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010D0040014C0110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -1070,16 +1073,15 @@ object MainForm: TMainForm
       Visible = False
     end
   end
-  object EditorClosedTimer: TTimer
+  object AfterEventTimer: TTimer
     Enabled = False
     Interval = 1
-    OnTimer = EditorClosedTimerTimer
+    OnTimer = AfterEventTimerTimer
     Left = 48
     Top = 224
   end
   object Timer1: TTimer
     Interval = 100
-    OnTimer = Timer1Timer
     Left = 48
     Top = 296
   end

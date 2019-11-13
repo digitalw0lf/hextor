@@ -23,6 +23,7 @@ type
     Name: string;
     BufAddr: TFilePointer;
     BufSize: Integer;
+    DescrLineNum: Integer;  // Line number in structure description text
     constructor Create(); virtual;
     procedure Assign(Source: TDSField); virtual;
     function Duplicate(): TDSField;
@@ -36,6 +37,8 @@ type
     Data: TBytes;
     constructor Create(); override;
     procedure Assign(Source: TDSField); override;
+    function ToString(): string; override;
+    procedure SetFromString(const S: string); virtual;
   end;
 
   // For arrays and structures
@@ -64,6 +67,7 @@ type
   TDSParser = class
   private
     BufStart, BufEnd, Ptr: PChar;
+    CurLineNum: Integer;
     function CharValidInName(C: Char): Boolean;
     procedure CheckValidName(const S: string);
     function ReadChar(): Char;
@@ -74,6 +78,7 @@ type
     function ReadType(): TDSField;
     function ReadStruct(): TDSStruct;
     function MakeArray(AType: TDSField; const ACount: string): TDSArray;
+    procedure EraseComments(var Buf: string);
   public
     function ParseStruct(const Descr: string): TDSStruct;
   end;
@@ -107,6 +112,7 @@ type
     SavedDescrsMenu: TPopupMenu;
     MIDummyDataStruct: TMenuItem;
     SaveDialog1: TSaveDialog;
+    EditFieldValue: TEdit;
     procedure Button1Click(Sender: TObject);
     procedure BtnLoadDescrClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
@@ -121,6 +127,10 @@ type
     procedure DSTreeViewChange(Sender: TObject; Node: TTreeNode);
     procedure DSTreeViewEnter(Sender: TObject);
     procedure DSTreeViewExit(Sender: TObject);
+    procedure DSTreeViewDblClick(Sender: TObject);
+    procedure EditFieldValueExit(Sender: TObject);
+    procedure EditFieldValueKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
   private
     { Private declarations }
     FParser: TDSParser;
@@ -128,6 +138,8 @@ type
     MPos: TPoint;
     ShownDS: TDSField;
     FEditor: TEditorForm;
+    EditedNode: TTreeNode;
+    EditedDS: TDSSimpleField;
     procedure ShowStructTree(DS: TDSField; ParentNode: TTreeNode);
     function DSSaveFolder(): string;
   public
@@ -213,49 +225,105 @@ begin
   end;
 end;
 
+procedure TDSParser.EraseComments(var Buf: string);
+// Replace comments with spaces.
+// Supports  //...  and  /*...*/
+var
+  i: Integer;
+  InLineComment, InBlockComment: Boolean;
+begin
+  InLineComment := False;
+  InBlockComment := False;
+  for i:=Low(Buf) to High(Buf) do
+  begin
+    if (InLineComment or InBlockComment) then
+    begin
+      // Find comment end
+      if (InLineComment) and (i <= High(Buf) - 2) and (Buf[i+1] = #13) and (Buf[i+2] = #10) then
+        InLineComment := False;  // Up to, but not including, line break
+      if (InBlockComment) and (i <= High(Buf) - 1) and (Buf[i] = '*') and (Buf[i+1] = '/') then
+      begin  // Up to "*/" inclusive
+        InBlockComment := False;
+        Buf[i+1] := ' ';
+      end;
+      // Replace comments with spaces
+      Buf[i] := ' ';
+    end
+    else
+    begin
+      // Find comment start
+      if (i <= High(Buf) - 1) and (Buf[i] = '/') and (Buf[i+1] = '/') then
+      begin
+        InLineComment := True;
+        Buf[i] := ' ';
+      end;
+      if (i <= High(Buf) - 1) and (Buf[i] = '/') and (Buf[i+1] = '*') then
+      begin
+        InBlockComment := True;
+        Buf[i] := ' ';
+      end;
+    end;
+  end;
+end;
+
 function TDSParser.MakeArray(AType: TDSField; const ACount: string): TDSArray;
 // Create Array of Count elements of type AType
-//var
-//  i: Integer;
-//  Element: TDSField;
 begin
   Result := TDSArray.Create();
   Result.ElementType := AType.Duplicate();
   Result.ACount := ACount;
-//  for i:=0 to Count-1 do
-//  begin
-//    Element := AType.Duplicate();
-//    Element.Name := IntToStr(i);
-//    Result.Fields.Add(Element);
-//  end;
 end;
 
 function TDSParser.ParseStruct(const Descr: string): TDSStruct;
+var
+  Buffer: string;
 begin
-  BufStart := @Descr[Low(Descr)];
-  BufEnd := @Descr[High(Descr)+1];
-  Ptr := BufStart;
+  if Descr = '' then
+    raise EDSParserError.Create('Empty struct description');
 
-  Result := ReadStruct();
+  Buffer := Descr;
+  EraseComments(Buffer);
+
+  BufStart := @Buffer[Low(Buffer)];
+  BufEnd := @Buffer[High(Buffer)+1];
+  Ptr := BufStart;
+  CurLineNum := 1;
+
+  try
+    Result := ReadStruct();
+  except
+    on E: Exception do
+    begin
+      E.Message := 'Line #' + IntToStr(CurLineNum) + ':' + #13#10 + E.Message;
+      raise;
+    end;
+  end;
 end;
 
 function TDSParser.PeekLexem: string;
 // Returns next lexem without moving current pointer
 var
   OldPtr: PChar;
+  OldLnNum: Integer;
 begin
   OldPtr := Ptr;
+  OldLnNum := CurLineNum;
   try
     Result := ReadLexem();
   finally
     Ptr := OldPtr;
+    CurLineNum := OldLnNum;
   end;
 end;
 
 procedure TDSParser.PutBack;
 begin
   if Ptr > BufStart then
+  begin
     Dec(Ptr);
+    if Ptr^ = #10 then
+      Dec(CurLineNum);
+  end;
 end;
 
 function TDSParser.ReadChar: Char;
@@ -263,6 +331,7 @@ begin
   if Ptr = BufEnd then Exit(#0);
   Result := Ptr^;
   Inc(Ptr);
+  if Result = #10 then Inc(CurLineNum);
 end;
 
 function TDSParser.ReadExpressionStr: string;
@@ -337,6 +406,7 @@ begin
     if AType = nil then Break;
 
     try
+      AType.DescrLineNum := CurLineNum;
       // Read field names
       repeat
         AName := ReadLexem();
@@ -353,6 +423,7 @@ begin
             raise EDSParserError.Create('"]" expected');
           // Create array of Count elements of given type
           AInstance := MakeArray(AType, ACount);
+          AInstance.DescrLineNum := CurLineNum;
 
           S := ReadLexem();  // "," or ";"
         end
@@ -414,6 +485,28 @@ constructor TDSSimpleField.Create;
 begin
   inherited;
 //  Kind := fkSimple;
+end;
+
+procedure TDSSimpleField.SetFromString(const S: string);
+var
+  Intr: TValueInterpretor;
+begin
+  Intr := MainForm.ValueFrame.FindInterpretor(DataType);
+  if Intr = nil then
+    raise EDSParserError.Create('Cannot convert string to ' + DataType)
+  else
+    Intr.FromString(S, Data[0], Length(Data));
+end;
+
+function TDSSimpleField.ToString: string;
+var
+  Intr: TValueInterpretor;
+begin
+  Intr := MainForm.ValueFrame.FindInterpretor(DataType);
+  if Intr = nil then
+    Result := string(Data2Hex(Data))
+  else
+    Result := Intr.ToString(Data[0], Length(Data));
 end;
 
 { TDSCompoundField }
@@ -478,6 +571,7 @@ procedure TDSField.Assign(Source: TDSField);
 begin
 //  Kind := Source.Kind;
   Name := Source.Name;
+  DescrLineNum := Source.DescrLineNum;
 end;
 
 { TDSField }
@@ -547,7 +641,35 @@ end;
 
 procedure TStructFrame.DSTreeViewChange(Sender: TObject; Node: TTreeNode);
 begin
+  if EditFieldValue.Visible then
+    EditFieldValueExit(Sender);
   FEditor.UpdatePanes();
+end;
+
+procedure TStructFrame.DSTreeViewDblClick(Sender: TObject);
+var
+  Node: TTreeNode;
+  DS: TDSField;
+  R: TRect;
+  w: Integer;
+begin
+  Node := DSTreeView.Selected;
+  if Node = nil then Exit;
+  DS := Node.Data;
+  if (DS = nil) or (not (DS is TDSSimpleField)) then Exit;
+
+  EditedNode := Node;
+  EditedDS := TDSSimpleField(DS);
+  EditFieldValue.Text := DS.ToString();
+  EditFieldValue.Modified := False;
+
+  R := Node.DisplayRect(True);
+  w := DSTreeView.Canvas.TextWidth(DS.Name + ': ');
+  EditFieldValue.Parent := DSTreeView;
+  EditFieldValue.SetBounds(R.Left + w, R.Top - 2, R.Width - w + 30, EditFieldValue.Height);
+
+  EditFieldValue.Show;
+  EditFieldValue.SetFocus();
 end;
 
 procedure TStructFrame.DSTreeViewEnter(Sender: TObject);
@@ -558,6 +680,40 @@ end;
 procedure TStructFrame.DSTreeViewExit(Sender: TObject);
 begin
   FEditor.UpdatePanes();
+end;
+
+procedure TStructFrame.EditFieldValueExit(Sender: TObject);
+// Apply changed field value
+var
+  DS: TDSSimpleField;
+begin
+  if EditFieldValue.Modified then
+  begin
+    DS := EditedDS;
+    if DS <> nil then
+    begin
+      DS.SetFromString(EditFieldValue.Text);
+      FEditor.EditedData.Change(DS.BufAddr, DS.BufSize, @DS.Data[0]);
+      EditedNode.Text := DS.Name + ': ' + DS.ToString();
+    end;
+  end;
+  // Hide editor
+  EditFieldValue.Hide();
+  if EditFieldValue.Focused then
+    DSTreeView.SetFocus();
+end;
+
+procedure TStructFrame.EditFieldValueKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_RETURN then
+    EditFieldValueExit(Sender);
+
+  if Key = VK_ESCAPE then
+  begin
+    EditFieldValue.Modified := False;
+    EditFieldValueExit(Sender);
+  end;
 end;
 
 procedure TStructFrame.FrameResize(Sender: TObject);
@@ -610,14 +766,15 @@ begin
 
   // For simple field: show value
   if DS is TDSSimpleField then
-  with TDSSimpleField(DS) do
-  begin
-    Intr := MainForm.ValueFrame.FindInterpretor(DataType);
-    if Intr = nil then
-      S := S + ': ' + string(Data2Hex(Data))
-    else
-      S := S + ': ' + Intr.ToString(Data[0], Length(Data));
-  end;
+    S := S + ': ' + TDSSimpleField(DS).ToString();
+//  with TDSSimpleField(DS) do
+//  begin
+//    Intr := MainForm.ValueFrame.FindInterpretor(DataType);
+//    if Intr = nil then
+//      S := S + ': ' + string(Data2Hex(Data))
+//    else
+//      S := S + ': ' + Intr.ToString(Data[0], Length(Data));
+//  end;
 
   // For array: show length
   if DS is TDSArray then
@@ -703,8 +860,8 @@ begin
   Intr := MainForm.ValueFrame.FindInterpretor(AType);
   if Intr = nil then
     raise EParserError.Create('Unknown type name: '+AType);
-  if Intr.MinSize <> Intr.MaxSize then
-    raise EParserError.Create('Type of unfixed size: '+AType);
+//  if Intr.MinSize <> Intr.MaxSize then
+//    raise EParserError.Create('Type of unfixed size: '+AType);
   Result := Intr.MinSize;
 end;
 
@@ -716,16 +873,25 @@ begin
   AStart := Buf;
   DS.BufAddr := FAddr + UIntPtr(Buf) - UIntPtr(BufStart);
 
-  if DS is TDSStruct then
-    InterpretStruct(TDSStruct(DS), Buf, BufEnd)
-  else
-  if DS is TDSArray then
-    InterpretArray(TDSArray(DS), Buf, BufEnd)
-  else
-  if DS is TDSSimpleField then
-    InterpretSimple(TDSSimpleField(DS), Buf, BufEnd)
-  else
-    raise EParserError.Create('Invalid class of field '+DS.Name);
+  try
+    if DS is TDSStruct then
+      InterpretStruct(TDSStruct(DS), Buf, BufEnd)
+    else
+    if DS is TDSArray then
+      InterpretArray(TDSArray(DS), Buf, BufEnd)
+    else
+    if DS is TDSSimpleField then
+      InterpretSimple(TDSSimpleField(DS), Buf, BufEnd)
+    else
+      raise EParserError.Create('Invalid class of field '+DS.Name);
+  except
+    on E: Exception do
+    begin
+      if not E.Message.StartsWith('Line #') then
+        E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ':' + #13#10 + E.Message;
+      raise;
+    end;
+  end;
 
   DS.BufSize := UIntPtr(Buf) - UIntPtr(AStart)
 end;
