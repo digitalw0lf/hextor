@@ -623,7 +623,7 @@ function TMainForm.CreateNewEditor: TEditorForm;
 begin
   Result := TEditorForm.Create(Application);
   Result.ByteColumnsSetting := AppSettings.ByteColumns;
-  Result.OnVisibleRangeChanged.Add(procedure (Sender: TEditorForm)
+  Result.OnByteColsChanged.Add(procedure (Sender: TEditorForm)
     begin
       if Sender = GetActiveEditorNoEx() then UpdateByteColEdit();
     end);

@@ -7,7 +7,7 @@ interface
 uses
   System.SysUtils, System.Types, System.Classes, Winapi.Windows, System.Math,
 
-  uDWHexTypes;
+  uDWHexTypes, uLogFile;
 
 type
   TDataSourceProperty = (dspWritable, dspResizable);
@@ -182,10 +182,14 @@ begin
   if FileStream = nil then
     Exit(0);
 
+//  StartTimeMeasure();
+
   FileStream.Position := Addr;
   //Result := FileStream.Read(Data, Size);
   FileStream.ReadBuffer(Data, Size);
   Result := Size;
+
+//  EndTimeMeasure('FileRead:', True);
 end;
 
 function TFileDataSource.GetProperties: TDataSourceProperties;
@@ -208,7 +212,11 @@ begin
     if Mode = fmCreate then
       ForceDirectories(ExtractFilePath(Path));
     FreeAndNil(FileStream);
-    FileStream := TFileStream.Create(Path, Mode or fmShareDenyWrite);
+    if Mode = fmOpenRead then
+      Mode := Mode or fmShareDenyNone
+    else
+      Mode := Mode or fmShareExclusive;
+    FileStream := TFileStream.Create(Path, Mode);
   end;
 end;
 

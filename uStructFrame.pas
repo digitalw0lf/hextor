@@ -758,7 +758,6 @@ procedure TStructFrame.ShowStructTree(DS: TDSField; ParentNode: TTreeNode);
 var
   Node: TTreeNode;
   S: string;
-  Intr: TValueInterpretor;
   i: Integer;
 begin
   // Field name
@@ -767,14 +766,6 @@ begin
   // For simple field: show value
   if DS is TDSSimpleField then
     S := S + ': ' + TDSSimpleField(DS).ToString();
-//  with TDSSimpleField(DS) do
-//  begin
-//    Intr := MainForm.ValueFrame.FindInterpretor(DataType);
-//    if Intr = nil then
-//      S := S + ': ' + string(Data2Hex(Data))
-//    else
-//      S := S + ': ' + Intr.ToString(Data[0], Length(Data));
-//  end;
 
   // For array: show length
   if DS is TDSArray then

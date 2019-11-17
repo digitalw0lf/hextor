@@ -27,6 +27,7 @@ type
     //Name: string;
     Names: TStringList;
     MinSize, MaxSize: Integer;
+//    Greedy: Boolean;
     ToString: TDataToStrFunc;
     FromString: TStrToDataFunc;
     constructor Create();
@@ -71,7 +72,7 @@ type
     destructor Destroy(); override;
     procedure UpdateInfo();
     function RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
-      AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE): TValueInterpretor;
+      AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{; AGreedy: Boolean = False}): TValueInterpretor;
     function FindInterpretor(const AName: string): TValueInterpretor;
     function GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
   end;
@@ -81,6 +82,67 @@ implementation
 {$R *.dfm}
 
 uses uMainForm;
+
+function IntToBin(X: Integer; Digits: Integer): string;
+var
+  i: Integer;
+begin
+  SetLength(Result, Digits);
+  for i:=High(Result) downto Low(Result) do
+  begin
+    if (X and 1) <> 0 then
+      Result[i] := '1'
+    else
+      Result[i] := '0';
+    X := X shr 1;
+  end;
+end;
+
+function BinToInt(const S: string): Integer;
+var
+  i: Integer;
+begin
+  Result := 0;
+  for i:=Low(S) to High(S) do
+  begin
+    Result := Result shl 1;
+    if S[i] <> '0' then
+      Result := Result or 1;
+  end;
+end;
+
+// bin
+
+function Bin2Str(const Data; Size: Integer): string;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i:=0 to Size-1 do
+  begin
+    Result := Result + IntToBin(TByteArray(Data)[i], 8);
+    if i < Size-1 then
+      Result := Result + ' ';
+  end;
+end;
+
+procedure Str2Bin(const S: string; var Data; Size: Integer);
+var
+  i: Integer;
+  s1: string;
+  P: PChar;
+begin
+  if S = '' then raise EConvertError.Create('Empty string');
+  P := @S[Low(S)];
+  i := 0;
+  while P^ <> #0 do
+  begin
+    if i >= Size then raise EConvertError.Create('Too many values');
+    s1 := GetNextWord(P);
+    TByteArray(Data)[i] := BinToInt(s1);
+    Inc(i);
+  end;
+end;
 
 // intX
 
@@ -244,15 +306,18 @@ begin
   for i:=0 to Interpretors.Count-1 do
     Interpretors[i].AddNames([Interpretors[i].Name+'_t']);
 
+  RegisterInterpretor('bin', Bin2Str, Str2Bin, 1, 8);
+
   RegisterInterpretor('float', Float2Str, Str2Float, 4);
   RegisterInterpretor('double', Double2Str, Str2Double, 8);
 
-  RegisterInterpretor('ansi', Ansi2Str, Str2Ansi, 1, MAX_STR_VALUE_LENGTH);
-  RegisterInterpretor('unicode', Unicode2Str, Str2Unicode, 2, MAX_STR_VALUE_LENGTH);
+  RegisterInterpretor('ansi', Ansi2Str, Str2Ansi, 1, MAX_STR_VALUE_LENGTH{, True});
+  RegisterInterpretor('unicode', Unicode2Str, Str2Unicode, 2, MAX_STR_VALUE_LENGTH{, True});
 end;
 
 function TValueFrame.RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
-  AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE): TValueInterpretor;
+  AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{;
+  AGreedy: Boolean = False}): TValueInterpretor;
 //var
 //  Intr:  TValueInterpretor;
 begin
@@ -263,6 +328,7 @@ begin
     Result.MaxSize := AMinSize
   else
     Result.MaxSize := AMaxSize;
+//  Result.Greedy := AGreedy;
   Result.ToString := AToString;
   Result.FromString := AFromString;
   Interpretors.Add(Result);
@@ -306,8 +372,10 @@ begin
       end
       else
       try
-        if Greedy then Size := Min(Interpretors[i].MaxSize, Length(Data))
-                  else Size := Interpretors[i].MinSize;
+        if (Greedy) {and (Interpretors[i].Greedy)} then
+          Size := Min(Interpretors[i].MaxSize, Length(Data))
+        else
+          Size := Interpretors[i].MinSize;
         VRow.OrigDataSize := Size;
 
         S := Interpretors[i].ToString(Data[0], Size);  // <--

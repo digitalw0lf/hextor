@@ -98,6 +98,7 @@ type
     SelStart, SelLength: TFilePointer;
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
+    OnByteColsChanged: TCallbackListP1<TEditorForm>;
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
@@ -877,6 +878,8 @@ begin
       else
         TopVisibleRow := NewTopRow;
       UpdatePanes();
+
+      OnByteColsChanged.Call(Self);
     finally
       EndUpdatePanes();
     end;
@@ -1111,7 +1114,7 @@ begin
     Lines.Clear();
     for i:=0 to Length(Data)-1 do
     begin
-      if (Data[i] < Ord(' ')) or (Data[i] = $98) then
+      if (Data[i] < Ord(' ')) or (Data[i] = $7F) or (Data[i] = $98) then
         c := '.'
       else
         c := AnsiChar(Data[i]);
