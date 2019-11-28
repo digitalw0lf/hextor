@@ -21,7 +21,7 @@ object MainForm: TMainForm
   PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 740
+    Left = 668
     Top = 47
     Width = 4
     Height = 592
@@ -103,21 +103,22 @@ object MainForm: TMainForm
     OnMouseUp = MDITabsMouseUp
   end
   object RightPanel: TPanel
-    Left = 744
+    Left = 672
     Top = 47
-    Width = 284
+    Width = 356
     Height = 592
     Align = alRight
     BevelOuter = bvNone
     DoubleBuffered = True
     ParentDoubleBuffered = False
     TabOrder = 2
+    OnResize = RightPanelResize
     object RightPanelPageControl: TPageControl
       Left = 0
       Top = 0
-      Width = 284
+      Width = 356
       Height = 551
-      ActivePage = PgValue
+      ActivePage = PgScript
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -126,20 +127,20 @@ object MainForm: TMainForm
         inline ValueFrame: TValueFrame
           Left = 0
           Top = 0
-          Width = 276
+          Width = 348
           Height = 523
           Align = alClient
           TabOrder = 0
-          ExplicitWidth = 276
+          ExplicitWidth = 348
           ExplicitHeight = 523
           inherited ValuesGrid: TKGrid
-            Width = 276
+            Width = 348
             Height = 523
-            ExplicitWidth = 276
+            ExplicitWidth = 348
             ExplicitHeight = 523
             ColWidths = (
               64
-              207)
+              283)
             RowHeights = (
               21
               21)
@@ -152,29 +153,29 @@ object MainForm: TMainForm
         inline StructFrame: TStructFrame
           Left = 0
           Top = 0
-          Width = 276
+          Width = 348
           Height = 523
           Align = alClient
           TabOrder = 0
-          ExplicitWidth = 276
+          ExplicitWidth = 348
           ExplicitHeight = 523
           inherited DSDescrMemo: TMemo
-            Width = 276
-            ExplicitWidth = 276
+            Width = 348
+            ExplicitWidth = 348
           end
           inherited DSTreeView: TTreeView
-            Width = 276
+            Width = 348
             Height = 249
-            ExplicitWidth = 276
+            ExplicitWidth = 348
             ExplicitHeight = 249
           end
           inherited PnlButtonBar1: TPanel
-            Width = 276
-            ExplicitWidth = 276
+            Width = 348
+            ExplicitWidth = 348
           end
           inherited PnlButtonBar2: TPanel
-            Width = 276
-            ExplicitWidth = 276
+            Width = 348
+            ExplicitWidth = 348
             inherited Button1: TButton
               Images = nil
             end
@@ -188,14 +189,14 @@ object MainForm: TMainForm
         inline CompareFrame: TCompareFrame
           Left = 0
           Top = 0
-          Width = 276
+          Width = 348
           Height = 523
           Align = alClient
           DoubleBuffered = True
           ParentBackground = False
           ParentDoubleBuffered = False
           TabOrder = 0
-          ExplicitWidth = 276
+          ExplicitWidth = 348
           ExplicitHeight = 523
           inherited DiffBar: TPaintBox
             Height = 523
@@ -206,11 +207,64 @@ object MainForm: TMainForm
           end
         end
       end
+      object PgScript: TTabSheet
+        Caption = 'Script'
+        ImageIndex = 3
+        inline ScriptFrame: TScriptFrame
+          Left = 0
+          Top = 0
+          Width = 348
+          Height = 523
+          Align = alClient
+          TabOrder = 0
+          ExplicitWidth = 348
+          ExplicitHeight = 523
+          inherited Splitter1: TSplitter
+            Top = 122
+            Width = 348
+            Height = 401
+            ExplicitTop = 122
+            ExplicitWidth = 276
+            ExplicitHeight = 401
+          end
+          inherited ToolPanel: TPanel
+            Width = 348
+            ExplicitWidth = 348
+          end
+          inherited ScriptControl1: TScriptControl
+            ControlData = {
+              2143341208000000ED030000ED030000D2F1594E010000002200000010270000
+              010007004A00530063007200690070007400}
+          end
+          inherited MemoScript: TRichEdit
+            Width = 348
+            ExplicitWidth = 348
+          end
+          inherited OutputPanel: TPanel
+            Top = -10
+            Width = 348
+            ExplicitTop = -10
+            ExplicitWidth = 348
+            inherited MemoOutput: TRichEdit
+              Width = 348
+              ExplicitWidth = 348
+            end
+            inherited OutputToolPanel: TPanel
+              Width = 348
+              ExplicitWidth = 348
+              inherited BtnClearOutput: TSpeedButton
+                Left = 291
+                ExplicitLeft = 219
+              end
+            end
+          end
+        end
+      end
     end
     object MsgPanel: TPanel
       Left = 0
       Top = 551
-      Width = 284
+      Width = 356
       Height = 41
       Align = alBottom
       BevelOuter = bvNone
@@ -259,7 +313,7 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 253
+        Width = 325
         Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
@@ -373,9 +427,14 @@ object MainForm: TMainForm
         Caption = 'Test change speed'
         OnClick = estchangespeed1Click
       end
+      object DbgToolsForm1: TMenuItem
+        Caption = 'DbgToolsForm'
+        OnClick = DbgToolsForm1Click
+      end
     end
   end
   object OpenDialog1: TOpenDialog
+    Options = [ofHideReadOnly, ofAllowMultiSelect, ofEnableSizing]
     Left = 248
     Top = 72
   end
@@ -526,7 +585,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010D004001500110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010D004001600110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

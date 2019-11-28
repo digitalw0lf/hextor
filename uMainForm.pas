@@ -18,8 +18,7 @@ uses
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
-  uValueFrame, uStructFrame, uCRC, uCompareFrame
-  {, uPathCompressTest};
+  uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -40,6 +39,10 @@ type
     ScrollWithWheel: Integer;
     ByteColumns: Integer;  // -1 - auto
     ActiveRightPage: Integer;
+    RightPanelWidth: Integer;
+    Script: record
+      Text: string;
+    end;
     RecentFiles: array of TRecentFileRec;
 //    Colors: record
 //      ValueHighlightBg: TColor;
@@ -129,6 +132,9 @@ type
     ToolButton4: TToolButton;
     EditByteCols: TComboBox;
     Timer1: TTimer;
+    PgScript: TTabSheet;
+    ScriptFrame: TScriptFrame;
+    DbgToolsForm1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -168,6 +174,8 @@ type
       Shift: TShiftState);
     procedure EditByteColsSelect(Sender: TObject);
     procedure RightPanelPageControlChange(Sender: TObject);
+    procedure RightPanelResize(Sender: TObject);
+    procedure DbgToolsForm1Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -176,7 +184,6 @@ type
     procedure InitDefaultSettings();
     procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
-    function GetActiveEditorNoEx: TEditorForm;
     function GetActiveEditor: TEditorForm;
     procedure SetActiveEditor(const Value: TEditorForm);
     function CreateNewEditor(): TEditorForm;
@@ -189,6 +196,7 @@ type
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
+    DWHexOle: TCoDWHex;
     procedure OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveSettings();
@@ -199,6 +207,7 @@ type
     procedure SelectionChanged();
     function GetIconIndex(DataSource: TDWHexDataSource): Integer;
     property ActiveEditor: TEditorForm read GetActiveEditor write SetActiveEditor;
+    function GetActiveEditorNoEx: TEditorForm;
     property EditorCount: Integer read GetEditorCount;
     property Editors[Index: Integer]: TEditorForm read GetEditor;
     procedure AddEditor(AEditor: TEditorForm);
@@ -218,7 +227,8 @@ implementation
 
 {$R *.dfm}
 
-uses uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm;
+uses uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
+  uDbgToolsForm;
 
 { TMainForm }
 
@@ -304,7 +314,7 @@ end;
 
 procedure TMainForm.ActionFindNextExecute(Sender: TObject);
 begin
-  if FindReplaceForm.ParamsDefined() then
+  if FindReplaceForm.Searcher.ParamsDefined() then
     FindReplaceForm.FindNext(1)
   else
     ActionFindExecute(Sender);
@@ -312,7 +322,7 @@ end;
 
 procedure TMainForm.ActionFindPrevExecute(Sender: TObject);
 begin
-  if FindReplaceForm.ParamsDefined() then
+  if FindReplaceForm.Searcher.ParamsDefined() then
     FindReplaceForm.FindNext(-1)
   else
     ActionFindExecute(Sender);
@@ -387,10 +397,13 @@ begin
 end;
 
 procedure TMainForm.ActionOpenExecute(Sender: TObject);
+var
+  i: Integer;
 begin
   if not OpenDialog1.Execute() then Exit;
 
-  OpenFile(TFileDataSource, OpenDialog1.FileName);
+  for i:=0 to OpenDialog1.Files.Count-1 do
+    OpenFile(TFileDataSource, OpenDialog1.Files[i]);
 end;
 
 procedure TMainForm.ActionOpenProcMemoryExecute(Sender: TObject);
@@ -631,6 +644,11 @@ begin
   DoAfterEvent(ActiveEditorChanged);
 end;
 
+procedure TMainForm.DbgToolsForm1Click(Sender: TObject);
+begin
+  DbgToolsForm.Show();
+end;
+
 procedure TMainForm.DoAfterEvent(Proc: TProc);
 begin
   FDoAfterEvent := FDoAfterEvent + [TProc(Proc)];
@@ -661,10 +679,18 @@ begin
 
   FEditors := TObjectList<TEditorForm>.Create(False);
   RightPanelPageControl.ActivePageIndex := AppSettings.ActiveRightPage;
+  if AppSettings.RightPanelWidth > 0 then
+    RightPanel.Width := AppSettings.RightPanelWidth;
+
+  DWHexOle := TCoDWHex.Create();
+
+  ScriptFrame.Init();
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  ScriptFrame.Uninit();
+
   SaveSettings();
   AppSettings.Free;
   FEditors.Free;
@@ -860,6 +886,11 @@ end;
 procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
 begin
   AppSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
+end;
+
+procedure TMainForm.RightPanelResize(Sender: TObject);
+begin
+  AppSettings.RightPanelWidth := RightPanel.Width;
 end;
 
 procedure TMainForm.SaveSettings;

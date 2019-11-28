@@ -5,7 +5,7 @@
         <FrameworkType>VCL</FrameworkType>
         <MainSource>DWHex.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -176,6 +176,25 @@
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uCallbackList.pas"/>
+        <DCCReference Include="uScriptFrame.pas">
+            <Form>ScriptFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
+        <DCCReference Include="DWHex_TLB.pas"/>
+        <DCCReference Include="uCoDWHex.pas">
+            <CoClasses>CoDWHex</CoClasses>
+        </DCCReference>
+        <DCCReference Include="uDbgToolsForm.pas">
+            <Form>DbgToolsForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="D:\Work\Trunk\Units\Components\uProfilerFrame.pas">
+            <Form>ProfilerFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
+        <DCCReference Include="uDataSearcher.pas"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txvpck"/>
@@ -184,6 +203,7 @@
         <None Include="ModelSupport_DWHex\uMainForm\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\uEditorForm\default.txvpck"/>
         <None Include="ModelSupport_DWHex\uEditorForm\default.txaPackage"/>
+        <RidlCompile Include="DWHex.ridl"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -212,13 +232,19 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
-                <DeployFile LocalName="ModelSupport_DWHex\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile">
+                <DeployFile LocalName="DWHex.ridl" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="ModelSupport_DWHex\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="ModelSupport_DWHex\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
@@ -741,6 +767,9 @@
                 <Platform value="Win64">True</Platform>
             </Platforms>
             <ModelSupport>True</ModelSupport>
+            <ActiveXProjectInfo>
+                <version>1</version>
+            </ActiveXProjectInfo>
         </BorlandProject>
         <ProjectFileVersion>12</ProjectFileVersion>
     </ProjectExtensions>

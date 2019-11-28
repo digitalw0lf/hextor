@@ -14,6 +14,8 @@ object FindReplaceForm: TFindReplaceForm
   OldCreateOrder = False
   Position = poDesigned
   OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
   PixelsPerInch = 96
   TextHeight = 13

@@ -47,6 +47,7 @@ type
     procedure UpdateInfo();
     procedure CloseComparsion;
     procedure EditorVisRangeChanged(Sender: TEditorForm);
+    procedure EditorByteColsChanged(Sender: TEditorForm);
   public
     { Public declarations }
     Editors: array[0..1] of TEditorForm;
@@ -204,6 +205,18 @@ begin
   DiffBar.Canvas.Draw(0, 0, ScrBmp);
 end;
 
+procedure TCompareFrame.EditorByteColsChanged(Sender: TEditorForm);
+// Sync col count
+var
+  n: Integer;
+begin
+  if Sender = Editors[0] then n := 0
+  else if Sender = Editors[1] then n := 1
+  else Exit;
+
+  Editors[1-n].ByteColumnsSetting := Sender.ByteColumnsSetting;
+end;
+
 procedure TCompareFrame.EditorVisRangeChanged(Sender: TEditorForm);
 // Sunc scroll
 var
@@ -216,7 +229,13 @@ begin
     else if Sender = Editors[1] then n := 1
     else Exit;
 
-    Editors[1-n].TopVisibleRow := Sender.TopVisibleRow;
+    Editors[1-n].BeginUpdatePanes();
+    try
+      Editors[1-n].TopVisibleRow := Sender.TopVisibleRow;
+      Editors[1-n].HorzScrollPos := Sender.HorzScrollPos;
+    finally
+      Editors[1-n].EndUpdatePanes();
+    end;
     DiffBarPaint(nil);
   finally
     FOurScrolling := False;
@@ -281,10 +300,16 @@ begin
 end;
 
 procedure TCompareFrame.CloseComparsion;
+var
+  i: Integer;
 begin
   FAborted := True;
-  Editors[0] := nil;
-  Editors[1] := nil;
+  for i:=0 to 1 do
+  begin
+    Editors[i].OnVisibleRangeChanged.Remove(EditorVisRangeChanged);
+    Editors[i].OnByteColsChanged.Remove(EditorByteColsChanged);
+    Editors[i] := nil;
+  end;
   MaxSize := 0;
   Diffs.Clear;
   Refresh;
@@ -327,6 +352,7 @@ begin
         CloseComparsion();
       end);
     Editors[i].OnVisibleRangeChanged.Add(EditorVisRangeChanged);
+    Editors[i].OnByteColsChanged.Add(EditorByteColsChanged);
   end;
 
   Size1 := Editors[0].EditedData.GetSize();

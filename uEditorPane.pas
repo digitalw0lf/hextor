@@ -4,20 +4,22 @@ interface
 
 uses
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Controls, Vcl.ExtCtrls,
-  Vcl.Graphics, System.Types, Winapi.Messages,
+  Vcl.Graphics, System.Types, Winapi.Messages, Math,
 
   uLogFile, uUtil;
 
 type
   TEditorPane = class(TPanel)
   private
+    { Private declarations }
     FCaretPos: TPoint;
     FShowCaret: Boolean;
+    FHorzScrollPos: Integer;
     function GetText: string;
     procedure SetText(const Value: string);
     procedure SetCaretPos(const Value: TPoint);
     procedure SetShowCaret(const Value: Boolean);
-    { Private declarations }
+    procedure SetHorzScrollPos(const Value: Integer);
   protected
     { Protected declarations }
     FLines: TStringList;
@@ -48,6 +50,7 @@ type
     property Text: string read GetText write SetText;
     property CaretPos: TPoint read FCaretPos write SetCaretPos;
     property ShowCaret: Boolean read FShowCaret write SetShowCaret;
+    property HorzScrollPos: Integer read FHorzScrollPos write SetHorzScrollPos;
     property OnKeyDown;
     property OnKeyPress;
     property OnKeyUp;
@@ -120,7 +123,7 @@ begin
     Pos.Y := 0;
     Exit;
   end;
-  Pos.X := x div CharSize.cx;
+  Pos.X := x div CharSize.cx + HorzScrollPos;
   Pos.Y := y div CharSize.cy;
 //  Result := (Pos.Y>=0) and (Pos.Y<Lines.Count) and (Pos.X>=0) and (Pos.X<Length(Lines[Pos.Y]));
 //  // After last char
@@ -138,6 +141,7 @@ procedure TEditorPane.InternalPaint;
 var
   i, j, j1, ColorIndex: Integer;
   CurBgColor, PrevBgColor, CurTxColor, PrevTxColor: TColor;
+  FirstVis, LastVis: Integer;  // First and last visible chars of line, 0-based
   R: TRect;
   s, s1: string;
 begin
@@ -150,19 +154,21 @@ begin
   for i:=0 to Lines.Count-1 do
   begin
     s := Lines[i];
+    FirstVis := HorzScrollPos;
+    LastVis := Min(Length(s)-1, ClientWidth div CharSize.cx + HorzScrollPos);
     PrevBgColor := clNone;
     PrevTxColor := clNone;
-    j1 := 0;
-    for j:=0 to Length(s) do
+    j1 := FirstVis;
+    for j:=FirstVis to LastVis+1 do
     begin
-      if j<Length(s) then
+      if j<=LastVis then
       begin
-        if ColorIndex<Length(BgColors) then
-          CurBgColor := BgColors[ColorIndex]
+        if ColorIndex+j<Length(BgColors) then
+          CurBgColor := BgColors[ColorIndex+j]
         else
           CurBgColor := Self.Color;
-        if ColorIndex<Length(TxColors) then
-          CurTxColor := TxColors[ColorIndex]
+        if ColorIndex+j<Length(TxColors) then
+          CurTxColor := TxColors[ColorIndex+j]
         else
           CurTxColor := Self.Font.Color;
       end
@@ -179,23 +185,23 @@ begin
           s1 := Copy(s, j1+1, j-j1);
           ScrBmp.Canvas.Brush.Color := PrevBgColor;
           ScrBmp.Canvas.Font.Color := PrevTxColor;
-          ScrBmp.Canvas.TextOut(j1 * CharSize.cx + 1, i * CharSize.cy, s1);
+          ScrBmp.Canvas.TextOut((j1-HorzScrollPos) * CharSize.cx + 1, i * CharSize.cy, s1);
         end;
         PrevBgColor := CurBgColor;
         PrevTxColor := CurTxColor;
         j1 := j;
       end;
-      if j=Length(s) then Break;
-      Inc(ColorIndex);
+      if j > LastVis then Break;
     end;
+    Inc(ColorIndex, Length(s));
   end;
 
   // Draw caret
   if (FShowCaret) and (CaretPos.Y >= 0) and (CaretPos.Y < Lines.Count) then
   with ScrBmp.Canvas do
   begin
-    R := Rect(CharSize.cx * CaretPos.X + 1, CharSize.cy * CaretPos.Y,
-              CharSize.cx * (CaretPos.X+1) + 1, CharSize.cy * (CaretPos.Y+1));
+    R := Rect(CharSize.cx * (CaretPos.X-HorzScrollPos) + 1, CharSize.cy * CaretPos.Y,
+              CharSize.cx * (CaretPos.X-HorzScrollPos+1) + 1, CharSize.cy * (CaretPos.Y+1));
     if Focused then
     begin
       Pen.Color := clBlack;
@@ -249,12 +255,22 @@ begin
     ScrBmp.SetSize(Width, Height);
   InternalPaint();
   Canvas.Draw(0, 0, ScrBmp);
+  PaintControls(Canvas.Handle, nil);
 end;
 
 procedure TEditorPane.SetCaretPos(const Value: TPoint);
 begin
   FCaretPos := Value;
   Paint();
+end;
+
+procedure TEditorPane.SetHorzScrollPos(const Value: Integer);
+begin
+  if FHorzScrollPos <> Value then
+  begin
+    FHorzScrollPos := Value;
+    Paint();
+  end;
 end;
 
 procedure TEditorPane.SetSelection(AStart, ALength: Integer);

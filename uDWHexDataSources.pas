@@ -326,6 +326,7 @@ function TProcMemDataSource.GetData(Addr: TFilePointer; Size: Integer;
 var
   Res: Boolean;
 begin
+  // TODO: read by pages, because partially available range fails
   Res := Bool( ReadProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) );
   if not Res then
     ZeroMemory(@Data, Size);

@@ -6,9 +6,11 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
+  System.Win.ComObj, System.TypInfo, Winapi.ActiveX,
 
   uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData,
-  uCallbackList;
+  uCallbackList, DWHex_TLB, Vcl.Buttons, System.ImageList, Vcl.ImgList,
+  uDataSearcher;
 
 type
   TEditorForm = class;
@@ -16,12 +18,16 @@ type
   // Callback that is used by tools to colorise displayed data in editor
   TGetDataColors = function (Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
 
-  TEditorForm = class(TForm)
+  TFFSkipSearcher = class(TDataSearcher)
+  // Searcher for skipping given byte value
+  public
+    function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; override;
+  end;
+
+  TEditorForm = class(TForm, {IEditorForm,} IDispatch{, IProvideClassInfo})
     PaneHex: TEditorPane;
     PaneLnNum: TEditorPane;
     PaneText: TEditorPane;
-    Splitter1: TSplitter;
-    Splitter2: TSplitter;
     VertScrollBar: TScrollBar;
     StatusBar: TStatusBar;
     EditorPopupMenu: TPopupMenu;
@@ -33,6 +39,11 @@ type
     PMIBitsEditor: TMenuItem;
     Shape1: TShape;
     Shape2: TShape;
+    HorzScrollBar: TScrollBar;
+    BtnSkipFFBack: TSpeedButton;
+    BtnSkipFFFwd: TSpeedButton;
+    Image1: TImage;
+    ImgListSkipBtn: TImageList;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -54,6 +65,8 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormActivate(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
+    procedure HorzScrollBarChange(Sender: TObject);
+    procedure BtnSkipFFBackClick(Sender: TObject);
   private
     { Private declarations }
     FDestroyed: Boolean;  // Some events (e.g. FormResize) are oddly called after form destruction
@@ -70,6 +83,11 @@ type
     FInsertMode: Boolean;
     FByteColumnsSetting: Integer;
     FPrevVisibleRange: TFileRange;
+    FPrevHorzScroll: Integer;
+    FHorzScrollPos: Integer;
+    FFSkipSearcher: TFFSkipSearcher;
+    FFSkipBackByte, FFSkipFwdByte: Byte;
+//    FAutoObject: TAutoObject;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
@@ -79,6 +97,7 @@ type
     procedure ScrollToCaret();
     procedure SetTopVisibleRow(Value: TFilePointer);
     procedure SetByteColumns(Value: Integer);
+    procedure UpdatePaneWidths();
     procedure ShowSelectionInfo();
     procedure AddCurrentFileToRecentFiles();
     procedure SelectionChanged();
@@ -88,6 +107,7 @@ type
     procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
     procedure SomeDataChanged();
     procedure SetByteColumnsSetting(const Value: Integer);
+    procedure SetHorzScrollPos(Value: Integer);
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
@@ -99,6 +119,7 @@ type
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnByteColsChanged: TCallbackListP1<TEditorForm>;
+//    property AutoObject: TAutoObject read FAutoObject implements IDispatch;
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
@@ -108,8 +129,10 @@ type
     function GetOrigFileSize(): TFilePointer;
     function GetFileSize(): TFilePointer;
     procedure UpdatePanes();
-    procedure UpdateScrollBar();
+    procedure UpdateScrollBars();
+    procedure UpdateSkipFFButtons(const Data: TBytes);
     function GetVisibleRowsCount(): Integer;
+    function GetVisibleColsCount(IncludePartial: Boolean = True): Integer;
     function FirstVisibleAddr(): TFilePointer;
     function VisibleBytesCount(): Integer;
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
@@ -119,12 +142,14 @@ type
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     procedure SetSelection(AStart, AEnd: TFilePointer);
+    procedure ScrollToShow(Addr: TFilePointer; RowsFromBorder: Integer = 0; ColsFromBorder: Integer = 0);
     procedure BeginUpdatePanes();
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
     function ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
       var InplaceSaving, UseTempFile: Boolean): Boolean;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
+    property HorzScrollPos: Integer read FHorzScrollPos write SetHorzScrollPos;
     property ByteColumns: Integer read FByteColumns write SetByteColumns;
     property ByteColumnsSetting: Integer read FByteColumnsSetting write SetByteColumnsSetting;
     procedure CalculateByteColumns();
@@ -132,6 +157,21 @@ type
     procedure DataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataInserted(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
     procedure DataDeleted(Addr: TFilePointer; Size: TFilePointer);
+
+    // OLE wrappers:
+    function GetEditedDataOle(Addr, Size: Int64; ZerosBeyondEoF: WordBool = False): OleVariant; stdcall;
+//    function IEditorForm.GetEditedData = GetEditedDataOle;
+    function GetFileSizeOle(): TFilePointer; stdcall;
+//    function IEditorForm.GetFileSize = GetFileSizeOle;
+
+//    function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
+//    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult; stdcall;
+    function GetIDsOfNames(const IID: TGUID; Names: Pointer;
+      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
+    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
+//    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+
   end;
 
 var
@@ -219,6 +259,35 @@ begin
   PaneText.BeginUpdate();
 end;
 
+procedure TEditorForm.BtnSkipFFBackClick(Sender: TObject);
+// Skip repeating bytes and scroll to where values changes
+var
+  Start, Ptr: TFilePointer;
+  Dir, Size: Integer;
+begin
+  FFSkipSearcher.Haystack := EditedData;
+
+  Dir := (Sender as TSpeedButton).Tag;
+  if Dir < 0 then
+  begin
+    FFSkipSearcher.Params.Needle := [FFSkipBackByte];
+    Start := FirstVisibleAddr() - 1;
+  end
+  else
+  begin
+    FFSkipSearcher.Params.Needle := [FFSkipFwdByte];
+    Start := FirstVisibleAddr() + VisibleBytesCount();
+  end;
+
+  FFSkipSearcher.Find(EntireFile, Start, Dir, Ptr, Size);
+  BeginUpdatePanes();
+  try
+    ScrollToShow(Ptr, 8, 8);
+  finally
+    EndUpdatePanes();
+  end;
+end;
+
 procedure TEditorForm.CalculateByteColumns();
 // Choose byte columns count based on width of editor panes
 var
@@ -228,9 +297,6 @@ begin
     ByteColumns := ByteColumnsSetting
   else
   begin
-//    Cols := Min( PaneHex.ClientWidth div (PaneHex.CharWidth*3),
-//                 PaneText.ClientWidth div (PaneText.CharWidth));
-    //Cols := (PaneHex.ClientWidth + PaneText.ClientWidth - PaneText.CharWidth) div (PaneHex.CharWidth*3 + PaneText.CharWidth);
     Cols := (VertScrollBar.Left - PaneHex.Left - PaneHex.CharWidth - PaneText.CharWidth) div (PaneHex.CharWidth*3 + PaneText.CharWidth);
     if Cols < 1 then Cols := 1;
     ByteColumns :=  Cols;
@@ -314,9 +380,11 @@ end;
 destructor TEditorForm.Destroy;
 begin
   FDestroyed := True;
+  MainForm.RemoveEditor(Self);
   EditedData.Free;
   DataSource.Free;
-  MainForm.RemoveEditor(Self);
+  FFSkipSearcher.Free;
+//  FreeAndNil(FAutoObject);
   inherited;
 end;
 
@@ -340,8 +408,10 @@ end;
 
 procedure TEditorForm.FormCreate(Sender: TObject);
 begin
+//  FAutoObject := TAutoObject.Create();
   EditedData := TEditedData.Create(Self);
   CalculateByteColumns();
+  FFSkipSearcher := TFFSkipSearcher.Create();
   MainForm.AddEditor(Self);
 end;
 
@@ -357,7 +427,7 @@ begin
   BeginUpdatePanes();
   try
     CalculateByteColumns();
-    UpdateScrollBar();
+    UpdatePaneWidths();
     UpdatePanes();
   finally
     EndUpdatePanes();
@@ -576,6 +646,17 @@ begin
   Result := EditedData.Get(Addr, Size, ZerosBeyondEoF);
 end;
 
+function TEditorForm.GetEditedDataOle(Addr, Size: Int64;
+  ZerosBeyondEoF: WordBool): OleVariant;
+var
+  Data: TBytes;
+begin
+  Data := GetEditedData(Addr, Size, ZerosBeyondEoF);
+  Result := VarArrayCreate([Low(Data), High(Data)], varByte);
+  Move(Data[0], VarArrayLock(Result)^, Length(Data));
+  VarArrayUnlock(Result);
+end;
+
 function TEditorForm.GetFileSize: TFilePointer;
 // Edited file size (including appended region)
 begin
@@ -617,14 +698,47 @@ begin
   Result := GetEditedData(Addr, Size);
 end;
 
+//function TEditorForm.GetTypeInfo(Index, LocaleID: Integer;
+//  out TypeInfo): HResult;
+//begin
+//  Nop();
+//end;
+//
+//function TEditorForm.GetTypeInfoCount(out Count: Integer): HResult;
+//begin
+//  Nop();
+//end;
+
 function TEditorForm.FirstVisibleAddr: TFilePointer;
 begin
   Result := TopVisibleRow * ByteColumns;
 end;
 
+function TEditorForm.GetVisibleColsCount(IncludePartial: Boolean = True): Integer;
+begin
+  if IncludePartial then
+    Result := DivRoundUp(PaneHex.Width, PaneHex.CharWidth()*3)
+  else
+    Result := PaneHex.Width div (PaneHex.CharWidth()*3);
+  if Result < 1 then Result := 1;
+end;
+
 function TEditorForm.GetVisibleRowsCount: Integer;
 begin
   Result := PaneHex.Height div PaneHex.CharHeight();
+end;
+
+procedure TEditorForm.HorzScrollBarChange(Sender: TObject);
+begin
+  HorzScrollPos := HorzScrollBar.Position;
+end;
+
+function TEditorForm.Invoke(DispID: Integer; const IID: TGUID;
+  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
+  ArgErr: Pointer): HResult;
+begin
+  OleVariant(VarResult^) := 2345;
+//  Result := inherited;
 end;
 
 procedure TEditorForm.MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
@@ -654,7 +768,7 @@ begin
 
     MainForm.ImageList16.GetIcon(MainForm.GetIconIndex(DataSource), Icon);
     UpdateFormCaption();
-    UpdateScrollBar();
+    UpdateScrollBars();
     if ResetCaret then
       MoveCaret(0, [])
     else
@@ -727,6 +841,11 @@ begin
   end;
 end;
 
+//function TEditorForm.QueryInterface(const IID: TGUID; out Obj): HResult;
+//begin
+//  Result := inherited;
+//end;
+
 procedure TEditorForm.Splitter1Moved(Sender: TObject);
 begin
 //  CalculateByteColumns();
@@ -734,7 +853,7 @@ end;
 
 procedure TEditorForm.VertScrollBarChange(Sender: TObject);
 begin
-  TopVisibleRow := VertScrollBar.Position * FLinesPerScrollBarTick;
+  TopVisibleRow := TFilePointer(VertScrollBar.Position) * FLinesPerScrollBarTick;
 end;
 
 procedure TEditorForm.SaveFile(DataSourceType: TDWHexDataSourceType; const APath: string);
@@ -832,15 +951,33 @@ begin
 end;
 
 procedure TEditorForm.ScrollToCaret;
-var
-  CaretRow: TFilePointer;
 begin
-  CaretRow := CaretPos div ByteColumns;
-  if CaretRow < TopVisibleRow then
-    TopVisibleRow := CaretRow
+  ScrollToShow(CaretPos);
+end;
+
+procedure TEditorForm.ScrollToShow(Addr: TFilePointer;
+  RowsFromBorder: Integer = 0; ColsFromBorder: Integer = 0);
+// Scroll view to show specified file position.
+// RowsFromBorder, ColsFromBorder ensures enough distance from window corners
+var
+  TargetRow: TFilePointer;
+  TargetCol: Integer;
+begin
+  RowsFromBorder := BoundValue(RowsFromBorder, 0, GetVisibleRowsCount() div 2);
+  TargetRow := Addr div ByteColumns;
+  if TargetRow < TopVisibleRow + RowsFromBorder then
+    TopVisibleRow := TargetRow - RowsFromBorder
   else
-  if CaretRow > TopVisibleRow+GetVisibleRowsCount()-1 then
-    TopVisibleRow := CaretRow-GetVisibleRowsCount()+1;
+  if TargetRow > TopVisibleRow + GetVisibleRowsCount() - RowsFromBorder - 1 then
+    TopVisibleRow := TargetRow - GetVisibleRowsCount() + RowsFromBorder + 1;
+
+  ColsFromBorder := BoundValue(ColsFromBorder, 0, GetVisibleColsCount(False) div 2);
+  TargetCol := Addr mod ByteColumns;
+  if (TargetCol < HorzScrollPos + ColsFromBorder) then
+    HorzScrollPos := TargetCol - ColsFromBorder
+  else
+  if TargetCol > HorzScrollPos + GetVisibleColsCount(False) - ColsFromBorder - 1 then
+    HorzScrollPos := TargetCol - GetVisibleColsCount(False) + ColsFromBorder + 1;
 end;
 
 procedure TEditorForm.SelectionChanged;
@@ -868,9 +1005,7 @@ begin
 
       FByteColumns := Value;
 
-      PaneHex.Width := (FByteColumns * 3 + 1) * PaneHex.CharWidth;
-
-      UpdateScrollBar();
+      UpdatePaneWidths();
       // Keep caret in view, if it is now
       if (CaretLineOnScreen >= 0) and (CaretLineOnScreen < GetVisibleRowsCount()) then
         TopVisibleRow := CaretPos div ByteColumns - CaretLineOnScreen
@@ -933,6 +1068,31 @@ begin
   end;
 end;
 
+procedure TEditorForm.SetHorzScrollPos(Value: Integer);
+begin
+  // Validate
+  if HorzScrollBar.Max = 0 then
+    Value := 0
+  else
+    Value := BoundValue(Value, 0, HorzScrollBar.Max - HorzScrollBar.PageSize + 1);
+  if FHorzScrollPos <> Value then
+  begin
+    FHorzScrollPos := Value;
+
+    // Move scroll bar if scrolled programmatically
+    if HorzScrollBar.Position<>FHorzScrollPos then
+    begin
+      HorzScrollBar.OnChange := nil;
+      try
+        HorzScrollBar.Position:=FHorzScrollPos;
+      finally
+        HorzScrollBar.OnChange := HorzScrollBarChange;
+      end;
+    end;
+UpdatePanes();
+  end;
+end;
+
 procedure TEditorForm.SetInsertMode(Value: Boolean);
 begin
   if not (dspResizable in DataSource.GetProperties) then Value := False;
@@ -966,13 +1126,16 @@ procedure TEditorForm.SetTopVisibleRow(Value: TFilePointer);
 var
   MaxTopRow: TFilePointer;
 begin
+  // Validate
+  MaxTopRow := DivRoundUp(GetFileSize()+1, ByteColumns) - GetVisibleRowsCount();
+  if Value > MaxTopRow then Value := MaxTopRow;
+  if Value < 0 then Value := 0;
   if Value<>FTopVisibleRow then
   begin
-    MaxTopRow := DivRoundUp(GetFileSize()+1, ByteColumns) - GetVisibleRowsCount();
-    if Value > MaxTopRow then Value := MaxTopRow;
-    if Value < 0 then Value := 0;
 
     FTopVisibleRow := Value;
+
+    // Move scroll bar if scrolled programmatically
     if VertScrollBar.Position<>FTopVisibleRow div FLinesPerScrollBarTick then
     begin
       VertScrollBar.OnChange := nil;
@@ -1019,6 +1182,7 @@ end;
 procedure TEditorForm.SomeDataChanged;
 begin
   HasUnsavedChanges := True;
+  UpdateScrollBars();
   UpdatePanes();
   MainForm.UpdateMsgPanel();
 end;
@@ -1058,12 +1222,13 @@ procedure TEditorForm.UpdatePanes;
 var
   Data: TBytes;
   i: Integer;
-  Rows: Integer;
+  Rows, LnNumChars: Integer;
   sb: TStringBuilder;
   Lines: TStringList;
   s: AnsiString;
   c: AnsiChar;
   FirstVisibleAddress, VisibleRangeEnd: TFilePointer;
+  FileSize: TFilePointer;
   IncludesFileEnd: Boolean;
 begin
   if FUpdating>0 then
@@ -1077,24 +1242,32 @@ begin
   try
     Rows := GetVisibleRowsCount();
     FirstVisibleAddress := FirstVisibleAddr();
+
+    // Get visible data
     Data := GetEditedData(FirstVisibleAddress, Rows * ByteColumns);
+
     VisibleRangeEnd := FirstVisibleAddress + Length(Data);
     IncludesFileEnd := (Length(Data) < Rows * ByteColumns);
-    sb := TStringBuilder.Create();
     Lines := TStringList.Create();
 
     // Line numbers
+    FileSize := GetFileSize();
+    if FileSize > TFilePointer($FFFFFFFF) then
+      LnNumChars := 10
+    else
+    if FileSize > TFilePointer($FFFF) then
+      LnNumChars := 8
+    else
+      LnNumChars := 4;
     for i:=0 to DivRoundUp(Length(Data), ByteColumns)-1 do
     begin
-      //sb.Append(IntToHex(FirstVisibleAddress + i*ByteColumns, 8)+#13#10);
-      Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, 8));
+      Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, LnNumChars));
     end;
-    //PaneLnNum.Text := sb.ToString;
     PaneLnNum.Lines.Assign(Lines);
 
     // Hex
-  //  sb.Clear();
     Lines.Clear();
+    sb := TStringBuilder.Create();
     for i:=0 to Length(Data)-1 do
     begin
       sb.Append(IntToHex(Data[i], 2)+' ');
@@ -1106,10 +1279,11 @@ begin
     end;
     if (sb.Length>0) or (IncludesFileEnd) then
       Lines.Add(sb.ToString());
+    sb.Free;
     PaneHex.Lines.Assign(Lines);
+    PaneHex.HorzScrollPos := HorzScrollPos * 3;
 
     // Text
-    //sb.Clear();
     s := '';
     Lines.Clear();
     for i:=0 to Length(Data)-1 do
@@ -1118,37 +1292,37 @@ begin
         c := '.'
       else
         c := AnsiChar(Data[i]);
-      //sb.Append(c);
       s := s + c;
       if ((i+1) mod ByteColumns)=0 then
-        //sb.Append(#13#10);
       begin
-        //Lines.Add(sb.ToString());
-        //sb.Clear();
         Lines.Add(string(s));
         s := '';
       end;
     end;
-  //  if (sb.Length>0) or (IncludesFileEnd) then
-  //    Lines.Add(sb.ToString());
     if (s<>'') or (IncludesFileEnd) then
       Lines.Add(string(s));
     PaneText.Lines.Assign(Lines);
+    PaneText.HorzScrollPos := HorzScrollPos;
 
-    sb.Free;
     Lines.Free;
 
     UpdatePanesCarets();
 
-    if (FirstVisibleAddress <> FPrevVisibleRange.Start) or (VisibleRangeEnd <> FPrevVisibleRange.AEnd) then
+    // Call events when visible range changes
+    if (FirstVisibleAddress <> FPrevVisibleRange.Start) or
+       (VisibleRangeEnd <> FPrevVisibleRange.AEnd) or
+       (HorzScrollPos <> FPrevHorzScroll) then
     begin
       OnVisibleRangeChanged.Call(Self);
       FPrevVisibleRange.Start := FirstVisibleAddress;
       FPrevVisibleRange.AEnd := VisibleRangeEnd;
+      FPrevHorzScroll := HorzScrollPos;
     end;
   finally
     EndUpdatePanes();
   end;
+
+  UpdateSkipFFButtons(Data);
 end;
 
 procedure TEditorForm.UpdatePanesCarets;
@@ -1222,27 +1396,95 @@ begin
   Update(PaneText, 1);
 end;
 
-procedure TEditorForm.UpdateScrollBar;
+procedure TEditorForm.UpdatePaneWidths;
+// Calculate HexPane width
+var
+  HexWidth: Integer;
+begin
+  HexWidth := (FByteColumns * 3 + 1) * PaneHex.CharWidth;
+  HexWidth := Min(HexWidth, (VertScrollBar.Left - PaneHex.Left - Shape2.Width) * 3 div 4 );
+  HexWidth := Max(HexWidth, PaneHex.CharWidth * 3);
+  PaneHex.Width := HexWidth;
+  UpdateScrollBars();
+end;
+
+procedure TEditorForm.UpdateScrollBars;
 var
   FileRows: TFilePointer;
   ScreenRows: Integer;
 begin
-  FileRows := DivRoundUp(GetFileSize()+1, ByteColumns);
-  ScreenRows := GetVisibleRowsCount();
-  if (FileRows <= ScreenRows) then
+  // Horizontal scroll bar
+  if ByteColumns > GetVisibleColsCount(False) then
   begin
-    FLinesPerScrollBarTick := 1;
-    VertScrollBar.PageSize := 0;
-    VertScrollBar.Max := 0;
+    HorzScrollBar.Visible := True;
+    HorzScrollBar.Max := ByteColumns - 1;
+    HorzScrollBar.PageSize := GetVisibleColsCount(False);
+    HorzScrollBar.LargeChange := HorzScrollBar.PageSize;
   end
   else
+  begin
+    HorzScrollBar.Visible := False;
+    HorzScrollBar.PageSize := 0;
+    HorzScrollBar.Max := 0;
+  end;
+
+  // Vertical scroll bar
+  FileRows := DivRoundUp(GetFileSize()+1, ByteColumns);
+  ScreenRows := GetVisibleRowsCount();
+  if (FileRows > ScreenRows) then
   begin
     // ScrollBar.Position is limited by 2^32, so for large files make
     // one scrollbar step more then one line
     FLinesPerScrollBarTick := Max(FileRows div 100000000{100 M lines}, 1);
     VertScrollBar.Max := (FileRows div FLinesPerScrollBarTick) - 1;
     VertScrollBar.PageSize := (ScreenRows div FLinesPerScrollBarTick);
+    VertScrollBar.LargeChange := VertScrollBar.PageSize;
+  end
+  else
+  begin
+    FLinesPerScrollBarTick := 1;
+    VertScrollBar.PageSize := 0;
+    VertScrollBar.Max := 0;
   end;
+end;
+
+procedure TEditorForm.UpdateSkipFFButtons(const Data: TBytes);
+// Show "Skip FF" buttons if there is a lot of repeating bytes
+// in start/end of viewed area
+
+  function ShowBtn(Btn: TSpeedButton; n1, n2: Integer; var AByte: Byte; HintTemplate: string): Boolean;
+  var
+    Vis: Boolean;
+    i: Integer;
+  begin
+    if (Length(Data) = 0) or
+       ((Btn.Tag = -1) and (n1 + FirstVisibleAddr() = 0)) or
+       ((Btn.Tag =  1) and (n2 + FirstVisibleAddr() = GetFileSize() - 1)) then
+      // Don't show if we are at file start/end
+      Vis := False
+    else
+    begin
+      Vis := True;
+      for i:=n1+1 to n2 do
+        if Data[i] <> Data[n1] then
+        begin
+          Vis := False;
+          Break;
+        end;
+    end;
+    Btn.Visible := Vis;
+    if Vis then
+    begin
+      AByte := Data[n1];
+      Btn.Caption := 'Skip '+IntToHex(AByte, 2);
+      Btn.Hint := HintTemplate.Replace('%', IntToHex(AByte, 2));
+    end;
+    Result := Vis;
+  end;
+
+begin
+  ShowBtn(BtnSkipFFBack, 0, Min(Length(Data) div 4, 4096), FFSkipBackByte, 'Skip backward to previous non-% byte');
+  ShowBtn(BtnSkipFFFwd, High(Data) - Min(Length(Data) div 4, 4096), High(Data), FFSkipFwdByte, 'Skip forward to next non-% byte');
 end;
 
 function TEditorForm.VisibleBytesCount: Integer;
@@ -1255,6 +1497,43 @@ begin
   DataSource := TFileDataSource.Create('New file');
 
   NewFileOpened(True);
+end;
+
+function TEditorForm.GetFileSizeOle: TFilePointer;
+begin
+  Result := GetFileSize();
+end;
+
+function TEditorForm.GetIDsOfNames(const IID: TGUID; Names: Pointer; NameCount,
+  LocaleID: Integer; DispIDs: Pointer): HResult;
+//var
+//  S: string;
+//  Info: PPropInfo;
+begin
+   Result := S_OK;
+//   // Получаем имя функции или свойства
+//   S := PPChar(Names)^;
+//   // Проверяем, есть ли VCL-свойство с таким же именем
+//   Info := GetPropInfo(ClassInfo, S);
+//   if Assigned(Info) then
+//     // Свойство есть, возвращаем в качестве DispId
+//     // адрес структуры PropInfo
+     PDispIDList(DispIds)[0] := 1;// Integer(Info);
+end;
+
+{ TFFSkipSearcher }
+
+function TFFSkipSearcher.Match(const Data: PByte; DataSize: Integer;
+  var Size: Integer): Boolean;
+// Return True if we found different byte
+begin
+  if Data^ <> Params.Needle[0] then
+  begin
+    Size := 1;
+    Result := True;
+  end
+  else
+    Result := False;
 end;
 
 end.

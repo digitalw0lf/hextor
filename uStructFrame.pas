@@ -12,15 +12,15 @@ uses
 
 type
   EDSParserError = class (Exception);
-
-//  TDSFieldKind = (fkUnknown, fkSimple, fkArray, fkStruct);
   TDSSimpleDataType = string;  // e.g. 'uint16'
+  TDSCompoundField = class;
 
   // Base class for all elements
   TDSField = class
   public
 //    Kind: TDSFieldKind;
     Name: string;
+    Parent: TDSCompoundField;
     BufAddr: TFilePointer;
     BufSize: Integer;
     DescrLineNum: Integer;  // Line number in structure description text
@@ -271,6 +271,7 @@ function TDSParser.MakeArray(AType: TDSField; const ACount: string): TDSArray;
 begin
   Result := TDSArray.Create();
   Result.ElementType := AType.Duplicate();
+  Result.ElementType.Parent := Result;
   Result.ACount := ACount;
 end;
 
@@ -433,6 +434,7 @@ begin
         end;
 
         AInstance.Name := AName;
+        AInstance.Parent := Result;
         Result.Fields.Add(AInstance);
 
         WriteLogF('Struct', AnsiString(AInstance.ClassName+' '+AInstance.Name));
@@ -513,7 +515,7 @@ end;
 
 procedure TDSCompoundField.Assign(Source: TDSField);
 var
-  i: Integer;
+  i, n: Integer;
 begin
   inherited;
   if Source is TDSCompoundField then
@@ -521,7 +523,8 @@ begin
     Fields.Clear();
     for i:=0 to (Source as TDSCompoundField).Fields.Count-1 do
     begin
-      Fields.Add( (Source as TDSCompoundField).Fields[i].Duplicate() );
+      n := Fields.Add( (Source as TDSCompoundField).Fields[i].Duplicate() );
+      Fields[n].Parent := Self;
     end;
   end;
 end;
@@ -571,6 +574,7 @@ procedure TDSField.Assign(Source: TDSField);
 begin
 //  Kind := Source.Kind;
   Name := Source.Name;
+  Parent := Source.Parent;
   DescrLineNum := Source.DescrLineNum;
 end;
 
@@ -610,14 +614,24 @@ begin
 end;
 
 procedure TStructFrame.Button1Click(Sender: TObject);
+const
+  MaxSize = 100*KByte;
 var
   AData: TBytes;
   Addr: TFilePointer;
 begin
   FEditor := MainForm.ActiveEditor;
   with FEditor do
-    AData := GetSelectedOrAfterCaret(100*KByte, 100*KByte, Addr, True);
-  Analyze(MainForm.ActiveEditor.SelStart, AData, DSDescrMemo.Text);
+  begin
+    if SelStart = GetFileSize() then
+    begin
+      Addr := 0;
+      AData := GetEditedData(0, MaxSize);
+    end
+    else
+      AData := GetSelectedOrAfterCaret(100*KByte, 100*KByte, Addr, True);
+  end;
+  Analyze(Addr, AData, DSDescrMemo.Text);
 end;
 
 constructor TStructFrame.Create(AOwner: TComponent);
@@ -812,6 +826,7 @@ var
 begin
   if TryStrToInt(Expr, Result) then Exit;
 
+  // TODO: start search from current element, not from last
   DS := FindLastValueByName(Env, Expr);
   if (DS <> nil) and (DS is TDSSimpleField) then
     with TDSSimpleField(DS) do
@@ -903,14 +918,29 @@ var
   i: Integer;
   Element: TDSField;
 begin
-  Count := CalculateExpression(DS.ACount, FRootDS);
+  if DS.ACount = '' then
+    Count := -1
+  else
+    Count := CalculateExpression(DS.ACount, FRootDS);
 
-  for i:=0 to Count-1 do
+  i := 0;
+  while True do
   begin
+    if Count >= 0 then
+    begin
+      if (i >= Count) then Break;
+    end
+    else
+    begin
+      // If empty count specified "[]", parse this array until end of buffer
+      if UIntPtr(Buf) >= UIntPtr(BufEnd) then Break;
+    end;
     Element := DS.ElementType.Duplicate();
     Element.Name := IntToStr(i);
-    InternalInterpret(Element, Buf, BufEnd);
+    Element.Parent := DS;
     DS.Fields.Add(Element);
+    InternalInterpret(Element, Buf, BufEnd);
+    Inc(i);
   end;
 end;
 
