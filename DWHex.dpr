@@ -1,6 +1,7 @@
 program DWHex;
 
 uses
+  FastMM4,
   Vcl.Forms,
   uEditorPane in 'uEditorPane.pas',
   uDWHexTypes in 'uDWHexTypes.pas',
@@ -21,7 +22,8 @@ uses
   uCoDWHex in 'uCoDWHex.pas' {CoDWHex: CoClass},
   uDbgToolsForm in 'uDbgToolsForm.pas' {DbgToolsForm},
   uProfilerFrame in 'D:\Work\Trunk\Units\Components\uProfilerFrame.pas' {ProfilerFrame: TFrame},
-  uDataSearcher in 'uDataSearcher.pas';
+  uDataSearcher in 'uDataSearcher.pas',
+  uValueInterpretors in 'uValueInterpretors.pas';
 
 {$R *.TLB}
 

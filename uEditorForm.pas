@@ -282,7 +282,7 @@ begin
   FFSkipSearcher.Find(EntireFile, Start, Dir, Ptr, Size);
   BeginUpdatePanes();
   try
-    ScrollToShow(Ptr, 8, 8);
+    ScrollToShow(Ptr, -1, -1);
   finally
     EndUpdatePanes();
   end;
@@ -952,7 +952,7 @@ end;
 
 procedure TEditorForm.ScrollToCaret;
 begin
-  ScrollToShow(CaretPos);
+  ScrollToShow(CaretPos, 0, 0);
 end;
 
 procedure TEditorForm.ScrollToShow(Addr: TFilePointer;
@@ -963,6 +963,9 @@ var
   TargetRow: TFilePointer;
   TargetCol: Integer;
 begin
+  if RowsFromBorder = -1 then RowsFromBorder := 8;
+  if ColsFromBorder = -1 then ColsFromBorder := 8;
+
   RowsFromBorder := BoundValue(RowsFromBorder, 0, GetVisibleRowsCount() div 2);
   TargetRow := Addr div ByteColumns;
   if TargetRow < TopVisibleRow + RowsFromBorder then

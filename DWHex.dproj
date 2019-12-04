@@ -93,7 +93,7 @@
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
-        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+        <DCC_Define>DEBUG;FullDebugMode;$(DCC_Define)</DCC_Define>
         <DCC_DebugDCUs>true</DCC_DebugDCUs>
         <DCC_Optimize>false</DCC_Optimize>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
@@ -137,48 +137,38 @@
         <DCCReference Include="uDWHexDataSources.pas"/>
         <DCCReference Include="uMainForm.pas">
             <Form>MainForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uFindReplaceForm.pas">
             <Form>FindReplaceForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uDiskSelectForm.pas">
             <Form>DiskSelectForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uProcessSelectForm.pas">
             <Form>ProcessSelectForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uBitsEditorForm.pas">
             <Form>BitsEditorForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uEditorForm.pas">
             <Form>EditorForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uValueFrame.pas">
             <Form>ValueFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uStructFrame.pas">
             <Form>StructFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uEditedData.pas"/>
         <DCCReference Include="uCompareFrame.pas">
             <Form>CompareFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uCallbackList.pas"/>
         <DCCReference Include="uScriptFrame.pas">
             <Form>ScriptFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="DWHex_TLB.pas"/>
@@ -187,14 +177,13 @@
         </DCCReference>
         <DCCReference Include="uDbgToolsForm.pas">
             <Form>DbgToolsForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="D:\Work\Trunk\Units\Components\uProfilerFrame.pas">
             <Form>ProfilerFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uDataSearcher.pas"/>
+        <DCCReference Include="uValueInterpretors.pas"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txvpck"/>
@@ -232,7 +221,7 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
-                <DeployFile LocalName="DWHex.ridl" Configuration="Debug" Class="ProjectFile">
+                <DeployFile LocalName="ModelSupport_DWHex\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
@@ -244,7 +233,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="ModelSupport_DWHex\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile">
+                <DeployFile LocalName="DWHex.ridl" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>

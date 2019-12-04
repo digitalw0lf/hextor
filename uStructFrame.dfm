@@ -28,13 +28,18 @@ object StructFrame: TStructFrame
     Height = 355
     Align = alClient
     Indent = 19
+    ParentShowHint = False
     ReadOnly = True
     RightClickSelect = True
+    ShowHint = True
     TabOrder = 1
+    OnAdvancedCustomDrawItem = DSTreeViewAdvancedCustomDrawItem
     OnChange = DSTreeViewChange
     OnDblClick = DSTreeViewDblClick
     OnEnter = DSTreeViewEnter
     OnExit = DSTreeViewExit
+    OnHint = DSTreeViewHint
+    OnMouseDown = DSTreeViewMouseDown
   end
   object PnlButtonBar1: TPanel
     Left = 0
@@ -132,7 +137,7 @@ object StructFrame: TStructFrame
     OnMouseDown = PnlButtonBar2MouseDown
     OnMouseMove = PnlButtonBar2MouseMove
     OnMouseUp = PnlButtonBar2MouseUp
-    object Button1: TButton
+    object BtnInterpret: TButton
       Left = 8
       Top = 8
       Width = 81
@@ -141,7 +146,7 @@ object StructFrame: TStructFrame
       ImageIndex = 8
       Images = MainForm.ImageList16
       TabOrder = 0
-      OnClick = Button1Click
+      OnClick = BtnInterpretClick
     end
   end
   object EditFieldValue: TEdit

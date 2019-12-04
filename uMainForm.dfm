@@ -87,6 +87,58 @@ object MainForm: TMainForm
         '16'
         '32')
     end
+    object ToolButton5: TToolButton
+      Left = 169
+      Top = 0
+      Width = 8
+      Caption = 'ToolButton5'
+      ImageIndex = 4
+      Style = tbsSeparator
+    end
+    object ProgressPanel: TPanel
+      Left = 177
+      Top = 0
+      Width = 416
+      Height = 22
+      BevelOuter = bvNone
+      TabOrder = 1
+      Visible = False
+      object ProgressGauge: TGauge
+        Left = 233
+        Top = 0
+        Width = 127
+        Height = 22
+        Align = alClient
+        ForeColor = clLime
+        Progress = 0
+        ExplicitLeft = 248
+        ExplicitWidth = 112
+      end
+      object BtnAbort: TSpeedButton
+        Left = 360
+        Top = 0
+        Width = 56
+        Height = 22
+        Align = alRight
+        Caption = 'Abort'
+        OnClick = BtnAbortClick
+        ExplicitLeft = 128
+        ExplicitTop = 1
+        ExplicitHeight = 20
+      end
+      object ProgressTextLabel: TLabel
+        Left = 0
+        Top = 0
+        Width = 233
+        Height = 22
+        Align = alLeft
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Wait...'
+        Transparent = False
+        Layout = tlCenter
+      end
+    end
   end
   object MDITabs: TTabControl
     Left = 0
@@ -140,7 +192,7 @@ object MainForm: TMainForm
             ExplicitHeight = 523
             ColWidths = (
               64
-              283)
+              279)
             RowHeights = (
               21
               21)
@@ -176,7 +228,7 @@ object MainForm: TMainForm
           inherited PnlButtonBar2: TPanel
             Width = 348
             ExplicitWidth = 348
-            inherited Button1: TButton
+            inherited BtnInterpret: TButton
               Images = nil
             end
           end
@@ -585,7 +637,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010D004001600110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010D0040016C0110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

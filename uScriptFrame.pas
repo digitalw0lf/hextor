@@ -70,7 +70,7 @@ procedure TScriptFrame.Init;
 begin
   MemoScript.Text := AppSettings.Script.Text;
 
-  ScriptControl1.AddObject('DWHex', MainForm.DWHexOle, False);
+//  ScriptControl1.AddObject('DWHex', MainForm.DWHexOle, False);
 
 end;
 

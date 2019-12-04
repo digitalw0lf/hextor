@@ -18,7 +18,8 @@ uses
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
-  uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex;
+  uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex,
+  Vcl.Buttons, Vcl.Samples.Gauges;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -135,6 +136,11 @@ type
     PgScript: TTabSheet;
     ScriptFrame: TScriptFrame;
     DbgToolsForm1: TMenuItem;
+    ProgressPanel: TPanel;
+    ToolButton5: TToolButton;
+    ProgressGauge: TGauge;
+    BtnAbort: TSpeedButton;
+    ProgressTextLabel: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -176,11 +182,14 @@ type
     procedure RightPanelPageControlChange(Sender: TObject);
     procedure RightPanelResize(Sender: TObject);
     procedure DbgToolsForm1Click(Sender: TObject);
+    procedure BtnAbortClick(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
     FInitialFilesOpened: Boolean;
     FDoAfterEvent: array of TProc;
+    FOperationAborted: Boolean;
+    LastProgressRefresh: Cardinal;
     procedure InitDefaultSettings();
     procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
@@ -214,6 +223,8 @@ type
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
     procedure DoAfterEvent(Proc: TProc);
+    procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; const Text: string = '');
+    procedure OperationDone(Sender: TObject);
   end;
 
 const
@@ -558,6 +569,11 @@ begin
   DoAfterEvent(UpdateByteColEdit);
 end;
 
+procedure TMainForm.BtnAbortClick(Sender: TObject);
+begin
+  FOperationAborted := True;
+end;
+
 procedure TMainForm.CheckEnabledActions;
 var
   FocusInEditor: Boolean;
@@ -682,7 +698,7 @@ begin
   if AppSettings.RightPanelWidth > 0 then
     RightPanel.Width := AppSettings.RightPanelWidth;
 
-  DWHexOle := TCoDWHex.Create();
+//  DWHexOle := TCoDWHex.Create();
 
   ScriptFrame.Init();
 end;
@@ -694,6 +710,8 @@ begin
   SaveSettings();
   AppSettings.Free;
   FEditors.Free;
+
+//  DWHexOle.Free;
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
@@ -859,6 +877,14 @@ begin
     ActionNewExecute(nil);
 end;
 
+procedure TMainForm.OperationDone(Sender: TObject);
+// Hide progress
+begin
+  ProgressGauge.Progress := 0;
+//  LblProgress.Caption := '';
+  ProgressPanel.Visible := False;
+end;
+
 procedure TMainForm.RecentFilesMenuPopup(Sender: TObject);
 begin
   GenerateRecentFilesMenu(RecentFilesMenu.Items);
@@ -923,6 +949,19 @@ procedure TMainForm.SetActiveEditor(const Value: TEditorForm);
 begin
   if Value <> nil then
     Value.BringToFront();
+end;
+
+procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; const Text: string = '');
+begin
+  if (GetTickCount() - LastProgressRefresh < 50) then Exit;
+  LastProgressRefresh := GetTickCount();
+  ProgressGauge.Progress := Round(Pos/Total*100);
+  ProgressTextLabel.Caption := Text;
+  ProgressPanel.Visible := True;
+
+  FOperationAborted := False;
+  Application.ProcessMessages();
+  if FOperationAborted then Abort();
 end;
 
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;
