@@ -184,6 +184,7 @@
         </DCCReference>
         <DCCReference Include="uDataSearcher.pas"/>
         <DCCReference Include="uValueInterpretors.pas"/>
+        <DCCReference Include="uUndoStack.pas"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txvpck"/>
@@ -227,13 +228,13 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="ModelSupport_DWHex\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile">
+                <DeployFile LocalName="ModelSupport_DWHex\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="ModelSupport_DWHex\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
+                <DeployFile LocalName="ModelSupport_DWHex\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>

@@ -141,6 +141,12 @@ type
     ProgressGauge: TGauge;
     BtnAbort: TSpeedButton;
     ProgressTextLabel: TLabel;
+    ActionUndo: TAction;
+    ActionRedo: TAction;
+    N1: TMenuItem;
+    MIUndo: TMenuItem;
+    MIRedo: TMenuItem;
+    Undostack1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -183,6 +189,9 @@ type
     procedure RightPanelResize(Sender: TObject);
     procedure DbgToolsForm1Click(Sender: TObject);
     procedure BtnAbortClick(Sender: TObject);
+    procedure ActionUndoExecute(Sender: TObject);
+    procedure ActionRedoExecute(Sender: TObject);
+    procedure Undostack1Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -190,6 +199,8 @@ type
     FDoAfterEvent: array of TProc;
     FOperationAborted: Boolean;
     LastProgressRefresh: Cardinal;
+    OldOnActiveControlChange: TNotifyEvent;
+    EditorActionShortcuts: TDictionary<TContainedAction, TShortCut>;
     procedure InitDefaultSettings();
     procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
@@ -202,6 +213,8 @@ type
     procedure GenerateRecentFilesMenu(Menu: TMenuItem);
     procedure ApplyByteColEdit();
     procedure UpdateByteColEdit();
+    procedure ActiveControlChanged(Sender: TObject);
+    procedure ShortCutsWhenEditorActive(const AActions: array of TContainedAction);
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
@@ -425,6 +438,7 @@ begin
     if Length(Buf)=0 then Exit;
 
     BeginUpdatePanes();
+    UndoStack.BeginAction('', 'Paste');
     try
       if InsertMode then
       begin
@@ -435,6 +449,20 @@ begin
         ChangeBytes(CaretPos, Buf);
         MoveCaret(CaretPos + Length(Buf), []);
       end;
+    finally
+      UndoStack.EndAction();
+      EndUpdatePanes();
+    end;
+  end;
+end;
+
+procedure TMainForm.ActionRedoExecute(Sender: TObject);
+begin
+  with ActiveEditor do
+  begin
+    BeginUpdatePanes();
+    try
+      UndoStack.Redo();
     finally
       EndUpdatePanes();
     end;
@@ -522,6 +550,26 @@ begin
   end;
 end;
 
+procedure TMainForm.ActionUndoExecute(Sender: TObject);
+begin
+  with ActiveEditor do
+  begin
+    BeginUpdatePanes();
+    try
+      UndoStack.Undo();
+    finally
+      EndUpdatePanes();
+    end;
+  end;
+end;
+
+procedure TMainForm.ActiveControlChanged(Sender: TObject);
+begin
+  if Assigned(OldOnActiveControlChange) then
+    OldOnActiveControlChange(Sender);
+  CheckEnabledActions();
+end;
+
 procedure TMainForm.ActiveEditorChanged;
 begin
   UpdateMDITabs();
@@ -556,9 +604,13 @@ begin
 end;
 
 procedure TMainForm.CheckEnabledActions;
+// Enable/disable actions based on active window, selection etc.
 var
   FocusInEditor: Boolean;
+  S: string;
+  AShortCut: TPair<TContainedAction, TShortCut>;
 begin
+  FocusInEditor := False;
   ActionCompare.Enabled := (EditorCount >= 2);
 
   try
@@ -566,8 +618,13 @@ begin
     begin
       FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
-      ActionSave.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and ((DataSource.Path='') or (HasUnsavedChanges));
+      ActionSave.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and ((HasUnsavedChanges) or (DataSource.Path=''));
       ActionRevert.Enabled := (HasUnsavedChanges);
+
+      ActionUndo.Enabled := UndoStack.CanUndo(S);
+      ActionUndo.Caption := 'Undo ' + S;
+      ActionRedo.Enabled := UndoStack.CanRedo(S);
+      ActionRedo.Caption := 'Redo' + S;
 
       ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
@@ -583,6 +640,11 @@ begin
       ActionSave.Enabled := False;
       ActionRevert.Enabled := False;
 
+      ActionUndo.Enabled := False;
+      ActionUndo.Caption := 'Undo';
+      ActionRedo.Enabled := False;
+      ActionRedo.Caption := 'Redo';
+
       ActionCopy.Enabled := False;
       ActionCut.Enabled := False;
       ActionPaste.Enabled := False;
@@ -592,6 +654,11 @@ begin
       ActionBitsEditor.Enabled := False;
     end;
   end;
+
+  // Register/unregister action shortcuts
+  for AShortCut in EditorActionShortcuts do
+    if FocusInEditor then AShortCut.Key.ShortCut := AShortCut.Value
+                     else AShortCut.Key.ShortCut := 0;
 end;
 
 function TMainForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
@@ -676,6 +743,17 @@ begin
   if AppSettings.RightPanelWidth > 0 then
     RightPanel.Width := AppSettings.RightPanelWidth;
 
+  OldOnActiveControlChange := Screen.OnActiveControlChange;
+  Screen.OnActiveControlChange := ActiveControlChanged;
+
+  // Remember actions whose shortcuts should only be active in main editors
+  EditorActionShortcuts := TDictionary<TContainedAction, TShortCut>.Create();
+  for i:=0 to ActionList1.ActionCount-1 do
+    if (ActionList1.Actions[i].Category = 'Edit') or
+       (ActionList1.Actions[i].Category = 'Navigation') then
+      ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
+  ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
+
 //  DWHexOle := TCoDWHex.Create();
 
   ScriptFrame.Init();
@@ -687,6 +765,7 @@ begin
 
   SaveSettings();
   AppSettings.Free;
+  EditorActionShortcuts.Free;
   FEditors.Free;
 
 //  DWHexOle.Free;
@@ -928,6 +1007,19 @@ begin
     Value.BringToFront();
 end;
 
+procedure TMainForm.ShortCutsWhenEditorActive(const AActions: array of TContainedAction);
+// Passed Actions should have ShortCuts active only when focus is in main editor.
+// Just setting Action.Enabled to False does not works, because even disabled
+// actions make their shortcuts not work in other windows and controls
+var
+  i: Integer;
+begin
+  for i:=0 to Length(AActions)-1 do
+  begin
+    EditorActionShortcuts.AddOrSetValue(AActions[i], AActions[i].ShortCut);
+  end;
+end;
+
 procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; const Text: string = '');
 begin
   if (GetTickCount() - LastProgressRefresh < 50) then Exit;
@@ -986,6 +1078,22 @@ begin
     end;
     EndUpdatePanes();
   end;
+end;
+
+procedure TMainForm.Undostack1Click(Sender: TObject);
+var
+  s: string;
+  i: Integer;
+begin
+  s := '';
+  with ActiveEditor.UndoStack do
+    for i:=0 to Actions.Count-1 do
+    begin
+      if i = CurPointer then
+        s := s + '<-- pointer' + #13#10;
+      s := s + Actions[i].Code + ' ' + Actions[i].Caption+' ('+IntToStr(Actions[i].Changes.Count)+' changes) '+#13#10;
+    end;
+  Application.MessageBox(PChar(s),'');
 end;
 
 procedure TMainForm.UpdateByteColEdit;

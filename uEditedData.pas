@@ -23,8 +23,10 @@ type
       Size: TFilePointer;
       SourceAddr: TFilePointer;  // Corresponding address in Source (for unchanged parts)
       Data: TBytes;  // For changed parts
+      procedure Assign(Source: TDataPart);
     end;
     TDataPartList = TObjectList<TDataPart>;
+    TDataPartArray = TArray<TDataPart>;
   private
     function SplitPart(Index: Integer; Addr: TFilePointer): Boolean;
     function CombineParts(Index1, Index2: Integer): Boolean;
@@ -34,7 +36,10 @@ type
     DataSource: TDWHexDataSource;
     Resizable: Boolean;
     Parts: TDataPartList;  // Treat as private except for saving to file
+    // Data changed event. "Value" may be nil if fired as a result on Undo
     OnDataChanged: TCallbackListP4<{Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer, {Value:}PByteArray>;
+    // Event for Undo stack
+    OnBeforePartsReplace: TCallbackListP4<{PartIndex1:}Integer, {PartIndex2:}Integer, {Addr:}TFilePointer, {NewSize:}TFilePointer>;
     constructor Create();
     destructor Destroy(); override;
     procedure ResetParts();
@@ -245,11 +250,19 @@ procedure TEditedData.ReplaceParts(Addr, OldSize: TFilePointer;
 // Split/combine parts if needed
 var
   i1, i2, i, OldCount, NewCount: Integer;
+  NewSize: TFilePointer;
+  AValue: PByteArray;
 begin
   // TODO: Optimize for a case when we really don't need to split parts and combine them back
 
   // Split parts on boundaries
   PreparePartsForOperation(Addr, OldSize, i1, i2);
+
+  // Pass old parts to Undo stack
+  NewSize := 0;
+  for i:=0 to Length(NewParts)-1 do
+    NewSize := NewSize + NewParts[i].Size;
+  OnBeforePartsReplace.Call(i1, i2, Addr, NewSize);
 
   OldCount := i2 - i1 + 1;
   NewCount := Length(NewParts);
@@ -272,6 +285,13 @@ begin
   if CombineParts(i1-1, i1) then
     Dec(i2);
   CombineParts(i2, i2+1);
+
+  // Call event. If we changed one part with in-memory data, pass pointer to that data
+  if (Length(NewParts) = 1) and (NewParts[0].PartType = ptBuffer) then
+    AValue := @NewParts[0].Data[0]
+  else
+    AValue := nil;
+  OnDataChanged.Call(Addr, OldSize, NewSize, AValue);
 end;
 
 procedure TEditedData.ResetParts;
@@ -349,9 +369,7 @@ begin
   else
     NewParts := nil;
 
-  ReplaceParts(Addr, OldSize, NewParts);
-
-  OnDataChanged.Call(Addr, OldSize, NewSize, Value);
+  ReplaceParts(Addr, OldSize, NewParts);  // <--
 end;
 
 function TEditedData.CombineParts(Index1, Index2: Integer): Boolean;
@@ -393,6 +411,17 @@ begin
 
   Parts.DeleteRange(Index1+1, Index2-Index1);
   Result := True;
+end;
+
+{ TEditedData.TDataPart }
+
+procedure TEditedData.TDataPart.Assign(Source: TDataPart);
+begin
+  PartType := Source.PartType;
+  Addr := Source.Addr;
+  Size := Source.Size;
+  SourceAddr := Source.SourceAddr;
+  Data := Copy(Source.Data);
 end;
 
 end.

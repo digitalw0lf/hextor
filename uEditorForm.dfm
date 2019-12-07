@@ -1,8 +1,9 @@
 object EditorForm: TEditorForm
   Left = 0
   Top = 0
+  ActiveControl = PaneText
   Caption = 'EditorForm'
-  ClientHeight = 643
+  ClientHeight = 663
   ClientWidth = 1049
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -71,7 +72,7 @@ object EditorForm: TEditorForm
     Left = 81
     Top = 0
     Width = 4
-    Height = 607
+    Height = 627
     Align = alLeft
     Brush.Color = 14737632
     Pen.Style = psClear
@@ -83,7 +84,7 @@ object EditorForm: TEditorForm
     Left = 770
     Top = 0
     Width = 4
-    Height = 607
+    Height = 627
     Align = alLeft
     Brush.Color = 14737632
     Pen.Style = psClear
@@ -95,7 +96,7 @@ object EditorForm: TEditorForm
     Left = 85
     Top = 0
     Width = 685
-    Height = 607
+    Height = 627
     Align = alLeft
     BevelOuter = bvNone
     Color = clWindow
@@ -118,12 +119,13 @@ object EditorForm: TEditorForm
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneHexKeyPress
     OnMouseWheel = PaneHexMouseWheel
+    ExplicitHeight = 607
   end
   object PaneLnNum: TEditorPane
     Left = 0
     Top = 0
     Width = 81
-    Height = 607
+    Height = 627
     Align = alLeft
     BevelOuter = bvNone
     Color = clWindow
@@ -138,12 +140,13 @@ object EditorForm: TEditorForm
     Text = ''
     ShowCaret = False
     OnMouseWheel = PaneHexMouseWheel
+    ExplicitHeight = 607
   end
   object PaneText: TEditorPane
     Left = 774
     Top = 0
     Width = 258
-    Height = 607
+    Height = 627
     Align = alClient
     BevelOuter = bvNone
     Color = clWindow
@@ -166,9 +169,10 @@ object EditorForm: TEditorForm
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneTextKeyPress
     OnMouseWheel = PaneHexMouseWheel
+    ExplicitHeight = 607
     DesignSize = (
       258
-      607)
+      627)
     object BtnSkipFFBack: TSpeedButton
       Tag = -1
       Left = 204
@@ -192,7 +196,7 @@ object EditorForm: TEditorForm
     object BtnSkipFFFwd: TSpeedButton
       Tag = 1
       Left = 206
-      Top = 579
+      Top = 599
       Width = 49
       Height = 25
       Hint = 'Skip forward to next non-FF byte'
@@ -208,6 +212,7 @@ object EditorForm: TEditorForm
       ShowHint = True
       Visible = False
       OnClick = BtnSkipFFBackClick
+      ExplicitTop = 579
     end
     object Image1: TImage
       Left = 201
@@ -221,17 +226,18 @@ object EditorForm: TEditorForm
     Left = 1032
     Top = 0
     Width = 17
-    Height = 607
+    Height = 627
     Align = alRight
     Kind = sbVertical
     Max = 0
     PageSize = 0
     TabOrder = 3
     OnChange = VertScrollBarChange
+    ExplicitHeight = 607
   end
   object StatusBar: TStatusBar
     Left = 0
-    Top = 624
+    Top = 644
     Width = 1049
     Height = 19
     Panels = <
@@ -243,10 +249,11 @@ object EditorForm: TEditorForm
         Text = 'Byte: ?'
         Width = 200
       end>
+    ExplicitTop = 624
   end
   object HorzScrollBar: TScrollBar
     Left = 0
-    Top = 607
+    Top = 627
     Width = 1049
     Height = 17
     Align = alBottom
@@ -254,6 +261,7 @@ object EditorForm: TEditorForm
     TabOrder = 5
     Visible = False
     OnChange = HorzScrollBarChange
+    ExplicitTop = 607
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286
@@ -283,7 +291,7 @@ object EditorForm: TEditorForm
     Left = 878
     Top = 304
     Bitmap = {
-      494C010102000800180033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C0101020008002C0033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000CC0000001A0000000100200000000000E052
       000000000000000000000000000000000000B9B9B90082828200858585008585
       8500858585008585850085858500858585008585850085858500858585008585
@@ -974,5 +982,12 @@ object EditorForm: TEditorForm
       00000000000000000000000000000000FFFFC0007FFFE0000000000000000000
       000000000000000000000000FFFFFE0FFFFFE000000000000000000000000000
       000000000000000000000000000000000000000000000000000000000000}
+  end
+  object TypingActionChangeTimer: TTimer
+    Enabled = False
+    Interval = 2000
+    OnTimer = TypingActionChangeTimerTimer
+    Left = 286
+    Top = 160
   end
 end

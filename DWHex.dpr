@@ -23,7 +23,8 @@ uses
   uDbgToolsForm in 'uDbgToolsForm.pas' {DbgToolsForm},
   uProfilerFrame in 'D:\Work\Trunk\Units\Components\uProfilerFrame.pas' {ProfilerFrame: TFrame},
   uDataSearcher in 'uDataSearcher.pas',
-  uValueInterpretors in 'uValueInterpretors.pas';
+  uValueInterpretors in 'uValueInterpretors.pas',
+  uUndoStack in 'uUndoStack.pas';
 
 {$R *.TLB}
 

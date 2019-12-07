@@ -10,7 +10,7 @@ uses
 
   uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData,
   uCallbackList, DWHex_TLB, Vcl.Buttons, System.ImageList, Vcl.ImgList,
-  uDataSearcher;
+  uDataSearcher, uUndoStack;
 
 type
   TEditorForm = class;
@@ -44,6 +44,7 @@ type
     BtnSkipFFFwd: TSpeedButton;
     Image1: TImage;
     ImgListSkipBtn: TImageList;
+    TypingActionChangeTimer: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -66,6 +67,7 @@ type
     procedure FormDeactivate(Sender: TObject);
     procedure HorzScrollBarChange(Sender: TObject);
     procedure BtnSkipFFBackClick(Sender: TObject);
+    procedure TypingActionChangeTimerTimer(Sender: TObject);
   private
     { Private declarations }
     FDestroyed: Boolean;  // Some events (e.g. FormResize) are oddly called after form destruction
@@ -73,6 +75,7 @@ type
     SelDragStart, SelDragEnd: TFilePointer;
     WasLeftMouseDown: Boolean;
     FCaretInByte: Integer;
+    TypingActionCode: Integer;  // To combine sequentially typed chars into one "Undo" action
     FHasUnsavedChanges: Boolean;
     FTopVisibleRow: TFilePointer;
     FUpdating: Integer;
@@ -103,15 +106,20 @@ type
     procedure SetInsertMode(Value: Boolean);
     function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
     procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
+    procedure DataChanged(Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     procedure SomeDataChanged();
+    procedure UndoActionCreating(Action: TUndoStackAction);
+    procedure UndoActionReverted(Action: TUndoStackAction; Direction: TUndoStack.TUndoDirection);
     procedure SetByteColumnsSetting(const Value: Integer);
     procedure SetHorzScrollPos(Value: Integer);
+    procedure BreakCurrentTypingAction();
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
     { Public declarations }
     DataSource: TDWHexDataSource;
     EditedData: TEditedData;
+    UndoStack: TUndoStack;
     SelStart, SelLength: TFilePointer;
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
@@ -153,7 +161,6 @@ type
     property ByteColumnsSetting: Integer read FByteColumnsSetting write SetByteColumnsSetting;
     procedure CalculateByteColumns();
     function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
-    procedure DataChanged(Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
 
     // OLE wrappers:
     function GetEditedDataOle(Addr, Size: Int64; ZerosBeyondEoF: WordBool = False): OleVariant; stdcall;
@@ -254,6 +261,13 @@ begin
   PaneLnNum.BeginUpdate();
   PaneHex.BeginUpdate();
   PaneText.BeginUpdate();
+end;
+
+procedure TEditorForm.BreakCurrentTypingAction;
+begin
+  // If there is a delay in typing characters, then it we be another action in "Undo" stack
+  TypingActionCode := (TypingActionCode + 1) mod 10000;
+  TypingActionChangeTimer.Enabled := False;
 end;
 
 procedure TEditorForm.BtnSkipFFBackClick(Sender: TObject);
@@ -363,6 +377,7 @@ destructor TEditorForm.Destroy;
 begin
   FDestroyed := True;
   MainForm.RemoveEditor(Self);
+  UndoStack.Free;
   EditedData.Free;
   DataSource.Free;
   FFSkipSearcher.Free;
@@ -393,6 +408,9 @@ begin
 //  FAutoObject := TAutoObject.Create();
   EditedData := TEditedData.Create({Self});
   EditedData.OnDataChanged.Add(DataChanged);
+  UndoStack := TUndoStack.Create(EditedData);
+  UndoStack.OnActionCreating.Add(UndoActionCreating);
+  UndoStack.OnActionReverted.Add(UndoActionReverted);
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
   MainForm.AddEditor(Self);
@@ -419,7 +437,7 @@ end;
 
 procedure TEditorForm.PaneHexEnter(Sender: TObject);
 begin
-  MainForm.CheckEnabledActions();
+//  MainForm.CheckEnabledActions();
 
 end;
 
@@ -459,7 +477,7 @@ begin
     case Key of
       VK_HOME:
         if ssCtrl in Shift then
-          MainForm.ActionGoToStart.Execute()
+          begin end //MainForm.ActionGoToStart.Execute()
         else
         begin
           MoveCaret((CaretPos div ByteColumns)*ByteColumns, KeyboardStateToShiftState());
@@ -468,7 +486,7 @@ begin
 
       VK_END:
         if ssCtrl in Shift then
-          MainForm.ActionGoToEnd.Execute()
+          begin end //MainForm.ActionGoToEnd.Execute()
         else
         begin
           MoveCaret((CaretPos div ByteColumns)*ByteColumns + ByteColumns - 1, KeyboardStateToShiftState());
@@ -526,23 +544,23 @@ begin
         end;
     end;
 
-    if ssCtrl in Shift then
-    begin
-      case Key of
-        Ord('A'): MainForm.ActionSelectAll.Execute();
-        Ord('X'): MainForm.ActionCut.Execute();
-        Ord('C'), VK_INSERT: MainForm.ActionCopy.Execute();
-        Ord('V'): MainForm.ActionPaste.Execute();
-        Ord('F'): MainForm.ActionFind.Execute();
-      end;
-      Key := 0;
-    end;
-
-    if (ssShift in Shift) and (Key = VK_INSERT) then
-    begin
-      MainForm.ActionPaste.Execute();
-      Key := 0;
-    end;
+//    if ssCtrl in Shift then
+//    begin
+//      case Key of
+//        Ord('A'): MainForm.ActionSelectAll.Execute();
+//        Ord('X'): MainForm.ActionCut.Execute();
+////        Ord('C'), VK_INSERT: MainForm.ActionCopy.Execute();
+//        Ord('V'): MainForm.ActionPaste.Execute();
+//        Ord('F'): MainForm.ActionFind.Execute();
+//      end;
+//      Key := 0;
+//    end;
+//
+//    if (ssShift in Shift) and (Key = VK_INSERT) then
+//    begin
+//      MainForm.ActionPaste.Execute();
+//      Key := 0;
+//    end;
 
   finally
     EndUpdatePanes();
@@ -561,6 +579,7 @@ begin
   if CharInSet(Key, HexCharsSet) then
   begin
     BeginUpdatePanes();
+    UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
       if InsertMode then
       begin
@@ -593,6 +612,9 @@ begin
       end;
       ScrollToCaret();
     finally
+      UndoStack.EndAction();
+      TypingActionChangeTimer.Enabled := False;
+      TypingActionChangeTimer.Enabled := True;
       EndUpdatePanes();
     end;
   end;
@@ -810,6 +832,7 @@ begin
   if Key >= ' ' then
   begin
     BeginUpdatePanes();
+    UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
       // Maybe some better way to convert single unicode char to current locale ansi char?
       c := AnsiString(string(Key))[Low(AnsiString)];
@@ -825,6 +848,9 @@ begin
         MoveCaret(CaretPos + 1, []);
       end;
     finally
+      UndoStack.EndAction();
+      TypingActionChangeTimer.Enabled := False;
+      TypingActionChangeTimer.Enabled := True;
       EndUpdatePanes();
     end;
   end;
@@ -1056,6 +1082,10 @@ begin
   begin
     BeginUpdatePanes();
     try
+      // If caret moved away, start new "Typing" action in undo stack
+      if (Value < FCaretPos) or (Value > FCaretPos + 1) then
+        BreakCurrentTypingAction();
+
       FCaretPos := Value;
       ScrollToCaret();
       UpdatePanesCarets();
@@ -1194,6 +1224,13 @@ begin
   UpdateScrollBars();
   UpdatePanes();
   MainForm.UpdateMsgPanel();
+  if Self = MainForm.ActiveEditor then
+    MainForm.CheckEnabledActions();
+end;
+
+procedure TEditorForm.TypingActionChangeTimerTimer(Sender: TObject);
+begin
+  BreakCurrentTypingAction();
 end;
 
 procedure TEditorForm.EndUpdatePanes;
@@ -1209,6 +1246,30 @@ begin
   PaneLnNum.EndUpdate();
   PaneHex.EndUpdate();
   PaneText.EndUpdate();
+end;
+
+procedure TEditorForm.UndoActionCreating(Action: TUndoStackAction);
+begin
+  Action.SelStart := SelStart;
+  Action.SelLength := SelLength;
+end;
+
+procedure TEditorForm.UndoActionReverted(Action: TUndoStackAction; Direction: TUndoStack.TUndoDirection);
+begin
+  // Restore selection when Undo'ing operation
+  BeginUpdatePanes();
+  try
+    if Direction = udUndo then
+    begin
+      SetSelection(Action.SelStart, Action.SelStart + Action.SelLength);
+      CaretPos := Action.SelStart + Action.SelLength;
+      ScrollToCaret;
+    end
+    else
+      MoveCaret(Action.SelStart + Action.SelLength, []);
+  finally
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TEditorForm.UpdateFormCaption;
