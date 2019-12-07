@@ -5,6 +5,7 @@ interface
 type
   // Multiple-subscriber callback mechanism
   // (inspired by signal-slot in Qt)
+  // Implemented as record so no need to explicitly call constructor
 
   TCallbackListP1<T1> = record
   public type
@@ -37,6 +38,17 @@ type
     procedure Add(Method: TCallback);
     procedure Remove(Method: TCallback);
     procedure Call(Param1: T1; Param2: T2; Param3: T3);
+  end;
+
+  TCallbackListP4<T1, T2, T3, T4> = record
+  public type
+    TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
+  private
+    FList: array of TCallback;
+  public
+    procedure Add(Method: TCallback);
+    procedure Remove(Method: TCallback);
+    procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
   end;
 
 
@@ -106,6 +118,30 @@ begin
 end;
 
 procedure TCallbackListP3<T1, T2, T3>.Remove(Method: TCallback);
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if TCallback(FList[i]) = TCallback(Method) then
+      Delete(FList, i, 1);
+end;
+
+{ TCallbackListP4<T1, T2, T3> }
+
+procedure TCallbackListP4<T1, T2, T3, T4>.Add(Method: TCallback);
+begin
+  FList := FList + [TCallback(Method)];
+end;
+
+procedure TCallbackListP4<T1, T2, T3, T4>.Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
+var
+  i: Integer;
+begin
+  for i:=0 to Length(FList)-1 do
+    FList[i](Param1, Param2, Param3, Param4);
+end;
+
+procedure TCallbackListP4<T1, T2, T3, T4>.Remove(Method: TCallback);
 var
   i: Integer;
 begin

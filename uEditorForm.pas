@@ -59,7 +59,6 @@ type
     procedure PaneHexMouseWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
     procedure PaneTextKeyPress(Sender: TObject; var Key: Char);
-    procedure Splitter1Moved(Sender: TObject);
     procedure VertScrollBarChange(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -94,7 +93,6 @@ type
     procedure SetCaretInByte(const Value: Integer);
     procedure SetHasUnsavedChanges(const Value: Boolean);
     procedure UpdateFormCaption();
-    procedure ScrollToCaret();
     procedure SetTopVisibleRow(Value: TFilePointer);
     procedure SetByteColumns(Value: Integer);
     procedure UpdatePaneWidths();
@@ -114,7 +112,6 @@ type
     { Public declarations }
     DataSource: TDWHexDataSource;
     EditedData: TEditedData;
-//    CachedRegions: TCachedRegionsList;
     SelStart, SelLength: TFilePointer;
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
@@ -137,12 +134,14 @@ type
     function VisibleBytesCount(): Integer;
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
     function DeleteSelected(): TFilePointer;
+    procedure ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
     property CaretPos: TFilePointer read FCaretPos write SetCaretPos;
     property CaretInByte: Integer read FCaretInByte write SetCaretInByte;
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     procedure SetSelection(AStart, AEnd: TFilePointer);
     procedure ScrollToShow(Addr: TFilePointer; RowsFromBorder: Integer = 0; ColsFromBorder: Integer = 0);
+    procedure ScrollToCaret();
     procedure BeginUpdatePanes();
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
@@ -154,9 +153,7 @@ type
     property ByteColumnsSetting: Integer read FByteColumnsSetting write SetByteColumnsSetting;
     procedure CalculateByteColumns();
     function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
-    procedure DataChanged(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
-    procedure DataInserted(Addr: TFilePointer; Size: TFilePointer; const Value: PByteArray);
-    procedure DataDeleted(Addr: TFilePointer; Size: TFilePointer);
+    procedure DataChanged(Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
 
     // OLE wrappers:
     function GetEditedDataOle(Addr, Size: Int64; ZerosBeyondEoF: WordBool = False): OleVariant; stdcall;
@@ -344,37 +341,22 @@ begin
   end;
 end;
 
-procedure TEditorForm.DataChanged(Addr, Size: TFilePointer;
-  const Value: PByteArray);
+procedure TEditorForm.DataChanged(Addr: TFilePointer; OldSize,
+  NewSize: TFilePointer; Value: PByteArray);
 begin
-  SomeDataChanged();
-  if (Addr <= SelStart + SelLength) and (Addr + Size >= SelStart) then
-    SelectionChanged();
-end;
-
-procedure TEditorForm.DataDeleted(Addr, Size: TFilePointer);
-begin
-  AdjustPointersPositions(Addr, -Size);
+  if OldSize <> NewSize then
+    AdjustPointersPositions(Addr, NewSize - OldSize);
 
   SomeDataChanged();
-
-  if (Addr <= SelStart + SelLength) and (Addr + Size >= SelStart) then
+  if (Addr <= SelStart + SelLength) and (Addr + Max(OldSize, NewSize) >= SelStart) then
     SelectionChanged();
-end;
-
-procedure TEditorForm.DataInserted(Addr, Size: TFilePointer;
-  const Value: PByteArray);
-begin
-  AdjustPointersPositions(Addr, Size);
-  DataChanged(Addr, Size, Value);
 end;
 
 function TEditorForm.DeleteSelected(): TFilePointer;
 begin
-  if (not InsertMode) or (SelLength = 0) then Exit(0);
-
   Result := SelLength;
-  EditedData.Delete(SelStart, SelLength);
+  if Result > 0 then
+    ReplaceSelected(0, nil);
 end;
 
 destructor TEditorForm.Destroy;
@@ -409,7 +391,8 @@ end;
 procedure TEditorForm.FormCreate(Sender: TObject);
 begin
 //  FAutoObject := TAutoObject.Create();
-  EditedData := TEditedData.Create(Self);
+  EditedData := TEditedData.Create({Self});
+  EditedData.OnDataChanged.Add(DataChanged);
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
   MainForm.AddEditor(Self);
@@ -536,8 +519,8 @@ begin
           end
           else
           begin
-            // In overwrite mode, allow to backspace-delete appended portion of file
-            if (Sender = PaneText) and (CaretPos > GetOrigFileSize()) then
+            // In overwrite mode, allow to backspace-delete from end of file
+            if (Sender = PaneText) and (CaretPos > 0) and (CaretPos = EditedData.GetSize()) and (EditedData.Resizable) then
               EditedData.Delete(CaretPos - 1, 1);
           end;
         end;
@@ -548,10 +531,16 @@ begin
       case Key of
         Ord('A'): MainForm.ActionSelectAll.Execute();
         Ord('X'): MainForm.ActionCut.Execute();
-        Ord('C'): MainForm.ActionCopy.Execute();
+        Ord('C'), VK_INSERT: MainForm.ActionCopy.Execute();
         Ord('V'): MainForm.ActionPaste.Execute();
         Ord('F'): MainForm.ActionFind.Execute();
       end;
+      Key := 0;
+    end;
+
+    if (ssShift in Shift) and (Key = VK_INSERT) then
+    begin
+      MainForm.ActionPaste.Execute();
       Key := 0;
     end;
 
@@ -583,7 +572,7 @@ begin
       if InsertMode and (CaretInByte = 0) then
       begin
         EditedData.Insert(APos, 1, @Zero);
-        FCaretPos := FCaretPos - 1;
+        FCaretPos := APos;  // Keep caret pos in same byte
       end;
       Buf := GetEditedData(APos, 1, dspResizable in DataSource.GetProperties());
       if Length(Buf)<>1 then Exit;
@@ -602,6 +591,7 @@ begin
         MoveCaret(CaretPos + 1, []);
         CaretInByte := 0;
       end;
+      ScrollToCaret();
     finally
       EndUpdatePanes();
     end;
@@ -666,9 +656,6 @@ end;
 function TEditorForm.GetOrigFileSize: TFilePointer;
 // Original file size
 begin
-//  if FileDataLoaded then
-//    Result := Length(FileData)
-//  else
   if DataSource <> nil then
     Result := DataSource.GetSize()
   else
@@ -755,6 +742,7 @@ begin
   SetSelection(SelDragStart, SelDragEnd);
 
   CaretPos := NewPos;
+  ScrollToCaret();
 end;
 
 procedure TEditorForm.NewFileOpened(ResetCaret: Boolean);
@@ -819,23 +807,39 @@ procedure TEditorForm.PaneTextKeyPress(Sender: TObject; var Key: Char);
 var
   c: AnsiChar;
 begin
-  BeginUpdatePanes();
-  try
-    if Key >= ' ' then
-    begin
+  if Key >= ' ' then
+  begin
+    BeginUpdatePanes();
+    try
       // Maybe some better way to convert single unicode char to current locale ansi char?
       c := AnsiString(string(Key))[Low(AnsiString)];
       if InsertMode then
       begin
-        DeleteSelected();
-        EditedData.Insert(CaretPos, 1, @c);
+//        DeleteSelected();
+//        EditedData.Insert(CaretPos, 1, @c);
+        ReplaceSelected(1, @c);
       end
       else
       begin
         ChangeBytes(CaretPos, [Byte(c)]);
         MoveCaret(CaretPos + 1, []);
       end;
+    finally
+      EndUpdatePanes();
     end;
+  end;
+end;
+
+procedure TEditorForm.ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
+var
+  NewCaretPos: TFilePointer;
+begin
+  BeginUpdatePanes();
+  try
+    NewCaretPos := SelStart + NewSize;
+    EditedData.Change(SelStart, SelLength, NewSize, Value);
+    MoveCaret(NewCaretPos, []);
+    ScrollToCaret();
   finally
     EndUpdatePanes();
   end;
@@ -845,11 +849,6 @@ end;
 //begin
 //  Result := inherited;
 //end;
-
-procedure TEditorForm.Splitter1Moved(Sender: TObject);
-begin
-//  CalculateByteColumns();
-end;
 
 procedure TEditorForm.VertScrollBarChange(Sender: TObject);
 begin
@@ -963,24 +962,31 @@ var
   TargetRow: TFilePointer;
   TargetCol: Integer;
 begin
-  if RowsFromBorder = -1 then RowsFromBorder := 8;
-  if ColsFromBorder = -1 then ColsFromBorder := 8;
+  BeginUpdatePanes();
+  try
+    if RowsFromBorder = -1 then RowsFromBorder := 8;
+    if ColsFromBorder = -1 then ColsFromBorder := 8;
 
-  RowsFromBorder := BoundValue(RowsFromBorder, 0, GetVisibleRowsCount() div 2);
-  TargetRow := Addr div ByteColumns;
-  if TargetRow < TopVisibleRow + RowsFromBorder then
-    TopVisibleRow := TargetRow - RowsFromBorder
-  else
-  if TargetRow > TopVisibleRow + GetVisibleRowsCount() - RowsFromBorder - 1 then
-    TopVisibleRow := TargetRow - GetVisibleRowsCount() + RowsFromBorder + 1;
+    // Vertical scroll
+    RowsFromBorder := BoundValue(RowsFromBorder, 0, GetVisibleRowsCount() div 2);
+    TargetRow := Addr div ByteColumns;
+    if TargetRow < TopVisibleRow + RowsFromBorder then
+      TopVisibleRow := TargetRow - RowsFromBorder
+    else
+    if TargetRow > TopVisibleRow + GetVisibleRowsCount() - RowsFromBorder - 1 then
+      TopVisibleRow := TargetRow - GetVisibleRowsCount() + RowsFromBorder + 1;
 
-  ColsFromBorder := BoundValue(ColsFromBorder, 0, GetVisibleColsCount(False) div 2);
-  TargetCol := Addr mod ByteColumns;
-  if (TargetCol < HorzScrollPos + ColsFromBorder) then
-    HorzScrollPos := TargetCol - ColsFromBorder
-  else
-  if TargetCol > HorzScrollPos + GetVisibleColsCount(False) - ColsFromBorder - 1 then
-    HorzScrollPos := TargetCol - GetVisibleColsCount(False) + ColsFromBorder + 1;
+    // Horizontal scroll
+    ColsFromBorder := BoundValue(ColsFromBorder, 0, GetVisibleColsCount(False) div 2);
+    TargetCol := Addr mod ByteColumns;
+    if (TargetCol < HorzScrollPos + ColsFromBorder) then
+      HorzScrollPos := TargetCol - ColsFromBorder
+    else
+    if TargetCol > HorzScrollPos + GetVisibleColsCount(False) - ColsFromBorder - 1 then
+      HorzScrollPos := TargetCol - GetVisibleColsCount(False) + ColsFromBorder + 1;
+  finally
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TEditorForm.SelectionChanged;
@@ -1092,7 +1098,7 @@ begin
         HorzScrollBar.OnChange := HorzScrollBarChange;
       end;
     end;
-UpdatePanes();
+    UpdatePanes();
   end;
 end;
 

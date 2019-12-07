@@ -245,29 +245,14 @@ uses uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
 
 procedure TMainForm.ActionBitsEditorExecute(Sender: TObject);
 var
-  Addr{, Size}: TFilePointer;
+  Addr: TFilePointer;
   Buf: TBytes;
   x: Int64;
 begin
   with ActiveEditor do
   begin
-//    if SelLength > 4 then Exit;
-//    if SelLength > 0 then
-//    begin
-//      Addr := SelStart;
-//      Size := SelLength;
-//    end
-//    else
-//    begin
-//      Addr := CaretPos;
-//      Size := 1;
-//    end;
-//    Buf := GetEditedData(Addr, Size);
-
     Buf := GetSelectedOrAfterCaret(1, 4, Addr, True);
 
-
-  //  if Length(Buf) < Size then Exit;
     BitsEditorForm.OkEnabled := (Length(Buf) > 0);
 
     x := 0;
@@ -300,7 +285,7 @@ begin
   with ActiveEditor do
   begin
     if SelLength > 100*MByte then
-      if Application.MessageBox(PChar('Try to copy '+IntToStr(SelLength)+' bytes to system clipboard?'), PChar('Copy'), MB_YESNO) <> IDYES then Exit;
+      if Application.MessageBox(PChar('Try to copy '+IntToStr(SelLength div MByte)+' megabytes to system clipboard?'), PChar('Copy'), MB_YESNO) <> IDYES then Exit;
     Buf := GetEditedData(SelStart, SelLength);
     if ActiveControl=PaneHex then
       s := Data2Hex(Buf, True)
@@ -308,7 +293,7 @@ begin
       s := MakeStr(Buf);
     Clipboard.AsText := s;
 
-    if Sender = ActionCut then
+    if (Sender = ActionCut) and (InsertMode) then
       DeleteSelected();
   end;
 end;
@@ -392,8 +377,6 @@ end;
 
 procedure TMainForm.ActionNewExecute(Sender: TObject);
 begin
-//  if CloseCurrentFile(True) = mrCancel then Exit;
-//  OpenNewEmptyFile();
   CreateNewEditor().OpenNewEmptyFile();
 end;
 
@@ -445,9 +428,7 @@ begin
     try
       if InsertMode then
       begin
-        if SelLength > 0 then
-          DeleteSelected();
-        EditedData.Insert(CaretPos, Length(Buf), @Buf[0]);
+        ReplaceSelected(Length(Buf), @Buf[0]);
       end
       else
       begin
@@ -625,7 +606,6 @@ begin
     Result := mrNo;
 
     FreeAndNil(DataSource);
-  //  FileDataLoaded := False;
   end;
 end;
 
@@ -640,8 +620,6 @@ begin
     AData := GetEditedData(SelStart, SelLength);
   end;
 
-//  crc := 0;
-//  crc := AddToCRC32(crc, @AData[0], Length(AData));
   crc := CalcCRC32(@AData[0], Length(AData));
 
   s := IntToHex(crc, 8);
@@ -881,7 +859,6 @@ procedure TMainForm.OperationDone(Sender: TObject);
 // Hide progress
 begin
   ProgressGauge.Progress := 0;
-//  LblProgress.Caption := '';
   ProgressPanel.Visible := False;
 end;
 
