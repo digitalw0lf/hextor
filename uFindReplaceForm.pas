@@ -8,6 +8,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
+  System.UITypes,
 
   uDWHexTypes, uMainForm, uEditorForm, uEditedData, uUtil, uCallbackList,
   uDataSearcher;
@@ -26,7 +27,6 @@ type
     Label2: TLabel;
     EditReplaceText: TComboBox;
     CBReplaceHex: TCheckBox;
-    BtnReplaceNext: TButton;
     BtnReplaceAll: TButton;
     BtnFindCount: TButton;
     CBUnicode: TCheckBox;
@@ -36,6 +36,8 @@ type
     BtnAbort: TButton;
     Gauge1: TGauge;
     LblProgress: TLabel;
+    CBReplaceInSelection: TCheckBox;
+    CBAskReplace: TCheckBox;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -44,10 +46,14 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure BtnReplaceAllClick(Sender: TObject);
+    procedure CBFindInSelectionClick(Sender: TObject);
+    procedure CBReplaceInSelectionClick(Sender: TObject);
   private
     { Private declarations }
     FAborted: Boolean;
-    procedure FillParams(aReplace: Boolean);
+    LastProgressRefresh: Cardinal;
+    procedure FillParams(aReplace, aCanFindInSel: Boolean);
     procedure ShowProgress(Sender: TDataSearcher; Pos, Total: TFilePointer);
     procedure OperationDone(Sender: TDataSearcher);
     function GetTargetEditor: TEditorForm;
@@ -75,24 +81,21 @@ end;
 procedure TFindReplaceForm.BtnFindCountClick(Sender: TObject);
 var
   Count: Integer;
-  Range: TFileRange;
   Start, Ptr: TFilePointer;
   Size: Integer;
 begin
-  FillParams(False);
+  FillParams(False, True);
   Count := 0;
-  if Searcher.Params.bFindInSel then
-  begin
-    Range.Start := TargetEditor.SelStart;
-    Range.AEnd := TargetEditor.SelStart+TargetEditor.SelLength;
-  end
-  else
-    Range := EntireFile;
-  Start := Range.Start;
-  while Searcher.Find(Range, Start, 1, Ptr, Size) do
-  begin
-    Inc(Count);
-    Start := Ptr+Size;
+  Start := Searcher.Params.Range.Start;
+  try
+    while Searcher.Find(Start, 1, Ptr, Size) do
+    begin
+      Inc(Count);
+      Start := Ptr+Size;
+      ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size);
+    end;
+  finally
+    OperationDone(Searcher);
   end;
   Application.MessageBox(PChar('Search string found '+IntToStr(Count)+' times'), 'Search', MB_OK);
 end;
@@ -102,7 +105,123 @@ begin
   FindNext((Sender as TButton).Tag);
 end;
 
-procedure TFindReplaceForm.FillParams(aReplace: Boolean);
+procedure TFindReplaceForm.BtnReplaceAllClick(Sender: TObject);
+var
+  Count: Integer;
+  Start, Ptr, ACaret: TFilePointer;
+  Size, NewSize: Integer;
+  Res: Integer;
+  YesToAll, Cancelled: Boolean;
+  ActionCode: Integer;
+  LastReplaced: TFileRange;
+  s: string;
+begin
+  FillParams(True, True);
+  Count := 0;
+  Start := Searcher.Params.Range.Start;
+  YesToAll := False;
+  Cancelled := False;
+  ActionCode := Random(1000000);
+  LastReplaced := NoRange;
+
+  TargetEditor.BeginUpdatePanes();
+  try
+
+    while Searcher.Find(Start, 1, Ptr, Size) do
+    begin
+      if (Searcher.Params.bAskEachReplace) and (not YesToAll) then
+      begin
+        // Show found occurrence in editor
+        TargetEditor.BeginUpdatePanes();
+        try
+          ACaret := Ptr;
+          TargetEditor.ScrollToShow(ACaret, -1, -1);
+          TargetEditor.MoveCaret(ACaret, []);
+          TargetEditor.SetSelection(Ptr, Ptr + Size);
+        finally
+          TargetEditor.EndUpdatePanes();
+        end;
+        LastReplaced := NoRange;  // To keep this selection if search cancelled
+
+        TargetEditor.EndUpdatePanes();  // Redraw editor when showing confirmation
+        try
+          Res := MessageDlg('Replace this Occurrence?'+#13#10+'"'+Searcher.Params.Text+'"  ->  "'+Searcher.Params.Replace+'"',
+                            mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel, TMsgDlgBtn.mbYesToAll], 0);
+        finally
+          TargetEditor.BeginUpdatePanes();
+        end;
+
+        case Res of
+          mrYes: begin end;
+          mrNo:
+            begin
+              Start := Ptr + Size;
+              Continue;
+            end;
+          mrCancel:
+            begin
+              Cancelled := True;
+              Break;
+            end;
+          mrYesToAll: YesToAll := True;
+        end;
+        ActionCode := Random(1000000);  // Confirmed changes will be separate "undo" steps
+      end;
+
+      TargetEditor.UndoStack.BeginAction('Replace_'+IntToStr(ActionCode), 'Replace');
+      try
+        if Searcher.ReplaceLastFound(NewSize) then
+        begin
+          LastReplaced := TFileRange.Create(Searcher.LastFound.Start, Searcher.LastFound.Start + NewSize);
+          Searcher.Params.Range.AEnd := Searcher.Params.Range.AEnd + (NewSize - Searcher.LastFound.Size);
+        end;
+      finally
+        TargetEditor.UndoStack.EndAction();
+      end;
+
+      Inc(Count);
+      Start := Ptr+NewSize;
+
+      ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size);
+    end;
+
+  finally
+    OperationDone(Searcher);
+    // Move caret to last replaced
+    if LastReplaced <> NoRange then
+    begin
+      TargetEditor.BeginUpdatePanes();
+      try
+        ACaret := LastReplaced.AEnd;
+        TargetEditor.ScrollToShow(ACaret, -1, -1);
+        TargetEditor.MoveCaret(ACaret, []);
+      finally
+        TargetEditor.EndUpdatePanes();
+      end;
+    end;
+    TargetEditor.EndUpdatePanes();
+  end;
+  if not Cancelled then
+  begin
+    if Count > 0 then
+      s := 'Search string replaced '+IntToStr(Count)+' times'
+    else
+      s := 'Search string not found';
+    Application.MessageBox(PChar(s), 'Replace', MB_OK);
+  end;
+end;
+
+procedure TFindReplaceForm.CBFindInSelectionClick(Sender: TObject);
+begin
+  CBReplaceInSelection.Checked := CBFindInSelection.Checked;
+end;
+
+procedure TFindReplaceForm.CBReplaceInSelectionClick(Sender: TObject);
+begin
+  CBFindInSelection.Checked := CBReplaceInSelection.Checked;
+end;
+
+procedure TFindReplaceForm.FillParams(aReplace, aCanFindInSel: Boolean);
 begin
   with Searcher do
   begin
@@ -113,11 +232,20 @@ begin
     Params.bWildcards := CBWildcards.Checked;
     Params.bUnicode := CBUnicode.Checked;
     Params.bMatchCase := CBMatchCase.Checked;
-    Params.bFindInSel := CBFindInSelection.Enabled and CBFindInSelection.Checked;
+    Params.bFindInSel := aCanFindInSel and CBFindInSelection.Enabled and CBFindInSelection.Checked;
 
     Params.bReplace := aReplace;
     Params.Replace := EditReplaceText.Text;
     Params.bRepHex := CBReplaceHex.Checked;
+    Params.bAskEachReplace := CBAskReplace.Checked;
+
+    if Params.bFindInSel then
+    begin
+      Params.Range.Start := TargetEditor.SelStart;
+      Params.Range.AEnd := TargetEditor.SelStart+TargetEditor.SelLength;
+    end
+    else
+      Params.Range := EntireFile;
 
     if Params.bHex then
       Params.Needle := Str2Bytes(Hex2Data(Params.Text, True))
@@ -142,7 +270,7 @@ var
   Start, Ptr, ACaret: TFilePointer;
   Dir, Size: Integer;
 begin
-  FillParams(False);
+  FillParams(False, False);
   Dir := Direction;
   if Dir > 0 then
     Start := TargetEditor.SelStart + TargetEditor.SelLength
@@ -153,7 +281,7 @@ begin
     if Start > TargetEditor.GetFileSize()-1 then Start := TargetEditor.GetFileSize()-1;
   end;
 
-  if Searcher.Find(EntireFile, Start, Dir, Ptr, Size) then
+  if Searcher.Find(Start, Dir, Ptr, Size) then
   begin
     TargetEditor.BeginUpdatePanes();
     try
@@ -220,6 +348,9 @@ end;
 
 procedure TFindReplaceForm.ShowProgress(Sender: TDataSearcher; Pos, Total: TFilePointer);
 begin
+  if (GetTickCount() - LastProgressRefresh < 100) then Exit;
+  LastProgressRefresh := GetTickCount();
+
   Gauge1.Progress := Round(Pos/Total*100);
   LblProgress.Caption := IntToStr(Pos)+' / '+IntToStr(Total);
   BtnAbort.Enabled := True;
@@ -240,6 +371,7 @@ begin
     Exit;
   end;
   CBFindInSelection.Enabled := (TargetEditor.SelLength > 0);
+  CBReplaceInSelection.Enabled := CBFindInSelection.Enabled;
 end;
 
 end.

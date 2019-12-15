@@ -26,6 +26,8 @@ type
     property Size: TFilePointer read GetSize write SetSize;
     function Intersects(const BRange: TFileRange): Boolean; overload;
     function Intersects(BStart, BEnd: TFilePointer): Boolean; overload;
+    class operator Equal(const A, B: TFileRange): Boolean; inline;
+    class operator NotEqual(const A, B: TFileRange): Boolean; inline;
     constructor Create(BStart, BEnd: TFilePointer);
   end;
 
@@ -39,6 +41,10 @@ function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
 function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeZeroBytes(Size: NativeInt): TBytes;
 function FillRangeInColorArray(var Colors: TColorArray; BaseAddr: TFilePointer; RangeStart, RangeEnd: TFilePointer; Color: TColor): Boolean;
+
+const
+  EntireFile: TFileRange = (Start: 0; AEnd: -1);
+  NoRange: TFileRange = (Start: -1; AEnd: -1);
 
 implementation
 
@@ -103,6 +109,11 @@ begin
   AEnd := BEnd;
 end;
 
+class operator TFileRange.Equal(const A, B: TFileRange): Boolean;
+begin
+  Result := (A.Start = B.Start) and (A.AEnd = B.AEnd);
+end;
+
 function TFileRange.GetSize: TFilePointer;
 begin
   Result := AEnd-Start;
@@ -111,6 +122,11 @@ end;
 function TFileRange.Intersects(BStart, BEnd: TFilePointer): Boolean;
 begin
   Result := (BEnd > Start) and (BStart < AEnd);
+end;
+
+class operator TFileRange.NotEqual(const A, B: TFileRange): Boolean;
+begin
+  Result := (A.Start <> B.Start) or (A.AEnd <> B.AEnd);
 end;
 
 function TFileRange.Intersects(const BRange: TFileRange): Boolean;

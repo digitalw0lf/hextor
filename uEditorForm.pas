@@ -277,6 +277,7 @@ var
   Dir, Size: Integer;
 begin
   FFSkipSearcher.Haystack := EditedData;
+  FFSkipSearcher.Params.Range := EntireFile;
 
   Dir := (Sender as TSpeedButton).Tag;
   if Dir < 0 then
@@ -290,7 +291,7 @@ begin
     Start := FirstVisibleAddr() + VisibleBytesCount();
   end;
 
-  FFSkipSearcher.Find(EntireFile, Start, Dir, Ptr, Size);
+  FFSkipSearcher.Find(Start, Dir, Ptr, Size);
   BeginUpdatePanes();
   try
     ScrollToShow(Ptr, -1, -1);

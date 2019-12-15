@@ -5,7 +5,7 @@ interface
 uses
   System.SysUtils,
 
-  uDWHexTypes, uEditedData, uCallbackList;
+  uDWHexTypes, uEditedData, uCallbackList, uUtil;
 
 type
   TSearchParams = record
@@ -15,6 +15,9 @@ type
     bReplace: Boolean;
     Replace: string;
     bRepHex: Boolean;
+    bAskEachReplace: Boolean;
+
+    Range: TFileRange;
 
     Needle: TBytes;
   end;
@@ -24,34 +27,42 @@ type
   // Current limitation: only fixed-size needle
   protected
     function FindInBlock(const Data: PByte; DataSize: Integer; Start: Integer; Direction: Integer; var Ptr, Size: Integer): Boolean;
+    function GetReplacement(): TBytes;
   public
     Haystack: TEditedData;
     Params: TSearchParams;
+    LastFound: TFileRange;
     FSearchInProgress: Boolean;
     OnProgress: TCallbackListP3<TDataSearcher, TFilePointer, TFilePointer>;
     OnSearchDone: TCallbackListP1<TDataSearcher>;
     function ParamsDefined(): Boolean;
     function NeedleSize(): Integer; virtual;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; virtual;
-    function Find(Range: TFileRange; Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
+    function Find({Range: TFileRange; }Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
+    function ReplaceLastFound(var NewSize: Integer): Boolean;
   end;
 
 implementation
 
 { TDataSearcher }
 
-function TDataSearcher.Find(Range: TFileRange; Start: TFilePointer;
+function TDataSearcher.Find({Range: TFileRange; }Start: TFilePointer;
   Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
 const
   BlockSize = 1*MByte;
   BlockOverlap = 100*KByte;
 var
+//  Range: TFileRange;
   Data: TBytes;
   IPtr: Integer;
   Block: TFileRange;
 begin
   if FSearchInProgress then Exit(False);
-  if Range.AEnd < 0 then Range.AEnd := Haystack.GetSize(); //TargetEditor.GetFileSize();
+//  Range := Params.Range;
+  if Params.Range.AEnd < 0 then Params.Range.AEnd := Haystack.GetSize();
+  LastFound := NoRange;
+
+  if (Start < Params.Range.Start) or (Start >= Params.Range.AEnd) then Exit(False);
 
   Ptr := Start;
   // Dynamically load by 1 MB, overlapped by 100 KB if we go backwards
@@ -68,29 +79,31 @@ begin
         Block.Start := Ptr - BlockSize + BlockOverlap;
         Block.AEnd := Ptr + BlockOverlap;
       end;
-      if Block.Start < Range.Start then Block.Start := Range.Start;
-      if Block.AEnd > Range.AEnd then Block.AEnd := Range.AEnd;
+      if Block.Start < Params.Range.Start then Block.Start := Params.Range.Start;
+      if Block.AEnd > Params.Range.AEnd then Block.AEnd := Params.Range.AEnd;
 
       // Take next data portion
-      //Data := TargetEditor.GetEditedData(Block.Start, Block.Size, False);
       Data := Haystack.Get(Block.Start, Block.Size, False);
       // Search in it
       Result := FindInBlock(@Data[0], Length(Data), Ptr - Block.Start, Direction, IPtr, Size);
       Ptr := Block.Start + IPtr;
 
       // Found
-      if Result then Break;
+      if Result then
+      begin
+        LastFound.Start := Ptr;
+        LastFound.Size := Size;
+        Break;
+      end;
 
       // Reached end of range
-      if (Direction > 0) and (Block.AEnd = Range.AEnd) then Break;
-      if (Direction < 0) and (Block.Start = Range.Start) then Break;
+      if (Direction > 0) and (Block.AEnd = Params.Range.AEnd) then Break;
+      if (Direction < 0) and (Block.Start = Params.Range.Start) then Break;
 
-      //ShowProgress(Ptr-Range.Start, Range.Size);
-      OnProgress.Call(Self, Ptr-Range.Start, Range.Size);
+      OnProgress.Call(Self, Ptr-Params.Range.Start, Params.Range.Size);
     until False;
   finally
     FSearchInProgress := False;
-    //OperationDone();
     OnSearchDone.Call(Self);
   end;
 end;
@@ -110,6 +123,19 @@ begin
     if Ptr+NeedleSize() > DataSize then Break;
   end;
   Result := False;
+end;
+
+function TDataSearcher.GetReplacement: TBytes;
+// Returns data that should be used to replace last found needle
+// (This may depend on last found data if using something like RegEx)
+begin
+  if Params.bRepHex then
+    Result := Str2Bytes(Hex2Data(AnsiString(Params.Replace)))
+  else
+  if Params.bUnicode then
+    Result := Str2Bytes(Params.Replace)
+  else
+    Result := Str2Bytes(AnsiString(Params.Replace));
 end;
 
 function TDataSearcher.Match(const Data: PByte; DataSize: Integer;
@@ -134,5 +160,20 @@ begin
   Result := (Params.Needle <> nil);
 end;
 
+
+function TDataSearcher.ReplaceLastFound(var NewSize: Integer): Boolean;
+// Replace last found needle according to Params
+var
+  Replace: TBytes;
+begin
+  if LastFound.Start < 0 then Exit(False);
+
+  Replace := GetReplacement();
+  NewSize := Length(Replace);
+
+  Haystack.Change(LastFound.Start, LastFound.Size, NewSize, @Replace[0]);
+
+  Result := True;
+end;
 
 end.

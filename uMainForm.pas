@@ -242,9 +242,6 @@ type
     procedure OperationDone(Sender: TObject);
   end;
 
-const
-  EntireFile: TFileRange = (Start: 0; AEnd: -1);
-
 var
   MainForm: TMainForm;
   AppSettings: TDWHexSettings;
@@ -629,7 +626,7 @@ begin
       ActionUndo.Enabled := UndoStack.CanUndo(S);
       ActionUndo.Caption := 'Undo ' + S;
       ActionRedo.Enabled := UndoStack.CanRedo(S);
-      ActionRedo.Caption := 'Redo' + S;
+      ActionRedo.Caption := 'Redo ' + S;
 
       ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
@@ -1063,8 +1060,9 @@ end;
 
 procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; const Text: string = '');
 begin
-  if (GetTickCount() - LastProgressRefresh < 50) then Exit;
+  if (GetTickCount() - LastProgressRefresh < 100) then Exit;
   LastProgressRefresh := GetTickCount();
+
   ProgressGauge.Progress := Round(Pos/Total*100);
   ProgressTextLabel.Caption := Text;
   ProgressPanel.Visible := True;

@@ -125,6 +125,7 @@ object FindReplaceForm: TFindReplaceForm
       Height = 17
       Caption = 'In selection'
       TabOrder = 8
+      OnClick = CBFindInSelectionClick
     end
   end
   object GBReplace: TGroupBox
@@ -152,35 +153,41 @@ object FindReplaceForm: TFindReplaceForm
       Width = 430
       Height = 21
       Anchors = [akLeft, akTop, akRight]
-      Enabled = False
       TabOrder = 0
     end
     object CBReplaceHex: TCheckBox
       Left = 16
       Top = 48
-      Width = 97
+      Width = 84
       Height = 17
       Caption = 'Hex'
-      Enabled = False
       TabOrder = 1
     end
-    object BtnReplaceNext: TButton
+    object BtnReplaceAll: TButton
       Left = 16
       Top = 80
       Width = 90
       Height = 25
-      Caption = 'Replace next'
-      Enabled = False
+      Caption = 'Replace'
       TabOrder = 2
+      OnClick = BtnReplaceAllClick
     end
-    object BtnReplaceAll: TButton
-      Left = 119
-      Top = 80
-      Width = 90
-      Height = 25
-      Caption = 'Replace all'
-      Enabled = False
+    object CBReplaceInSelection: TCheckBox
+      Left = 112
+      Top = 84
+      Width = 84
+      Height = 17
+      Caption = 'In selection'
       TabOrder = 3
+      OnClick = CBReplaceInSelectionClick
+    end
+    object CBAskReplace: TCheckBox
+      Left = 106
+      Top = 48
+      Width = 97
+      Height = 17
+      Caption = 'Ask each replace'
+      TabOrder = 4
     end
   end
   object ProgressPanel: TPanel
