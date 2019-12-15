@@ -10,7 +10,7 @@ uses
 
   uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData,
   uCallbackList, DWHex_TLB, Vcl.Buttons, System.ImageList, Vcl.ImgList,
-  uDataSearcher, uUndoStack;
+  uDataSearcher, uUndoStack, uLogFile;
 
 type
   TEditorForm = class;
@@ -883,10 +883,10 @@ end;
 
 procedure TEditorForm.SaveFile(DataSourceType: TDWHexDataSourceType; const APath: string);
 var
-  i: Integer;
   Dest: TDWHexDataSource;
   InplaceSaving, UseTempFile: Boolean;
   TempFileName: string;
+  APart: TEditedData.TDataPart;
 begin
   if (DataSourceType=nil) or (APath='') then Exit;
 
@@ -918,14 +918,14 @@ begin
   end;
 
   // Write changed regions
-  for i:=0 to EditedData.Parts.Count-1 do
+  for APart in EditedData.Parts do
   begin
-    if (InplaceSaving) and (EditedData.Parts[i].PartType = ptSource) then Continue;
-    case EditedData.Parts[i].PartType of
+    if (InplaceSaving) and (APart.PartType = ptSource) then Continue;
+    case APart.PartType of
       ptSource:
-        CopyDataRegion(DataSource, Dest, EditedData.Parts[i].SourceAddr, EditedData.Parts[i].Addr, EditedData.Parts[i].Size);
+        CopyDataRegion(DataSource, Dest, APart.SourceAddr, APart.Addr, APart.Size);
       ptBuffer:
-        Dest.ChangeData(EditedData.Parts[i].Addr, EditedData.Parts[i].Size, EditedData.Parts[i].Data[0]);
+        Dest.ChangeData(APart.Addr, APart.Size, APart.Data[0]);
     end;
   end;
   // TODO: Handle write errors
@@ -1027,7 +1027,7 @@ var
   NewTopRow: TFilePointer;
   CaretLineOnScreen: TFilePointer;
 begin
-  Value := BoundValue(Value, 1, 1024);
+  Value := BoundValue(Value, 1, 16384);
   if Value <> FByteColumns then
   begin
     BeginUpdatePanes();
@@ -1220,7 +1220,7 @@ end;
 
 procedure TEditorForm.SomeDataChanged;
 begin
-  HasUnsavedChanges := True;
+  HasUnsavedChanges := EditedData.HasChanges();
   UpdateScrollBars();
   UpdatePanes();
   MainForm.UpdateMsgPanel();
@@ -1288,18 +1288,26 @@ begin
   MainForm.UpdateMDITabs();
 end;
 
+procedure ByteToHex(x: Byte; Buf: PChar);
+const
+  HexChars: array[0..15] of Char = '0123456789ABCDEF';
+begin
+  Buf[0] := HexChars[(x shr 4) and $0F];
+  Buf[1] := HexChars[(x) and $0F];
+end;
+
 procedure TEditorForm.UpdatePanes;
 var
   Data: TBytes;
-  i: Integer;
+  i, len: Integer;
   Rows, LnNumChars: Integer;
-  sb: TStringBuilder;
   Lines: TStringList;
   s: AnsiString;
   c: AnsiChar;
   FirstVisibleAddress, VisibleRangeEnd: TFilePointer;
   FileSize: TFilePointer;
   IncludesFileEnd: Boolean;
+  ws: string;
 begin
   if FUpdating>0 then
   begin
@@ -1308,19 +1316,24 @@ begin
   end;
   FNeedUpdatePanes := False;
 
+//  StartTimeMeasure();
+
   BeginUpdatePanes();
   try
     Rows := GetVisibleRowsCount();
     FirstVisibleAddress := FirstVisibleAddr();
 
     // Get visible data
+//    StartTimeMeasure();
     Data := GetEditedData(FirstVisibleAddress, Rows * ByteColumns);
+//    EndTimeMeasure('GetData', True);
 
     VisibleRangeEnd := FirstVisibleAddress + Length(Data);
     IncludesFileEnd := (Length(Data) < Rows * ByteColumns);
-    Lines := TStringList.Create();
 
     // Line numbers
+    Lines := PaneLnNum.Lines;
+    Lines.Clear();
     FileSize := GetFileSize();
     if FileSize > TFilePointer($FFFFFFFF) then
       LnNumChars := 10
@@ -1333,50 +1346,57 @@ begin
     begin
       Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, LnNumChars));
     end;
-    PaneLnNum.Lines.Assign(Lines);
 
     // Hex
+//    StartTimeMeasure();
+    Lines := PaneHex.Lines;
     Lines.Clear();
-    sb := TStringBuilder.Create();
+    ws := StringOfChar(' ', ByteColumns * 3);
+    len := 0;
     for i:=0 to Length(Data)-1 do
     begin
-      sb.Append(IntToHex(Data[i], 2)+' ');
+      ByteToHex(Data[i], @ws[Low(ws) + len]);
+      Inc(len, 3);
       if ((i+1) mod ByteColumns)=0 then
       begin
-        Lines.Add(sb.ToString());
-        sb.Clear();
+        Lines.Add(Copy(ws, Low(ws), len));
+        len := 0;
       end;
     end;
-    if (sb.Length>0) or (IncludesFileEnd) then
-      Lines.Add(sb.ToString());
-    sb.Free;
-    PaneHex.Lines.Assign(Lines);
+    if (len>0) or (IncludesFileEnd) then
+      Lines.Add(Copy(ws, Low(ws), len));
     PaneHex.HorzScrollPos := HorzScrollPos * 3;
+//    EndTimeMeasure('Hex', True);
 
     // Text
-    s := '';
+//    StartTimeMeasure();
+    Lines := PaneText.Lines;
     Lines.Clear();
+    SetLength(s, ByteColumns);
+    s := StringOfChar(AnsiChar(' '), ByteColumns);
+    len := 0;
     for i:=0 to Length(Data)-1 do
     begin
       if (Data[i] < Ord(' ')) or (Data[i] = $7F) or (Data[i] = $98) then
         c := '.'
       else
         c := AnsiChar(Data[i]);
-      s := s + c;
+      s[Low(s) + len] := c;
+      Inc(len);
       if ((i+1) mod ByteColumns)=0 then
       begin
-        Lines.Add(string(s));
-        s := '';
+        Lines.Add(string(Copy(s, Low(s), len)));
+        len := 0;
       end;
     end;
-    if (s<>'') or (IncludesFileEnd) then
-      Lines.Add(string(s));
-    PaneText.Lines.Assign(Lines);
+    if (len>0) or (IncludesFileEnd) then
+      Lines.Add(string(Copy(s, Low(s), len)));
     PaneText.HorzScrollPos := HorzScrollPos;
+//    EndTimeMeasure('Text', True);
 
-    Lines.Free;
-
+//    StartTimeMeasure();
     UpdatePanesCarets();
+//    EndTimeMeasure('UpdatePanesCarets', True);
 
     // Call events when visible range changes
     if (FirstVisibleAddress <> FPrevVisibleRange.Start) or
@@ -1389,10 +1409,14 @@ begin
       FPrevHorzScroll := HorzScrollPos;
     end;
   finally
+//    StartTimeMeasure();
     EndUpdatePanes();
+//    EndTimeMeasure('EndUpdatePanes', True);
   end;
 
   UpdateSkipFFButtons(Data);
+
+//  EndTimeMeasure('UpdatePanes', True);
 end;
 
 procedure TEditorForm.UpdatePanesCarets;
@@ -1403,23 +1427,32 @@ var
   VisSize: Integer;
   Parts: TEditedData.TDataPartList;
   TxColors, BgColors: TColorArray;
+  DefBgColor, DefTxColor: TColor;
   i: Integer;
 
   procedure Update(Pane: TEditorPane; CharsPerByte: Integer);
   var
-    L, i: Integer;
+    L, i, n: Integer;
   begin
     L := VisSize*CharsPerByte;
     if Length(Pane.BgColors)<>L then
       SetLength(Pane.BgColors, L);
     if Length(Pane.TxColors)<>L then
       SetLength(Pane.TxColors, L);
+//    StartTimeMeasure();
+//    if CharsPerByte = 1 then
+//    begin
+//      Move(TxColors[0], Pane.TxColors[0], L*SizeOf(TxColors[0]));
+//      Move(BgColors[0], Pane.BgColors[0], L*SizeOf(BgColors[0]));
+//    end
+//    else
     for i:=0 to L-1 do
     begin
-      Pane.TxColors[i] := TxColors[i div CharsPerByte];
-      Pane.BgColors[i] := BgColors[i div CharsPerByte];
+      n := i div CharsPerByte;
+      Pane.TxColors[i] := TxColors[n];
+      Pane.BgColors[i] := BgColors[n];
     end;
-
+//    EndTimeMeasure('Update pane colors', True);
     // Caret position
     Pane.CaretPos := Point(cp.X*CharsPerByte + IfThen(CharsPerByte>1, CaretInByte, 0), cp.Y);
     Pane.InsertModeCaret := InsertMode;
@@ -1436,10 +1469,12 @@ begin
   SetLength(BgColors, VisSize);
 
   // Background colors
+  DefBgColor := PaneHex.Color;
+  DefTxColor := PaneHex.Font.Color;
   for i:=0 to VisSize-1 do
   begin
-    BgColors[i] := PaneHex.Color;
-    TxColors[i] := PaneHex.Font.Color;
+    BgColors[i] := DefBgColor;
+    TxColors[i] := DefTxColor;
   end;
 
   // Changed bytes

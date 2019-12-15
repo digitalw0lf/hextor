@@ -119,7 +119,6 @@ object EditorForm: TEditorForm
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneHexKeyPress
     OnMouseWheel = PaneHexMouseWheel
-    ExplicitHeight = 607
   end
   object PaneLnNum: TEditorPane
     Left = 0
@@ -140,7 +139,6 @@ object EditorForm: TEditorForm
     Text = ''
     ShowCaret = False
     OnMouseWheel = PaneHexMouseWheel
-    ExplicitHeight = 607
   end
   object PaneText: TEditorPane
     Left = 774
@@ -169,7 +167,6 @@ object EditorForm: TEditorForm
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneTextKeyPress
     OnMouseWheel = PaneHexMouseWheel
-    ExplicitHeight = 607
     DesignSize = (
       258
       627)
@@ -233,7 +230,6 @@ object EditorForm: TEditorForm
     PageSize = 0
     TabOrder = 3
     OnChange = VertScrollBarChange
-    ExplicitHeight = 607
   end
   object StatusBar: TStatusBar
     Left = 0
@@ -249,7 +245,6 @@ object EditorForm: TEditorForm
         Text = 'Byte: ?'
         Width = 200
       end>
-    ExplicitTop = 624
   end
   object HorzScrollBar: TScrollBar
     Left = 0
@@ -261,7 +256,6 @@ object EditorForm: TEditorForm
     TabOrder = 5
     Visible = False
     OnChange = HorzScrollBarChange
-    ExplicitTop = 607
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286
@@ -291,7 +285,7 @@ object EditorForm: TEditorForm
     Left = 878
     Top = 304
     Bitmap = {
-      494C0101020008002C0033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C0101020008003C0033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000CC0000001A0000000100200000000000E052
       000000000000000000000000000000000000B9B9B90082828200858585008585
       8500858585008585850085858500858585008585850085858500858585008585

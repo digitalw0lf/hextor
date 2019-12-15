@@ -4,8 +4,9 @@ interface
 
 uses
   System.Types, System.SysUtils, Generics.Collections, Math, Vcl.Forms,
+  Generics.Defaults,
 
-  uDWHexTypes, uDWHexDataSources, uUtil, uCallbackList;
+  uDWHexTypes, uDWHexDataSources, uUtil, uCallbackList, uLogFile, uSkipList;
 
 type
   // This class contains virtual "data" of edited file.
@@ -24,28 +25,44 @@ type
       SourceAddr: TFilePointer;  // Corresponding address in Source (for unchanged parts)
       Data: TBytes;  // For changed parts
       procedure Assign(Source: TDataPart);
+      constructor Create(APartType: TDataPartType; AAddr: TFilePointer; ASize: TFilePointer = 0);
+    end;
+    TDataPartSkipList = class (TSkipListSet<TDataPart>)
     end;
     TDataPartList = TObjectList<TDataPart>;
     TDataPartArray = TArray<TDataPart>;
+  private type
+    // Dummy "DataPart" to pass to comparators with real TDataPart
+    TDummyPartRec = record
+      AClass: Pointer;
+      PartType: TDataPartType;
+      Addr: TFilePointer;
+      Size: TFilePointer;
+    end;
   private
-    function SplitPart(Index: Integer; Addr: TFilePointer): Boolean;
-    function CombineParts(Index1, Index2: Integer): Boolean;
-    procedure PreparePartsForOperation(Addr, Size: TFilePointer; var Index1, Index2: Integer);
-    procedure RecalcAddressesAfter(Addr: TFilePointer);
+    FSize: TFilePointer;
+    FHasMovements: Boolean;
+    function SplitPart({Part: TDataPart; }Addr: TFilePointer): Boolean; //TDataPart;
+    function CombineParts(Addr: TFilePointer): Boolean;
+    procedure PreparePartsForOperation(Addr, Size: TFilePointer{; var FirstPart, LastPart: TDataPart});
+    procedure RecalcAddressesAfter(OldAddr, NewAddr: TFilePointer);
+    procedure BoundToRange(var Addr, Size: TFilePointer);
   public
     DataSource: TDWHexDataSource;
     Resizable: Boolean;
-    Parts: TDataPartList;  // Treat as private except for saving to file
+    Parts: TDataPartSkipList;  // Treat as private except for saving to file
     // Data changed event. "Value" may be nil if fired as a result on Undo
     OnDataChanged: TCallbackListP4<{Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer, {Value:}PByteArray>;
     // Event for Undo stack
-    OnBeforePartsReplace: TCallbackListP4<{PartIndex1:}Integer, {PartIndex2:}Integer, {Addr:}TFilePointer, {NewSize:}TFilePointer>;
+    OnBeforePartsReplace: TCallbackListP3<{Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer>;
     constructor Create();
     destructor Destroy(); override;
     procedure ResetParts();
-    procedure GetOverlappingParts(Addr, Size: TFilePointer; var Index1, Index2: Integer; {out} AParts: TDataPartList = nil); overload;
+    procedure GetOverlappingParts(Addr, Size: TFilePointer; var FirstPart, LastPart: TDataPart; {out} AParts: TDataPartList = nil); overload;
     procedure GetOverlappingParts(Addr, Size: TFilePointer; {out} AParts: TDataPartList); overload;
+    function HasChanges(): Boolean;
     function HasMovements(): Boolean;
+    function GetDebugDescr(): string;
 
     function GetSize(): TFilePointer;
     function Get(Addr: TFilePointer; Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
@@ -64,7 +81,22 @@ implementation
 uses
   uEditorForm;
 
+function CompareDataParts(const Left, Right: TEditedData.TDataPart): Integer;
+// Left may be TDummyPartRec created for search
+begin
+  if InRange(Left.Addr, Right.Addr, Right.Addr + Right.Size - 1) then
+    Result := 0
+  else
+    Result := CompareValue(Left.Addr, Right.Addr);
+end;
+
 { TEditedData }
+
+procedure TEditedData.BoundToRange(var Addr, Size: TFilePointer);
+begin
+  Addr := EnsureRange(Addr, 0, GetSize());
+  Size := EnsureRange(Addr + Size, 0, GetSize()) - Addr;
+end;
 
 procedure TEditedData.Change(Addr: TFilePointer; Size: TFilePointer;
   Value: PByteArray);
@@ -75,7 +107,8 @@ end;
 constructor TEditedData.Create();
 begin
   inherited Create();
-  Parts := TObjectList<TDataPart>.Create(True);
+//  Parts := TObjectList<TDataPart>.Create(True);
+  Parts := TDataPartSkipList.Create(10, 4, TComparer<TDataPart>.Construct(CompareDataParts));
 end;
 
 procedure TEditedData.Delete(Addr: TFilePointer; Size: TFilePointer);
@@ -89,28 +122,16 @@ begin
   inherited;
 end;
 
-procedure TEditedData.PreparePartsForOperation(Addr, Size: TFilePointer; var Index1,
-  Index2: Integer);
+procedure TEditedData.PreparePartsForOperation(Addr, Size: TFilePointer);
 // Prepare parts for operation on range [Addr..Addr+Size):
-// Split parts at boundaries and return parts that cover exactly specified range
+// Split parts at that boundaries
 begin
   if (Addr < 0) or (Size < 0) or (Addr + Size > GetSize()) then
     raise Exception.Create('Trying to change out of range');
 
-  GetOverlappingParts(Addr, Size, Index1, Index2);
-
-  // On a part boundary
-  if Index2 < Index1 then
-    Exit;
-
-  // Split blocks at start and end of selected region
-  if SplitPart(Index1, Addr) then
-  begin
-    Inc(Index1);
-    if Size > 0 then
-      Inc(Index2);
-  end;
-  SplitPart(Index2, Addr + Size);
+  SplitPart(Addr);
+  if Size > 0 then
+    SplitPart(Addr + Size);
 end;
 
 function TEditedData.Get(Addr: TFilePointer; Size: TFilePointer;
@@ -125,6 +146,8 @@ begin
   CurrSize := GetSize();
   if (Addr<0) or (Addr>CurrSize) then Exit(nil);
   if (not ZerosBeyondEoF) and (Addr>=CurrSize) then Exit(nil);
+
+  StartTimeMeasure();
 
   if ZerosBeyondEoF then
     ReturnSize := Size
@@ -163,64 +186,98 @@ begin
   begin
     FillChar(Result[CurrSize-Addr], Addr+ReturnSize-CurrSize, 0);
   end;
+
+  EndTimeMeasure('Get', True);
+end;
+
+function TEditedData.GetDebugDescr: string;
+var
+  Part: TEditedData.TDataPart;
+begin
+  Result := '';
+  for Part in Parts do
+    Result := Result + 'sb'[Ord(Part.PartType)] + ' ' + IntToStr(Part.Addr)+' '+IntToStr(Part.Size)+' '+RemUnprintable(string(MakeStr(Copy(Part.Data, 0, 50))))+#13#10;
 end;
 
 procedure TEditedData.GetOverlappingParts(Addr,
   Size: TFilePointer; {out} AParts: TDataPartList);
 var
-  i1, i2: Integer;
+  AFirstPart, ALastPart: TDataPart;
 begin
-  GetOverlappingParts(Addr, Size, i1, i2, AParts);
+  GetOverlappingParts(Addr, Size, AFirstPart, ALastPart, AParts);
 end;
 
 procedure TEditedData.GetOverlappingParts(Addr,
-  Size: TFilePointer; var Index1, Index2: Integer; {out} AParts: TDataPartList);
+  Size: TFilePointer; var FirstPart, LastPart: TDataPart; {out} AParts: TDataPartList);
 var
-  i: Integer;
+  Dummy: TDummyPartRec;
+  Part: TDataPart;
 begin
   if (Addr >= GetSize()) then
   begin
-    Index1 := Parts.Count;
-    Index2 := Parts.Count-1;
+    FirstPart := nil;
+    LastPart := nil;
     Exit;
   end;
-  Index1 := Parts.Count;
-  Index2 := -1;
-  for i:=0 to Parts.Count-1 do
+  BoundToRange(Addr, Size);
+
+  Dummy.Addr := Addr;
+  if not Parts.TryFetch(@Dummy, FirstPart) then
+    FirstPart := nil;
+
+  if (Size = 0) and ((FirstPart = nil) or (FirstPart.Addr = Addr)) then
+  // Special case for zero-length region on a part boundary
   begin
-    if (Parts[i].Addr<Addr+Size) and (Parts[i].Addr+Parts[i].Size>Addr) then
-    begin
-      if Assigned(AParts) then AParts.Add(Parts[i]);
-      if i < Index1 then Index1 := i;
-      if i > Index2 then Index2 := i;
-    end;
-    // Special case for zero-length region on a part boundary
-    if (Size = 0) and (Parts[i].Addr = Addr) then
-    begin
-      Index1 := i;
-      Index2 := i-1;
-      Break;
-    end;
+    FirstPart := nil;
+    LastPart := nil;
+    Exit;
+  end;
+
+  Dummy.Addr := Addr + Size - 1;
+  if not Parts.TryFetch(@Dummy, LastPart) then
+    LastPart := nil;
+
+  if Assigned(AParts) then
+  begin
+    if Assigned(LastPart) then
+      for Part in Parts.EnumerateRange(FirstPart, LastPart) do
+        AParts.Add(Part)
+    else
+      for Part in Parts.EnumerateFrom(FirstPart) do
+        AParts.Add(Part);
   end;
 end;
 
 function TEditedData.GetSize: TFilePointer;
 begin
-  if Parts.Count = 0 then Result := 0
-  else Result := Parts.Last.Addr + Parts.Last.Size;
+  Result := FSize;
+end;
+
+function TEditedData.HasChanges: Boolean;
+// False if we have only one part that is equal to entire source.
+var
+  Part: TDataPart;
+begin
+  Result := False;
+  for Part in Parts do
+    if (Part.PartType = ptSource) and (Part.Addr = 0) and (Part.Size = GetSize()) then
+      Continue
+    else
+      Exit(True);
 end;
 
 function TEditedData.HasMovements: Boolean;
 // If some parts were moved due to insertion/deletion of data
-var
-  i: Integer;
+//var
+//  Part: TDataPart;
 begin
   if not Resizable then Exit(False);
 
-  for i:=0 to Parts.Count-1 do
-    if (Parts[i].PartType = ptSource) and (Parts[i].SourceAddr <> Parts[i].Addr) then
-      Exit(True);
-  Result := False;
+//  for Part in Parts do
+//    if (Part.PartType = ptSource) and (Part.SourceAddr <> Part.Addr) then
+//      Exit(True);
+//  Result := False;
+  Result := HasChanges() and FHasMovements;
 end;
 
 procedure TEditedData.Insert(Addr: TFilePointer; Size: TFilePointer;
@@ -229,19 +286,23 @@ begin
   Change(Addr, 0, Size, Value);
 end;
 
-procedure TEditedData.RecalcAddressesAfter(Addr: TFilePointer);
+procedure TEditedData.RecalcAddressesAfter(OldAddr, NewAddr: TFilePointer);
 var
-  i: Integer;
+  Dummy: TDummyPartRec;
+  Part: TDataPart;
+  AAddr: TFilePointer;
 begin
-  // There should be some better data structure that can handle this without full traverse
-  if Parts.Count > 0 then
+  // TODO: There should be some better data structure that can handle this without full traverse
+  Dummy.Addr := OldAddr;
+  AAddr := NewAddr;
+  for Part in Parts.EnumerateFrom(@Dummy) do
   begin
-    Parts[0].Addr := 0;
-    for i:=1 to Parts.Count-1 do
-    begin
-      Parts[i].Addr := Parts[i-1].Addr + Parts[i-1].Size;
-    end;
+    Part.Addr := AAddr;
+    if (Part.PartType = ptSource) and (Part.Addr <> Part.SourceAddr) then
+      FHasMovements := True;
+    AAddr := AAddr + Part.Size;
   end;
+  FSize := AAddr;
 end;
 
 procedure TEditedData.ReplaceParts(Addr, OldSize: TFilePointer;
@@ -249,42 +310,42 @@ procedure TEditedData.ReplaceParts(Addr, OldSize: TFilePointer;
 // Replace data parts in range [Addr..Addr+OldSize) with NewParts
 // Split/combine parts if needed
 var
-  i1, i2, i, OldCount, NewCount: Integer;
+  Part: TDataPart;
+  i: Integer;
   NewSize: TFilePointer;
   AValue: PByteArray;
+  OldParts: TDataPartList;
 begin
   // TODO: Optimize for a case when we really don't need to split parts and combine them back
 
   // Split parts on boundaries
-  PreparePartsForOperation(Addr, OldSize, i1, i2);
+  PreparePartsForOperation(Addr, OldSize{, FirstPart, LastPart});
 
   // Pass old parts to Undo stack
   NewSize := 0;
   for i:=0 to Length(NewParts)-1 do
     NewSize := NewSize + NewParts[i].Size;
-  OnBeforePartsReplace.Call(i1, i2, Addr, NewSize);
+  OnBeforePartsReplace.Call(Addr, OldSize, NewSize);
 
-  OldCount := i2 - i1 + 1;
-  NewCount := Length(NewParts);
+  // Delete old parts
+  OldParts := TDataPartList.Create(False);
+  GetOverlappingParts(Addr, OldSize, OldParts);
+  for Part in OldParts do
+    Parts.Remove(Part);
+  OldParts.Free;
 
-  // Replace parts with new ones
-  if OldCount > NewCount then
-    Parts.DeleteRange(i1 + NewCount, OldCount - NewCount)
-  else
-  begin
-    for i:=0 to NewCount-OldCount-1 do
-      Parts.Insert(i1 + OldCount, nil);
-  end;
-  for i:=0 to NewCount-1 do
-    Parts[i1+i] := NewParts[i];
-  i2 := i1 + NewCount - 1;
+  // Re-calculate addresses of parts after this operation
+  if NewSize <> OldSize then
+    RecalcAddressesAfter(Addr + OldSize, Addr + NewSize);
 
-  RecalcAddressesAfter(Addr);
+  // Insert new parts
+  for Part in NewParts do
+    Parts.AddOrSet(Part);
 
   // Combine parts on boundaries if possible
-  if CombineParts(i1-1, i1) then
-    Dec(i2);
-  CombineParts(i2, i2+1);
+  CombineParts(Addr);
+  if NewSize > 0 then
+    CombineParts(Addr + NewSize);
 
   // Call event. If we changed one part with in-memory data, pass pointer to that data
   if (Length(NewParts) = 1) and (NewParts[0].PartType = ptBuffer) then
@@ -300,28 +361,29 @@ var
 begin
   Parts.Clear();
   // Create initial part corresponding to entire DataSource
-  Part := TDataPart.Create();
-  Part.PartType := ptSource;
-  Part.Addr := 0;
-  Part.Size := DataSource.GetSize();
+  Part := TDataPart.Create(ptSource, 0, DataSource.GetSize());
   Part.SourceAddr := 0;
-  Parts.Add(Part);
+  Parts.AddOrSet(Part);
+  FSize := Part.Size;
+  FHasMovements := False;
 end;
 
-function TEditedData.SplitPart(Index: Integer; Addr: TFilePointer): Boolean;
-// Split Part ¹ Index into two parts of same type by address Addr
+function TEditedData.SplitPart(Addr: TFilePointer): Boolean;
+// Split Part into two parts of same type by address Addr
+// Returns second part
 var
   Part1, Part2: TDataPart;
   Size1: TFilePointer;
+  Dummy: TDummyPartRec;
 begin
-  Part1 := Parts[Index];
-  if (Addr <= Part1.Addr) or (Addr >= Part1.Addr + Part1.Size) then Exit(False);
+  Result := False;
+  Dummy.Addr := Addr;
+
+  if not Parts.TryFetch(@Dummy, Part1) then Exit;
+  if (Addr = Part1.Addr) or (Addr = Part1.Addr + Part1.Size) then Exit;
 
   Size1 := Addr - Part1.Addr;
-  Part2 := TDataPart.Create();
-  Part2.PartType := Part1.PartType;
-  Part2.Addr := Addr;
-  Part2.Size := Part1.Size - Size1;
+  Part2 := TDataPart.Create(Part1.PartType, Addr, Part1.Size - Size1);
 
   case Part1.PartType of
     ptSource:
@@ -336,7 +398,7 @@ begin
   end;
   Part1.Size := Size1;
 
-  Parts.Insert(Index+1, Part2);
+  Parts.AddOrSet(Part2);
   Result := True;
 end;
 
@@ -359,10 +421,7 @@ begin
 
   if NewSize > 0 then
   begin
-    Part := TDataPart.Create();
-    Part.PartType := ptBuffer;
-    Part.Addr := Addr;
-    Part.Size := NewSize;
+    Part := TDataPart.Create(ptBuffer, Addr, NewSize);
     Part.Data := MakeBytes(Value^, NewSize);
     NewParts := [Part];
   end
@@ -372,44 +431,42 @@ begin
   ReplaceParts(Addr, OldSize, NewParts);  // <--
 end;
 
-function TEditedData.CombineParts(Index1, Index2: Integer): Boolean;
-// Combine parts Index1 through Index2
+function TEditedData.CombineParts(Addr: TFilePointer): Boolean;
+// Combine parts which meet at address Addr
 var
-  i: Integer;
-  NewSize, Ptr: TFilePointer;
+  NewSize: TFilePointer;
+  Dummy: TDummyPartRec;
+  Part1, Part2: TDataPart;
 begin
   Result := False;
+  if (Addr <= 0) or (Addr >= GetSize()) then Exit;
+
+  Dummy.Addr := Addr - 1;
+  if not Parts.TryFetch(@Dummy, Part1) then Exit;
+  if Part1.Addr + Part1.Size <> Addr then Exit;
+  Dummy.Addr := Addr;
+  if not Parts.TryFetch(@Dummy, Part2) then Exit;
   // Check if it is possible to combine
-  if (Index1 < 0) or (Index2 >= Parts.Count) or (Index2 <= Index1) then Exit;
-  for i:=Index1+1 to Index2 do
-  begin
-    if Parts[i].PartType <> Parts[Index1].PartType then Exit;
-    if (Parts[i].PartType = ptSource) and (Parts[i].SourceAddr <> Parts[i-1].SourceAddr + Parts[i-1].Size) then Exit;
-  end;
+  if Part2.PartType <> Part1.PartType then Exit;
+  if (Part2.PartType = ptSource) and (Part2.SourceAddr <> Part1.SourceAddr + Part1.Size) then Exit;
 
-  NewSize := 0;
-  for i:=Index1 to Index2 do
-    NewSize := NewSize + Parts[i].Size;
 
-  case Parts[Index1].PartType of
+  NewSize := Part1.Size + Part2.Size;
+
+  case Part1.PartType of
     ptSource:
       begin
         // Nothing to do here
       end;
     ptBuffer:
       begin
-        Ptr := Parts[Index1].Size;
-        SetLength(Parts[Index1].Data, NewSize);
-        for i:=Index1+1 to Index2 do
-        begin
-          Move(Parts[i].Data[0], Parts[Index1].Data[Ptr], Parts[i].Size);
-          Inc(Ptr, Parts[i].Size);
-        end;
+        SetLength(Part1.Data, NewSize);
+        Move(Part2.Data[0], Part1.Data[Part1.Size], Part2.Size);
       end;
   end;
-  Parts[Index1].Size := NewSize;
 
-  Parts.DeleteRange(Index1+1, Index2-Index1);
+  Parts.Remove(Part2);
+  Part1.Size := NewSize;
   Result := True;
 end;
 
@@ -422,6 +479,15 @@ begin
   Size := Source.Size;
   SourceAddr := Source.SourceAddr;
   Data := Copy(Source.Data);
+end;
+
+constructor TEditedData.TDataPart.Create(APartType: TDataPartType; AAddr,
+  ASize: TFilePointer);
+begin
+  inherited Create();
+  PartType := APartType;
+  Addr := AAddr;
+  Size := ASize;
 end;
 
 end.

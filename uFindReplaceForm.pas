@@ -139,7 +139,7 @@ end;
 
 function TFindReplaceForm.FindNext(Direction: Integer): Boolean;
 var
-  Start, Ptr: TFilePointer;
+  Start, Ptr, ACaret: TFilePointer;
   Dir, Size: Integer;
 begin
   FillParams(False);
@@ -157,7 +157,9 @@ begin
   begin
     TargetEditor.BeginUpdatePanes();
     try
-      TargetEditor.MoveCaret(Ptr + IfThen(Dir>0, Size-1, 0), []);
+      ACaret := Ptr + IfThen(Dir>0, Size-1, 0);
+      TargetEditor.ScrollToShow(ACaret, -1, -1);
+      TargetEditor.MoveCaret(ACaret, []);
       TargetEditor.SetSelection(Ptr, Ptr + Size);
     finally
       TargetEditor.EndUpdatePanes();

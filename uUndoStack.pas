@@ -12,7 +12,6 @@ type
 
   TUndoStackActionChange = record
     Addr, NewSize: TFilePointer;
-    FirstPartIndex: Integer;
     DataParts: TEditedData.TDataPartArray;
   end;
 
@@ -33,7 +32,7 @@ type
     EditedData: TEditedData;
     UndoingNow: TUndoDirection;
     CurActionCode, CurActionCaption: string;
-    procedure BeforePartsReplace(PartIndex1, PartIndex2: Integer; Addr, NewSize: TFilePointer);
+    procedure BeforePartsReplace(Addr, OldSize, NewSize: TFilePointer);
     procedure Step(Direction: TUndoDirection);
   public
     Actions: TObjectList<TUndoStackAction>;
@@ -54,28 +53,26 @@ implementation
 
 { TUndoStack }
 
-procedure TUndoStack.BeforePartsReplace(PartIndex1, PartIndex2: Integer;
-  Addr, NewSize: TFilePointer);
+procedure TUndoStack.BeforePartsReplace(Addr, OldSize, NewSize: TFilePointer);
 // Remember data state before operation
 var
-  i, Count: Integer;
   Action: TUndoStackAction;
   Change: TUndoStackActionChange;
+  AParts: TEditedData.TDataPartList;
 begin
   // Convert this edit to TUndoStackActionChange
-  Change.FirstPartIndex := PartIndex1;
   Change.Addr := Addr;
   Change.NewSize := NewSize;
-  Count := PartIndex2 - PartIndex1 + 1;
-  SetLength(Change.DataParts, Count);
-  for i:=0 to Count-1 do
-  begin
-    Change.DataParts[i] := TEditedData.TDataPart.Create();
-    Change.DataParts[i].Assign(EditedData.Parts[PartIndex1+i]);
-  end;
 
+  AParts := TEditedData.TDataPartList.Create(False);
+  EditedData.GetOverlappingParts(Addr, OldSize, AParts);
+  Change.DataParts := AParts.ToArray();
+  AParts.Free;
+
+
+  // Find an Action in the stack in which we will add this change
   Action := nil;
-  case UndoingNow of
+  case UndoingNow of  // What's going on now: new operation or undo/redo
     udNone: // It is a new editing operation
       begin
         // Cannot "Redo" after fresh edit

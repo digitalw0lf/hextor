@@ -147,6 +147,7 @@ type
     MIUndo: TMenuItem;
     MIRedo: TMenuItem;
     Undostack1: TMenuItem;
+    CreateTestFile1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -192,6 +193,7 @@ type
     procedure ActionUndoExecute(Sender: TObject);
     procedure ActionRedoExecute(Sender: TObject);
     procedure Undostack1Click(Sender: TObject);
+    procedure CreateTestFile1Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -251,8 +253,9 @@ implementation
 
 {$R *.dfm}
 
-uses uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
-  uDbgToolsForm;
+uses
+  uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
+  uDbgToolsForm, uEditedData;
 
 { TMainForm }
 
@@ -567,6 +570,7 @@ procedure TMainForm.ActiveControlChanged(Sender: TObject);
 begin
   if Assigned(OldOnActiveControlChange) then
     OldOnActiveControlChange(Sender);
+  if Application.Terminated then Exit;
   CheckEnabledActions();
 end;
 
@@ -591,6 +595,7 @@ var
   n: Integer;
 begin
   n := StrToIntDef(EditByteCols.Text, -1);
+  n := BoundValue(n, 1, 16384);
   AppSettings.ByteColumns := n;
   SaveSettings();
   with ActiveEditor do
@@ -703,6 +708,42 @@ begin
     end);
   // Call ActiveEditorChanged when this editor has DataSource etc.
   DoAfterEvent(ActiveEditorChanged);
+end;
+
+procedure TMainForm.CreateTestFile1Click(Sender: TObject);
+const
+  BlockSize = 1*MByte;
+var
+  Size: Int64;
+  i: Integer;
+  Block: TBytes;
+  s: string;
+  fs: TFileStream;
+  s1: AnsiString;
+begin
+  s := '1 GB';
+  if not InputQuery('Create test file', 'Create test file of size:', s) then Exit;
+  Size := Str2FileSize(s);
+
+  fs := TFileStream.Create(ExePath + 'TestFile_'+s.Replace(' ','_')+'.dat', fmCreate);
+  try
+    SetLength(Block, BlockSize);
+    for i:=0 to BlockSize div 4-1 do
+      pCardinal(@Block[i*4])^ := Sqr(i);
+
+    for i:=0 to Size div BlockSize-1 do
+    begin
+      s1 := Format('-------- Block %8d --------', [i]);
+      Move(s1[Low(s1)], Block[0], Length(s1));
+      fs.WriteBuffer(Block[0], BlockSize);
+      ShowProgress(Sender, i+1, Size div BlockSize);
+    end;
+
+  finally
+    OperationDone(Sender);
+    fs.Free;
+  end;
+
 end;
 
 procedure TMainForm.DbgToolsForm1Click(Sender: TObject);
@@ -949,12 +990,8 @@ end;
 procedure TMainForm.Regions1Click(Sender: TObject);
 var
   s: string;
-  i: Integer;
 begin
-  s := '';
-  with ActiveEditor.EditedData do
-    for i:=0 to Parts.Count-1 do
-      s := s + IntToStr(Ord(Parts[i].PartType)) + ' ' + IntToStr(Parts[i].Addr)+' '+IntToStr(Parts[i].Size)+' '+RemUnprintable(MakeStr(Copy(Parts[i].Data, 0, 50)))+#13#10;
+  s := ActiveEditor.EditedData.GetDebugDescr();
   Application.MessageBox(PChar(s),'');
 end;
 
@@ -999,6 +1036,10 @@ procedure TMainForm.SelectionChanged;
 begin
   CheckEnabledActions();
   ValueFrame.UpdateInfo();
+
+  {}
+//  ScriptFrame.MemoOutput.Text := ActiveEditor.EditedData.GetDebugDescr();
+  {}
 end;
 
 procedure TMainForm.SetActiveEditor(const Value: TEditorForm);
@@ -1061,6 +1102,8 @@ begin
 end;
 
 procedure TMainForm.estchangespeed1Click(Sender: TObject);
+const
+  WriteCount = 100000;
 var
   i: Integer;
   b: TBytes;
@@ -1070,14 +1113,19 @@ begin
   with ActiveEditor do
   begin
     BeginUpdatePanes();
-    for i:=1 to 10000 do
-    begin
-      StartTimeMeasure();
-      ChangeBytes(Random(GetFileSize() - Length(b)), b);
-      EndTimeMeasure('change', True, 'Timing');
+    try
+      for i:=1 to WriteCount do
+      begin
+        StartTimeMeasure();
+        ChangeBytes(Random(GetFileSize() - Length(b)), b);
+        EndTimeMeasure('change', True, 'Timing');
+        ShowProgress(Sender, i, WriteCount);
+      end;
+    finally
+      EndUpdatePanes();
     end;
-    EndUpdatePanes();
   end;
+  OperationDone(Sender);
 end;
 
 procedure TMainForm.Undostack1Click(Sender: TObject);

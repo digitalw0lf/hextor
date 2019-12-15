@@ -48,6 +48,7 @@ type
     procedure CloseComparsion;
     procedure EditorVisRangeChanged(Sender: TEditorForm);
     procedure EditorByteColsChanged(Sender: TEditorForm);
+    procedure EditorClosed(Sender: TEditorForm);
   public
     { Public declarations }
     Editors: array[0..1] of TEditorForm;
@@ -217,6 +218,11 @@ begin
   Editors[1-n].ByteColumnsSetting := Sender.ByteColumnsSetting;
 end;
 
+procedure TCompareFrame.EditorClosed(Sender: TEditorForm);
+begin
+  CloseComparsion();
+end;
+
 procedure TCompareFrame.EditorVisRangeChanged(Sender: TEditorForm);
 // Sunc scroll
 var
@@ -305,9 +311,11 @@ var
 begin
   FAborted := True;
   for i:=0 to 1 do
+  if Editors[i] <> nil then
   begin
     Editors[i].OnVisibleRangeChanged.Remove(EditorVisRangeChanged);
     Editors[i].OnByteColsChanged.Remove(EditorByteColsChanged);
+    Editors[i].OnClosed.Remove(EditorClosed);
     Editors[i] := nil;
   end;
   MaxSize := 0;
@@ -347,10 +355,7 @@ begin
     Editors[i].ByteColumnsSetting := -1;
     Editors[i].BringToFront();
 
-    Editors[i].OnClosed.Add(procedure (Sender: TEditorForm)
-      begin
-        CloseComparsion();
-      end);
+    Editors[i].OnClosed.Add(EditorClosed);
     Editors[i].OnVisibleRangeChanged.Add(EditorVisRangeChanged);
     Editors[i].OnByteColsChanged.Add(EditorByteColsChanged);
   end;

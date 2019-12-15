@@ -192,7 +192,7 @@ object MainForm: TMainForm
             ExplicitHeight = 523
             ColWidths = (
               64
-              279)
+              283)
             RowHeights = (
               21
               21)
@@ -492,6 +492,10 @@ object MainForm: TMainForm
         Caption = 'Test change speed'
         OnClick = estchangespeed1Click
       end
+      object CreateTestFile1: TMenuItem
+        Caption = 'Create Test File'
+        OnClick = CreateTestFile1Click
+      end
       object DbgToolsForm1: TMenuItem
         Caption = 'DbgToolsForm'
         OnClick = DbgToolsForm1Click
@@ -685,7 +689,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001840110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001A00110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
