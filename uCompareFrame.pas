@@ -63,7 +63,7 @@ type
 implementation
 
 uses
-  uMainForm;
+  uMainForm, uBitmapFrame;
 
 {$R *.dfm}
 
@@ -193,14 +193,7 @@ begin
     R.Top := PosToScr(Editors[0].FirstVisibleAddr);
     R.Bottom := PosToScr(Editors[0].FirstVisibleAddr + Editors[0].VisibleBytesCount) - 1;
     Pen.Color := clBlack;
-    Polyline([Point(R.Left + 3, R.Top),
-              Point(R.Left, R.Top),
-              Point(R.Left, R.Bottom),
-              Point(R.Left + 4, R.Bottom)]);
-    Polyline([Point(R.Right - 3, R.Top),
-              Point(R.Right, R.Top),
-              Point(R.Right, R.Bottom),
-              Point(R.Right - 4, R.Bottom)]);
+    DrawEditorViewFrame(ScrBmp.Canvas, R);
   end;
 
   DiffBar.Canvas.Draw(0, 0, ScrBmp);

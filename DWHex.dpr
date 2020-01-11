@@ -24,7 +24,8 @@ uses
   uProfilerFrame in 'D:\Work\Trunk\Units\Components\uProfilerFrame.pas' {ProfilerFrame: TFrame},
   uDataSearcher in 'uDataSearcher.pas',
   uValueInterpretors in 'uValueInterpretors.pas',
-  uUndoStack in 'uUndoStack.pas';
+  uUndoStack in 'uUndoStack.pas',
+  uBitmapFrame in 'uBitmapFrame.pas' {BitmapFrame: TFrame};
 
 {$R *.TLB}
 

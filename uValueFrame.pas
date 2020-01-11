@@ -13,7 +13,7 @@ const
   SUndefinedValue = 'N/A';
 
 type
-  TValueFrame = class(TFrame)
+  TValueFrame = class(TFrame, IDWHexToolFrame)
     ValuesGrid: TKGrid;
     ValuePopupMenu: TPopupMenu;
     MICopyValue: TMenuItem;
@@ -40,13 +40,14 @@ type
     { Private declarations }
     FEditor: TEditorForm;
     FShownRange: TFileRange;
-//    property Interpretors: TObjectList<TValueInterpretor> read FInterpretors;
+    procedure EditorSelectionChanged(Sender: TEditorForm);
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure UpdateInfo();
     function GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
+    procedure OnShown();
   end;
 
 implementation
@@ -62,11 +63,18 @@ begin
   inherited;
   ValuesGrid.RowClass := TValueGridRow;
   ValuesGrid.RealizeRowClass;
+  MainForm.OnSelectionChanged.Add(EditorSelectionChanged);
 end;
 
 destructor TValueFrame.Destroy;
 begin
   inherited;
+end;
+
+procedure TValueFrame.EditorSelectionChanged(Sender: TEditorForm);
+begin
+  if not Parent.Visible then Exit;
+  UpdateInfo();
 end;
 
 function TValueFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
@@ -88,6 +96,11 @@ end;
 procedure TValueFrame.MICopyValueClick(Sender: TObject);
 begin
   Clipboard.AsText := ValuesGrid.Cells[ValuesGrid.Col, ValuesGrid.Row];
+end;
+
+procedure TValueFrame.OnShown;
+begin
+  UpdateInfo();
 end;
 
 procedure TValueFrame.UpdateInfo;

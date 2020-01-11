@@ -21,7 +21,7 @@ object MainForm: TMainForm
   PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 668
+    Left = 604
     Top = 47
     Width = 4
     Height = 592
@@ -155,9 +155,9 @@ object MainForm: TMainForm
     OnMouseUp = MDITabsMouseUp
   end
   object RightPanel: TPanel
-    Left = 672
+    Left = 608
     Top = 47
-    Width = 356
+    Width = 420
     Height = 592
     Align = alRight
     BevelOuter = bvNone
@@ -168,9 +168,9 @@ object MainForm: TMainForm
     object RightPanelPageControl: TPageControl
       Left = 0
       Top = 0
-      Width = 356
+      Width = 420
       Height = 551
-      ActivePage = PgScript
+      ActivePage = PgBitmap
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -179,20 +179,20 @@ object MainForm: TMainForm
         inline ValueFrame: TValueFrame
           Left = 0
           Top = 0
-          Width = 348
+          Width = 412
           Height = 523
           Align = alClient
           TabOrder = 0
-          ExplicitWidth = 348
+          ExplicitWidth = 412
           ExplicitHeight = 523
           inherited ValuesGrid: TKGrid
-            Width = 348
+            Width = 412
             Height = 523
-            ExplicitWidth = 348
+            ExplicitWidth = 412
             ExplicitHeight = 523
             ColWidths = (
               64
-              283)
+              347)
             RowHeights = (
               21
               21)
@@ -205,29 +205,29 @@ object MainForm: TMainForm
         inline StructFrame: TStructFrame
           Left = 0
           Top = 0
-          Width = 348
+          Width = 412
           Height = 523
           Align = alClient
           TabOrder = 0
-          ExplicitWidth = 348
+          ExplicitWidth = 412
           ExplicitHeight = 523
           inherited DSDescrMemo: TMemo
-            Width = 348
-            ExplicitWidth = 348
+            Width = 412
+            ExplicitWidth = 412
           end
           inherited DSTreeView: TTreeView
-            Width = 348
+            Width = 412
             Height = 249
-            ExplicitWidth = 348
+            ExplicitWidth = 412
             ExplicitHeight = 249
           end
           inherited PnlButtonBar1: TPanel
-            Width = 348
-            ExplicitWidth = 348
+            Width = 412
+            ExplicitWidth = 412
           end
           inherited PnlButtonBar2: TPanel
-            Width = 348
-            ExplicitWidth = 348
+            Width = 412
+            ExplicitWidth = 412
             inherited BtnInterpret: TButton
               Images = nil
             end
@@ -241,14 +241,14 @@ object MainForm: TMainForm
         inline CompareFrame: TCompareFrame
           Left = 0
           Top = 0
-          Width = 348
+          Width = 412
           Height = 523
           Align = alClient
           DoubleBuffered = True
           ParentBackground = False
           ParentDoubleBuffered = False
           TabOrder = 0
-          ExplicitWidth = 348
+          ExplicitWidth = 412
           ExplicitHeight = 523
           inherited DiffBar: TPaintBox
             Height = 523
@@ -265,23 +265,21 @@ object MainForm: TMainForm
         inline ScriptFrame: TScriptFrame
           Left = 0
           Top = 0
-          Width = 348
+          Width = 412
           Height = 523
           Align = alClient
           TabOrder = 0
-          ExplicitWidth = 348
+          ExplicitWidth = 412
           ExplicitHeight = 523
           inherited Splitter1: TSplitter
-            Top = 122
-            Width = 348
-            Height = 401
-            ExplicitTop = 122
-            ExplicitWidth = 276
-            ExplicitHeight = 401
+            Top = 387
+            Width = 412
+            ExplicitTop = 387
+            ExplicitWidth = 412
           end
           inherited ToolPanel: TPanel
-            Width = 348
-            ExplicitWidth = 348
+            Width = 412
+            ExplicitWidth = 412
           end
           inherited ScriptControl1: TScriptControl
             ControlData = {
@@ -289,26 +287,64 @@ object MainForm: TMainForm
               010007004A00530063007200690070007400}
           end
           inherited MemoScript: TRichEdit
-            Width = 348
-            ExplicitWidth = 348
+            Width = 412
+            Height = 354
+            ExplicitWidth = 412
+            ExplicitHeight = 354
           end
           inherited OutputPanel: TPanel
-            Top = -10
-            Width = 348
-            ExplicitTop = -10
-            ExplicitWidth = 348
+            Top = 391
+            Width = 412
+            ExplicitTop = 391
+            ExplicitWidth = 412
             inherited MemoOutput: TRichEdit
-              Width = 348
-              ExplicitWidth = 348
+              Width = 412
+              ExplicitWidth = 412
             end
             inherited OutputToolPanel: TPanel
-              Width = 348
-              ExplicitWidth = 348
+              Width = 412
+              ExplicitWidth = 412
               inherited BtnClearOutput: TSpeedButton
-                Left = 291
-                ExplicitLeft = 219
+                Left = 355
+                ExplicitLeft = 355
               end
             end
+          end
+        end
+      end
+      object PgBitmap: TTabSheet
+        Caption = 'Bitmap'
+        ImageIndex = 4
+        inline BitmapFrame: TBitmapFrame
+          Left = 0
+          Top = 0
+          Width = 412
+          Height = 523
+          Align = alClient
+          DoubleBuffered = False
+          ParentDoubleBuffered = False
+          TabOrder = 0
+          ExplicitWidth = 412
+          ExplicitHeight = 523
+          inherited MainPaintBox: TPaintBox
+            Width = 314
+            Height = 474
+            ExplicitWidth = 299
+            ExplicitHeight = 474
+          end
+          inherited LeftPanel: TPanel
+            Height = 474
+            ExplicitHeight = 474
+          end
+          inherited TopPanel: TPanel
+            Width = 412
+            ExplicitWidth = 412
+          end
+          inherited VertScrollBar: TScrollBar
+            Left = 395
+            Height = 474
+            ExplicitLeft = 395
+            ExplicitHeight = 474
           end
         end
       end
@@ -316,7 +352,7 @@ object MainForm: TMainForm
     object MsgPanel: TPanel
       Left = 0
       Top = 551
-      Width = 356
+      Width = 420
       Height = 41
       Align = alBottom
       BevelOuter = bvNone
@@ -365,7 +401,7 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 325
+        Width = 389
         Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
@@ -689,7 +725,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001A00110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001B00110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

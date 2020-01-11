@@ -19,7 +19,7 @@ uses
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
   uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex,
-  Vcl.Buttons, Vcl.Samples.Gauges;
+  Vcl.Buttons, Vcl.Samples.Gauges, uBitmapFrame, uCallbackList;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -148,6 +148,8 @@ type
     MIRedo: TMenuItem;
     Undostack1: TMenuItem;
     CreateTestFile1: TMenuItem;
+    PgBitmap: TTabSheet;
+    BitmapFrame: TBitmapFrame;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -221,6 +223,8 @@ type
     { Public declarations }
     SettingsFolder, SettingsFile: string;
     DWHexOle: TCoDWHex;
+    OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
+    OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     procedure OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveSettings();
@@ -229,6 +233,7 @@ type
     procedure UpdateMsgPanel();
     procedure ActiveEditorChanged();
     procedure SelectionChanged();
+    procedure VisibleRangeChanged();
     function GetIconIndex(DataSource: TDWHexDataSource): Integer;
     property ActiveEditor: TEditorForm read GetActiveEditor write SetActiveEditor;
     function GetActiveEditorNoEx: TEditorForm;
@@ -576,6 +581,7 @@ begin
   UpdateMDITabs();
   UpdateByteColEdit();
   UpdateMsgPanel();
+  VisibleRangeChanged();
   SelectionChanged();
 end;
 
@@ -592,7 +598,8 @@ var
   n: Integer;
 begin
   n := StrToIntDef(EditByteCols.Text, -1);
-  n := BoundValue(n, 1, 16384);
+  if n <> -1 then
+    n := BoundValue(n, 1, 16384);
   AppSettings.ByteColumns := n;
   SaveSettings();
   with ActiveEditor do
@@ -1000,8 +1007,12 @@ begin
 end;
 
 procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
+var
+  AFrame: IDWHexToolFrame;
 begin
   AppSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
+  if Supports(RightPanelPageControl.ActivePage.Controls[0], IDWHexToolFrame, AFrame) then
+    AFrame.OnShown();
 end;
 
 procedure TMainForm.RightPanelResize(Sender: TObject);
@@ -1032,7 +1043,7 @@ end;
 procedure TMainForm.SelectionChanged;
 begin
   CheckEnabledActions();
-  ValueFrame.UpdateInfo();
+  OnSelectionChanged.Call(GetActiveEditorNoEx());
 
   {}
 //  ScriptFrame.MemoOutput.Text := ActiveEditor.EditedData.GetDebugDescr();
@@ -1219,6 +1230,11 @@ begin
     end;
     MsgPanel.Visible := ShowMsg;
   end;
+end;
+
+procedure TMainForm.VisibleRangeChanged;
+begin
+  OnVisibleRangeChanged.Call(GetActiveEditorNoEx());
 end;
 
 procedure TMainForm.WMDropFiles(var Msg: TWMDropFiles);

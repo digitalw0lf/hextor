@@ -123,6 +123,7 @@ type
     SelStart, SelLength: TFilePointer;
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
+    OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     OnByteColsChanged: TCallbackListP1<TEditorForm>;
 //    property AutoObject: TAutoObject read FAutoObject implements IDispatch;
     destructor Destroy(); override;
@@ -178,6 +179,8 @@ type
 
   end;
 
+procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
+
 var
   EditorForm: TEditorForm;
 
@@ -187,6 +190,22 @@ uses
   uMainForm, uValueFrame;
 
 {$R *.dfm}
+
+procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
+begin
+  APageSize := Min(APageSize, AMax);
+  if AMax < AScrollBar.PageSize then
+  // Order matters
+  begin
+    AScrollBar.PageSize := APageSize;
+    AScrollBar.Max := AMax;
+  end
+  else
+  begin
+    AScrollBar.Max := AMax;
+    AScrollBar.PageSize := APageSize;
+  end;
+end;
 
 procedure TEditorForm.AddCurrentFileToRecentFiles;
 var
@@ -1019,7 +1038,8 @@ end;
 procedure TEditorForm.SelectionChanged;
 begin
   ShowSelectionInfo();
-  if Self = MainForm.ActiveEditor then
+  OnSelectionChanged.Call(Self);
+  if Self = MainForm.GetActiveEditorNoEx() then
     MainForm.SelectionChanged();
 end;
 
@@ -1405,6 +1425,8 @@ begin
        (HorzScrollPos <> FPrevHorzScroll) then
     begin
       OnVisibleRangeChanged.Call(Self);
+      if Self = MainForm.GetActiveEditorNoEx() then
+        MainForm.VisibleRangeChanged();
       FPrevVisibleRange.Start := FirstVisibleAddress;
       FPrevVisibleRange.AEnd := VisibleRangeEnd;
       FPrevHorzScroll := HorzScrollPos;

@@ -35,6 +35,11 @@ type
 
   TColorArray = array of TColor;
 
+  IDWHexToolFrame = interface
+    ['{4AB18488-6B7D-4A9B-9892-EC91DDF81745}']
+    procedure OnShown();
+  end;
+
 function MakeValidFileName(const S: string): string;
 function DivRoundUp(A, B: Int64): Int64; inline;
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
