@@ -40,7 +40,7 @@ type
       Size: TFilePointer;
     end;
   private
-    FSize: TFilePointer;
+    FSize, FOriginalSize: TFilePointer;
     FHasMovements: Boolean;
     function SplitPart({Part: TDataPart; }Addr: TFilePointer): Boolean; //TDataPart;
     function CombineParts(Addr: TFilePointer): Boolean;
@@ -109,6 +109,7 @@ begin
   inherited Create();
 //  Parts := TObjectList<TDataPart>.Create(True);
   Parts := TDataPartSkipList.Create(10, 4, TComparer<TDataPart>.Construct(CompareDataParts));
+  Parts.OwnsObjects := True;
 end;
 
 procedure TEditedData.Delete(Addr: TFilePointer; Size: TFilePointer);
@@ -147,7 +148,7 @@ begin
   if (Addr<0) or (Addr>CurrSize) then Exit(nil);
   if (not ZerosBeyondEoF) and (Addr>=CurrSize) then Exit(nil);
 
-  StartTimeMeasure();
+//  StartTimeMeasure();
 
   if ZerosBeyondEoF then
     ReturnSize := Size
@@ -187,7 +188,7 @@ begin
     FillChar(Result[CurrSize-Addr], Addr+ReturnSize-CurrSize, 0);
   end;
 
-  EndTimeMeasure('Get', True);
+//  EndTimeMeasure('Get', True);
 end;
 
 function TEditedData.GetDebugDescr: string;
@@ -260,7 +261,7 @@ var
 begin
   Result := False;
   for Part in Parts do
-    if (Part.PartType = ptSource) and (Part.Addr = 0) and (Part.Size = GetSize()) then
+    if (Part.PartType = ptSource) and (Part.Addr = 0) and (Part.Size = FOriginalSize) then
       Continue
     else
       Exit(True);
@@ -365,6 +366,7 @@ begin
   Part.SourceAddr := 0;
   Parts.AddOrSet(Part);
   FSize := Part.Size;
+  FOriginalSize := Part.Size;
   FHasMovements := False;
 end;
 

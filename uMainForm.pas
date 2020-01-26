@@ -136,11 +136,7 @@ type
     PgScript: TTabSheet;
     ScriptFrame: TScriptFrame;
     DbgToolsForm1: TMenuItem;
-    ProgressPanel: TPanel;
     ToolButton5: TToolButton;
-    ProgressGauge: TGauge;
-    BtnAbort: TSpeedButton;
-    ProgressTextLabel: TLabel;
     ActionUndo: TAction;
     ActionRedo: TAction;
     N1: TMenuItem;
@@ -150,6 +146,7 @@ type
     CreateTestFile1: TMenuItem;
     PgBitmap: TTabSheet;
     BitmapFrame: TBitmapFrame;
+    Something1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -191,17 +188,16 @@ type
     procedure RightPanelPageControlChange(Sender: TObject);
     procedure RightPanelResize(Sender: TObject);
     procedure DbgToolsForm1Click(Sender: TObject);
-    procedure BtnAbortClick(Sender: TObject);
     procedure ActionUndoExecute(Sender: TObject);
     procedure ActionRedoExecute(Sender: TObject);
     procedure Undostack1Click(Sender: TObject);
     procedure CreateTestFile1Click(Sender: TObject);
+    procedure Something1Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
     FInitialFilesOpened: Boolean;
     FDoAfterEvent: array of TProc;
-    FOperationAborted: Boolean;
     LastProgressRefresh: Cardinal;
     OldOnActiveControlChange: TNotifyEvent;
     EditorActionShortcuts: TDictionary<TContainedAction, TShortCut>;
@@ -243,7 +239,7 @@ type
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
     procedure DoAfterEvent(Proc: TProc);
-    procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; const Text: string = '');
+    procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
     procedure OperationDone(Sender: TObject);
   end;
 
@@ -257,7 +253,7 @@ implementation
 
 uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
-  uDbgToolsForm, uEditedData;
+  uDbgToolsForm, uEditedData, uProgressForm;
 
 { TMainForm }
 
@@ -580,9 +576,9 @@ procedure TMainForm.ActiveEditorChanged;
 begin
   UpdateMDITabs();
   UpdateByteColEdit();
-  UpdateMsgPanel();
   VisibleRangeChanged();
   SelectionChanged();
+  UpdateMsgPanel();
 end;
 
 procedure TMainForm.AddEditor(AEditor: TEditorForm);
@@ -605,11 +601,6 @@ begin
   with ActiveEditor do
     ByteColumnsSetting := n;
   DoAfterEvent(UpdateByteColEdit);
-end;
-
-procedure TMainForm.BtnAbortClick(Sender: TObject);
-begin
-  FOperationAborted := True;
 end;
 
 procedure TMainForm.CheckEnabledActions;
@@ -960,12 +951,19 @@ begin
 end;
 
 procedure TMainForm.OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
+var
+  DS: TDWHexDataSource;
 begin
+  DS := DataSourceType.Create(AFileName);
+  try
+    DS.Open(fmOpenRead);
+  except
+    DS.Free;
+    raise;
+  end;
   with CreateNewEditor() do
   begin
-    DataSource := DataSourceType.Create(AFileName);
-    DataSource.Open(fmOpenRead);
-
+    DataSource := DS;
     NewFileOpened(True);
   end;
 end;
@@ -980,10 +978,11 @@ begin
 end;
 
 procedure TMainForm.OperationDone(Sender: TObject);
-// Hide progress
+// Hide progress window
 begin
-  ProgressGauge.Progress := 0;
-  ProgressPanel.Visible := False;
+  ProgressForm.ProgressTextLabel.Caption := '';
+  ProgressForm.Close();
+  LastProgressRefresh := 0;
 end;
 
 procedure TMainForm.RecentFilesMenuPopup(Sender: TObject);
@@ -1069,18 +1068,34 @@ begin
   end;
 end;
 
-procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; const Text: string = '');
+procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
+// '-' => do not change text
 begin
+  if Text <> '-' then
+    ProgressForm.ProgressTextLabel.Caption := Text;
+
+  if LastProgressRefresh = 0 then LastProgressRefresh := GetTickCount();
   if (GetTickCount() - LastProgressRefresh < 100) then Exit;
   LastProgressRefresh := GetTickCount();
 
-  ProgressGauge.Progress := Round(Pos/Total*100);
-  ProgressTextLabel.Caption := Text;
-  ProgressPanel.Visible := True;
+  ProgressForm.ProgressGauge.Progress := Round(Pos/Total*100);
 
-  FOperationAborted := False;
+  if not ProgressForm.Visible then
+    ProgressForm.ShowLikeModal();
+
+  ProgressForm.FOperationAborted := False;
   Application.ProcessMessages();
-  if FOperationAborted then Abort();
+  if ProgressForm.FOperationAborted then Abort();
+end;
+
+procedure TMainForm.Something1Click(Sender: TObject);
+var
+  i: Integer;
+begin
+  StartTimeMeasure();
+  for i:=0 to 999 do
+    ActiveEditor;
+  EndTimeMeasure('ActiveEditor', True);
 end;
 
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;

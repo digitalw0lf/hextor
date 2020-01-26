@@ -32,18 +32,12 @@ type
     CBUnicode: TCheckBox;
     CBFindInSelection: TCheckBox;
     Timer1: TTimer;
-    ProgressPanel: TPanel;
-    BtnAbort: TButton;
-    Gauge1: TGauge;
-    LblProgress: TLabel;
     CBReplaceInSelection: TCheckBox;
     CBAskReplace: TCheckBox;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure BtnAbortClick(Sender: TObject);
-    procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure BtnReplaceAllClick(Sender: TObject);
@@ -51,11 +45,7 @@ type
     procedure CBReplaceInSelectionClick(Sender: TObject);
   private
     { Private declarations }
-    FAborted: Boolean;
-    LastProgressRefresh: Cardinal;
     procedure FillParams(aReplace, aCanFindInSel: Boolean);
-    procedure ShowProgress(Sender: TDataSearcher; Pos, Total: TFilePointer);
-    procedure OperationDone(Sender: TDataSearcher);
     function GetTargetEditor: TEditorForm;
   public
     { Public declarations }
@@ -73,11 +63,6 @@ implementation
 
 { TFindReplaceForm }
 
-procedure TFindReplaceForm.BtnAbortClick(Sender: TObject);
-begin
-  FAborted := True;
-end;
-
 procedure TFindReplaceForm.BtnFindCountClick(Sender: TObject);
 var
   Count: Integer;
@@ -92,10 +77,10 @@ begin
     begin
       Inc(Count);
       Start := Ptr+Size;
-      ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size);
+      MainForm.ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size, 'Found '+IntToStr(Count)+' time(s)');
     end;
   finally
-    OperationDone(Searcher);
+    MainForm.OperationDone(Searcher);
   end;
   Application.MessageBox(PChar('Search string found '+IntToStr(Count)+' times'), 'Search', MB_OK);
 end;
@@ -182,11 +167,11 @@ begin
       Inc(Count);
       Start := Ptr+NewSize;
 
-      ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size);
+      MainForm.ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size, 'Replaced '+IntToStr(Count)+' time(s)');
     end;
 
   finally
-    OperationDone(Searcher);
+    MainForm.OperationDone(Searcher);
     // Move caret to last replaced
     if LastReplaced <> NoRange then
     begin
@@ -281,37 +266,34 @@ begin
     if Start > TargetEditor.GetFileSize()-1 then Start := TargetEditor.GetFileSize()-1;
   end;
 
-  if Searcher.Find(Start, Dir, Ptr, Size) then
-  begin
-    TargetEditor.BeginUpdatePanes();
-    try
-      ACaret := Ptr + IfThen(Dir>0, Size-1, 0);
-      TargetEditor.ScrollToShow(ACaret, -1, -1);
-      TargetEditor.MoveCaret(ACaret, []);
-      TargetEditor.SetSelection(Ptr, Ptr + Size);
-    finally
-      TargetEditor.EndUpdatePanes();
+  try
+    if Searcher.Find(Start, Dir, Ptr, Size) then
+    begin
+      TargetEditor.BeginUpdatePanes();
+      try
+        ACaret := Ptr + IfThen(Dir>0, Size-1, 0);
+        TargetEditor.ScrollToShow(ACaret, -1, -1);
+        TargetEditor.MoveCaret(ACaret, []);
+        TargetEditor.SetSelection(Ptr, Ptr + Size);
+      finally
+        TargetEditor.EndUpdatePanes();
+      end;
+      Result := True;
+    end
+    else
+    begin
+      TargetEditor.SetSelection(TargetEditor.CaretPos, -1);
+      Result := False;
     end;
-    Result := True;
-  end
-  else
-  begin
-    TargetEditor.SetSelection(TargetEditor.CaretPos, -1);
-    Result := False;
+  finally
+    MainForm.OperationDone(Searcher);
   end;
-end;
-
-procedure TFindReplaceForm.FormClose(Sender: TObject; var Action: TCloseAction);
-begin
-  if Searcher.FSearchInProgress then
-    FAborted := True;
 end;
 
 procedure TFindReplaceForm.FormCreate(Sender: TObject);
 begin
   Searcher := TDataSearcher.Create();
-  Searcher.OnProgress.Add(ShowProgress);
-  Searcher.OnSearchDone.Add(OperationDone);
+  Searcher.OnProgress.Add(MainForm.ShowProgress);
 end;
 
 procedure TFindReplaceForm.FormDestroy(Sender: TObject);
@@ -334,32 +316,6 @@ end;
 function TFindReplaceForm.GetTargetEditor: TEditorForm;
 begin
   Result := MainForm.ActiveEditor;
-end;
-
-procedure TFindReplaceForm.OperationDone(Sender: TDataSearcher);
-// Hide progress
-begin
-  Gauge1.Progress := 0;
-  LblProgress.Caption := '';
-  BtnAbort.Enabled := False;
-  GBFind.Enabled := True;
-  GBReplace.Enabled := True;
-end;
-
-procedure TFindReplaceForm.ShowProgress(Sender: TDataSearcher; Pos, Total: TFilePointer);
-begin
-  if (GetTickCount() - LastProgressRefresh < 100) then Exit;
-  LastProgressRefresh := GetTickCount();
-
-  Gauge1.Progress := Round(Pos/Total*100);
-  LblProgress.Caption := IntToStr(Pos)+' / '+IntToStr(Total);
-  BtnAbort.Enabled := True;
-  GBFind.Enabled := False;
-  GBReplace.Enabled := False;
-
-  FAborted := False;
-  Application.ProcessMessages();
-  if FAborted then Abort();
 end;
 
 procedure TFindReplaceForm.Timer1Timer(Sender: TObject);

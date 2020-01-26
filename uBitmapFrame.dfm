@@ -188,8 +188,8 @@ object BitmapFrame: TBitmapFrame
         'BGR (2^24)')
     end
     object EditByteShift: TSpinEdit
-      Left = 8
-      Top = 72
+      Left = 10
+      Top = 75
       Width = 65
       Height = 22
       Hint = '0..3 bytes shift of first pixel in case of multy-byte pixels'
@@ -216,16 +216,16 @@ object BitmapFrame: TBitmapFrame
     object Label1: TLabel
       Left = 2
       Top = 3
-      Width = 32
+      Width = 28
       Height = 13
-      Caption = 'Width:'
+      Caption = 'Width'
     end
     object Label2: TLabel
       Left = 2
       Top = 28
-      Width = 29
+      Width = 25
       Height = 13
-      Caption = 'Scroll:'
+      Caption = 'Scroll'
     end
     object TrackBarWidth: TTrackBar
       Left = 78

@@ -95,50 +95,6 @@ object MainForm: TMainForm
       ImageIndex = 4
       Style = tbsSeparator
     end
-    object ProgressPanel: TPanel
-      Left = 177
-      Top = 0
-      Width = 416
-      Height = 22
-      BevelOuter = bvNone
-      TabOrder = 1
-      Visible = False
-      object ProgressGauge: TGauge
-        Left = 233
-        Top = 0
-        Width = 127
-        Height = 22
-        Align = alClient
-        ForeColor = clLime
-        Progress = 0
-        ExplicitLeft = 248
-        ExplicitWidth = 112
-      end
-      object BtnAbort: TSpeedButton
-        Left = 360
-        Top = 0
-        Width = 56
-        Height = 22
-        Align = alRight
-        Caption = 'Abort'
-        OnClick = BtnAbortClick
-        ExplicitLeft = 128
-        ExplicitTop = 1
-        ExplicitHeight = 20
-      end
-      object ProgressTextLabel: TLabel
-        Left = 0
-        Top = 0
-        Width = 233
-        Height = 22
-        Align = alLeft
-        Alignment = taRightJustify
-        AutoSize = False
-        Caption = 'Wait...'
-        Transparent = False
-        Layout = tlCenter
-      end
-    end
   end
   object MDITabs: TTabControl
     Left = 0
@@ -211,26 +167,39 @@ object MainForm: TMainForm
           TabOrder = 0
           ExplicitWidth = 412
           ExplicitHeight = 523
-          inherited DSDescrMemo: TMemo
-            Width = 412
-            ExplicitWidth = 412
-          end
           inherited DSTreeView: TTreeView
+            Top = 322
             Width = 412
-            Height = 249
+            Height = 201
+            TabOrder = 1
             ExplicitWidth = 412
-            ExplicitHeight = 249
+            ExplicitHeight = 201
           end
           inherited PnlButtonBar1: TPanel
             Width = 412
+            TabOrder = 2
             ExplicitWidth = 412
           end
           inherited PnlButtonBar2: TPanel
+            Top = 281
             Width = 412
+            TabOrder = 3
+            ExplicitTop = 233
             ExplicitWidth = 412
             inherited BtnInterpret: TButton
               Images = nil
             end
+          end
+          inherited EditFieldValue: TEdit
+            TabOrder = 4
+          end
+          inherited DSDescrEdit: TSynEdit
+            Top = 65
+            Width = 412
+            Height = 216
+            TabOrder = 5
+            ExplicitTop = 67
+            ExplicitHeight = 216
           end
         end
       end
@@ -516,6 +485,10 @@ object MainForm: TMainForm
     end
     object est1: TMenuItem
       Caption = 'Test'
+      object DbgToolsForm1: TMenuItem
+        Caption = 'DbgToolsForm'
+        OnClick = DbgToolsForm1Click
+      end
       object Regions1: TMenuItem
         Caption = 'Regions'
         OnClick = Regions1Click
@@ -532,9 +505,9 @@ object MainForm: TMainForm
         Caption = 'Create Test File'
         OnClick = CreateTestFile1Click
       end
-      object DbgToolsForm1: TMenuItem
-        Caption = 'DbgToolsForm'
-        OnClick = DbgToolsForm1Click
+      object Something1: TMenuItem
+        Caption = 'Something'
+        OnClick = Something1Click
       end
     end
   end
@@ -725,7 +698,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001B00110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001BC0110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

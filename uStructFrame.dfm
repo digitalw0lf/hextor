@@ -5,34 +5,19 @@ object StructFrame: TStructFrame
   Height = 629
   TabOrder = 0
   OnResize = FrameResize
-  object DSDescrMemo: TMemo
-    Left = 0
-    Top = 29
-    Width = 297
-    Height = 204
-    Align = alTop
-    Constraints.MinHeight = 20
-    Font.Charset = RUSSIAN_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -11
-    Font.Name = 'Courier New'
-    Font.Style = []
-    ParentFont = False
-    ScrollBars = ssBoth
-    TabOrder = 0
-  end
   object DSTreeView: TTreeView
     Left = 0
-    Top = 274
+    Top = 298
     Width = 297
-    Height = 355
+    Height = 331
     Align = alClient
+    HideSelection = False
     Indent = 19
     ParentShowHint = False
     ReadOnly = True
     RightClickSelect = True
     ShowHint = True
-    TabOrder = 1
+    TabOrder = 0
     OnAdvancedCustomDrawItem = DSTreeViewAdvancedCustomDrawItem
     OnChange = DSTreeViewChange
     OnDblClick = DSTreeViewDblClick
@@ -48,7 +33,7 @@ object StructFrame: TStructFrame
     Height = 29
     Align = alTop
     BevelOuter = bvNone
-    TabOrder = 2
+    TabOrder = 1
     object BtnLoadDescr: TSpeedButton
       Left = 4
       Top = 4
@@ -127,13 +112,13 @@ object StructFrame: TStructFrame
   end
   object PnlButtonBar2: TPanel
     Left = 0
-    Top = 233
+    Top = 257
     Width = 297
     Height = 41
     Cursor = crVSplit
     Align = alTop
     BevelOuter = bvNone
-    TabOrder = 3
+    TabOrder = 2
     OnMouseDown = PnlButtonBar2MouseDown
     OnMouseMove = PnlButtonBar2MouseMove
     OnMouseUp = PnlButtonBar2MouseUp
@@ -154,11 +139,47 @@ object StructFrame: TStructFrame
     Top = 304
     Width = 121
     Height = 21
-    TabOrder = 4
+    TabOrder = 3
     Text = 'EditFieldValue'
     Visible = False
     OnExit = EditFieldValueExit
     OnKeyDown = EditFieldValueKeyDown
+  end
+  object DSDescrEdit: TSynEdit
+    Left = 0
+    Top = 29
+    Width = 297
+    Height = 228
+    Align = alTop
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -13
+    Font.Name = 'Courier New'
+    Font.Style = []
+    TabOrder = 4
+    CodeFolding.GutterShapeSize = 11
+    CodeFolding.CollapsedLineColor = clGrayText
+    CodeFolding.FolderBarLinesColor = clGrayText
+    CodeFolding.IndentGuidesColor = clGray
+    CodeFolding.IndentGuides = True
+    CodeFolding.ShowCollapsedLine = False
+    CodeFolding.ShowHintMark = True
+    UseCodeFolding = False
+    Gutter.DigitCount = 3
+    Gutter.Font.Charset = DEFAULT_CHARSET
+    Gutter.Font.Color = clWindowText
+    Gutter.Font.Height = -11
+    Gutter.Font.Name = 'Courier New'
+    Gutter.Font.Style = []
+    Gutter.LeftOffset = 0
+    Gutter.ShowLineNumbers = True
+    Gutter.ShowModification = True
+    Highlighter = SynCppSyn1
+    MaxScrollWidth = 512
+    Options = [eoAutoIndent, eoAutoSizeMaxScrollWidth, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoSmartTabs, eoTabIndent, eoTabsToSpaces, eoTrimTrailingSpaces]
+    TabWidth = 2
+    WantTabs = True
+    FontSmoothing = fsmNone
   end
   object SavedDescrsMenu: TPopupMenu
     AutoHotkeys = maManual
@@ -175,6 +196,14 @@ object StructFrame: TStructFrame
     FilterIndex = 2
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
     Left = 144
+    Top = 104
+  end
+  object SynCppSyn1: TSynCppSyn
+    Options.AutoDetectEnabled = False
+    Options.AutoDetectLineLimit = 0
+    Options.Visible = False
+    CommentAttri.Foreground = clGreen
+    Left = 224
     Top = 104
   end
 end

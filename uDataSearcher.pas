@@ -33,12 +33,12 @@ type
     Params: TSearchParams;
     LastFound: TFileRange;
     FSearchInProgress: Boolean;
-    OnProgress: TCallbackListP3<TDataSearcher, TFilePointer, TFilePointer>;
-    OnSearchDone: TCallbackListP1<TDataSearcher>;
+    OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
+//    OnSearchDone: TCallbackListP1<TDataSearcher>;
     function ParamsDefined(): Boolean;
     function NeedleSize(): Integer; virtual;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; virtual;
-    function Find({Range: TFileRange; }Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
+    function Find(Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
     function ReplaceLastFound(var NewSize: Integer): Boolean;
   end;
 
@@ -46,26 +46,28 @@ implementation
 
 { TDataSearcher }
 
-function TDataSearcher.Find({Range: TFileRange; }Start: TFilePointer;
+function TDataSearcher.Find(Start: TFilePointer;
   Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
 const
-  BlockSize = 1*MByte;
-  BlockOverlap = 100*KByte;
+  MinBlockSize = 64*KByte;
+  MaxBlockSize = 1*MByte;
+  BlockOverlap = 16*KByte;
 var
-//  Range: TFileRange;
+  BlockSize: Integer;
   Data: TBytes;
   IPtr: Integer;
   Block: TFileRange;
 begin
   if FSearchInProgress then Exit(False);
-//  Range := Params.Range;
   if Params.Range.AEnd < 0 then Params.Range.AEnd := Haystack.GetSize();
   LastFound := NoRange;
 
   if (Start < Params.Range.Start) or (Start >= Params.Range.AEnd) then Exit(False);
 
   Ptr := Start;
-  // Dynamically load by 1 MB, overlapped by 100 KB if we go backwards
+  BlockSize := MinBlockSize;
+  // Dynamically load blocks, overlapped by 16 KB if we go backwards
+  // Block size increased on each step
   try
     FSearchInProgress := True;
     repeat
@@ -99,12 +101,14 @@ begin
       // Reached end of range
       if (Direction > 0) and (Block.AEnd = Params.Range.AEnd) then Break;
       if (Direction < 0) and (Block.Start = Params.Range.Start) then Break;
+      if BlockSize < MaxBlockSize then
+        BlockSize := BlockSize * 2;
 
-      OnProgress.Call(Self, Ptr-Params.Range.Start, Params.Range.Size);
+      OnProgress.Call(Self, Ptr-Params.Range.Start, Params.Range.Size, '-');
     until False;
   finally
     FSearchInProgress := False;
-    OnSearchDone.Call(Self);
+//    OnSearchDone.Call(Self);
   end;
 end;
 

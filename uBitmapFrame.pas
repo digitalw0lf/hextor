@@ -258,8 +258,8 @@ end;
 
 procedure TBitmapFrame.EditorVisibleRangeChanged(Sender: TEditorForm);
 begin
-  if not Parent.Visible then Exit;
   FEditor := MainForm.GetActiveEditorNoEx;
+  if not Parent.Visible then Exit;
 
   if (Sender <> nil) and (Sender.EditedData.GetSize() <> PrevFileSize) then
     UpdateScrollBars();
@@ -393,6 +393,7 @@ procedure TBitmapFrame.MainPaintBoxMouseDown(Sender: TObject;
 var
   Addr: TFilePointer;
 begin
+  if FEditor = nil then Exit;
   ScreenToAddr(X, Y, Addr, True);
   Addr := Addr div 8;
   FEditor.MoveCaret(Addr, KeyboardStateToShiftState());
@@ -405,6 +406,7 @@ end;
 
 procedure TBitmapFrame.OnShown;
 begin
+  FEditor := MainForm.GetActiveEditorNoEx;
   Redraw();
 end;
 

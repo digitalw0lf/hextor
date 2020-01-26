@@ -39,6 +39,8 @@ type
     CurPointer: Integer;
     OnActionCreating: TCallbackListP1<{Action:}TUndoStackAction>;
     OnActionReverted: TCallbackListP2<{Action:}TUndoStackAction, {Direction:}TUndoDirection>;
+    OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
+    OnOperationDone: TCallbackListP1<{Sender:}TObject>;
     constructor Create(AEditedData: TEditedData);
     destructor Destroy(); override;
     procedure Undo();
@@ -59,6 +61,7 @@ var
   Action: TUndoStackAction;
   Change: TUndoStackActionChange;
   AParts: TEditedData.TDataPartList;
+  i: Integer;
 begin
   // Convert this edit to TUndoStackActionChange
   Change.Addr := Addr;
@@ -66,9 +69,15 @@ begin
 
   AParts := TEditedData.TDataPartList.Create(False);
   EditedData.GetOverlappingParts(Addr, OldSize, AParts);
-  Change.DataParts := AParts.ToArray();
+  //Change.DataParts := AParts.ToArray();
+  // Clone parts data
+  SetLength(Change.DataParts, AParts.Count);
+  for i:=0 to AParts.Count-1 do
+  begin
+    Change.DataParts[i] := TEditedData.TDataPart.Create(ptUnknown, 0);
+    Change.DataParts[i].Assign(AParts[i]);
+  end;
   AParts.Free;
-
 
   // Find an Action in the stack in which we will add this change
   Action := nil;
@@ -180,10 +189,12 @@ begin
     for i:=TmpChanges.Count-1 downto 0 do
     begin
       EditedData.ReplaceParts(TmpChanges[i].Addr, TmpChanges[i].NewSize, TmpChanges[i].DataParts);
+      OnProgress.Call(Self, TmpChanges.Count-i, TmpChanges.Count, '-');
     end;
   finally
     UndoingNow := udNone;
     TmpChanges.Free;
+    OnOperationDone.Call(Self);
   end;
   OnActionReverted.Call(Action, Direction);
 end;

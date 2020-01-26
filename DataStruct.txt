@@ -1,0 +1,30 @@
+typename varname1, varname2;
+
+
+typename arrayname[expression];
+
+
+#bigendian
+#littleendian
+<affected statements>
+
+
+<affected statement> #valid <condition>
+condition:
+  x
+  x..y
+  expression($)
+
+  
+if (expression)
+  statement;
+else
+  statement;
+
+
+switch (expression) {
+  case cond1: statement1;
+  case cond2: statement2;
+  default: statementD;
+}
+

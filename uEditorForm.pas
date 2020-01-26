@@ -431,6 +431,8 @@ begin
   UndoStack := TUndoStack.Create(EditedData);
   UndoStack.OnActionCreating.Add(UndoActionCreating);
   UndoStack.OnActionReverted.Add(UndoActionReverted);
+  UndoStack.OnProgress.Add(MainForm.ShowProgress);
+  UndoStack.OnOperationDone.Add(MainForm.OperationDone);
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
   MainForm.AddEditor(Self);
@@ -937,16 +939,22 @@ begin
     Dest.Open(fmCreate);
   end;
 
-  // Write changed regions
-  for APart in EditedData.Parts do
-  begin
-    if (InplaceSaving) and (APart.PartType = ptSource) then Continue;
-    case APart.PartType of
-      ptSource:
-        CopyDataRegion(DataSource, Dest, APart.SourceAddr, APart.Addr, APart.Size);
-      ptBuffer:
-        Dest.ChangeData(APart.Addr, APart.Size, APart.Data[0]);
+  // Write regions
+  try
+    for APart in EditedData.Parts do
+    begin
+      if (InplaceSaving) and (APart.PartType = ptSource) then Continue;
+      case APart.PartType of
+        ptSource:
+          CopyDataRegion(DataSource, Dest, APart.SourceAddr, APart.Addr, APart.Size);
+        ptBuffer:
+          Dest.ChangeData(APart.Addr, APart.Size, APart.Data[0]);
+      end;
+
+      MainForm.ShowProgress(Self, APart.Addr + APart.Size, EditedData.GetSize, '-');
     end;
+  finally
+    MainForm.OperationDone(Self);
   end;
   // TODO: Handle write errors
 

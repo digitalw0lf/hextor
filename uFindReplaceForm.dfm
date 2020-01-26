@@ -2,7 +2,7 @@ object FindReplaceForm: TFindReplaceForm
   Left = 900
   Top = 200
   Caption = 'Find/Replace'
-  ClientHeight = 264
+  ClientHeight = 255
   ClientWidth = 540
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -13,7 +13,6 @@ object FindReplaceForm: TFindReplaceForm
   KeyPreview = True
   OldCreateOrder = False
   Position = poDesigned
-  OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
@@ -133,13 +132,13 @@ object FindReplaceForm: TFindReplaceForm
     Left = 3
     Top = 130
     Width = 534
-    Height = 111
+    Height = 122
     Align = alClient
     Caption = 'Replace'
     TabOrder = 1
     DesignSize = (
       534
-      111)
+      122)
     object Label2: TLabel
       Left = 16
       Top = 19
@@ -188,54 +187,6 @@ object FindReplaceForm: TFindReplaceForm
       Height = 17
       Caption = 'Ask each replace'
       TabOrder = 4
-    end
-  end
-  object ProgressPanel: TPanel
-    Left = 0
-    Top = 244
-    Width = 540
-    Height = 20
-    Align = alBottom
-    BevelOuter = bvNone
-    TabOrder = 2
-    object Gauge1: TGauge
-      Left = 0
-      Top = 0
-      Width = 465
-      Height = 20
-      Align = alClient
-      ForeColor = clLime
-      Progress = 0
-      ShowText = False
-      ExplicitLeft = 144
-      ExplicitTop = 8
-      ExplicitWidth = 100
-      ExplicitHeight = 100
-    end
-    object LblProgress: TLabel
-      Left = 0
-      Top = 0
-      Width = 465
-      Height = 20
-      Align = alClient
-      Alignment = taCenter
-      AutoSize = False
-      Layout = tlCenter
-      ExplicitLeft = 136
-      ExplicitTop = 3
-      ExplicitWidth = 193
-      ExplicitHeight = 18
-    end
-    object BtnAbort: TButton
-      Left = 465
-      Top = 0
-      Width = 75
-      Height = 20
-      Align = alRight
-      Caption = 'Abort'
-      Enabled = False
-      TabOrder = 0
-      OnClick = BtnAbortClick
     end
   end
   object Timer1: TTimer

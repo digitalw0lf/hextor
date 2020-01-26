@@ -6,9 +6,10 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Generics.Collections,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
-  Vcl.Buttons, Vcl.Menus, System.Types,
+  Vcl.Buttons, Vcl.Menus, System.Types, Math,
 
-  uUtil, uDWHexTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors;
+  uUtil, uDWHexTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors,
+  SynEdit, SynEditHighlighter, SynHighlighterCpp;
 
 const
   // Synthetic "case" label for "default" branch
@@ -31,6 +32,7 @@ type
     constructor Create(); virtual;
     procedure Assign(Source: TDSField); virtual;
     function Duplicate(): TDSField;
+    function ToQuotedString(): string; virtual;
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -48,6 +50,7 @@ type
     constructor Create(); override;
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
+    function ToQuotedString(): string; override;
     procedure SetFromString(const S: string); virtual;
     function GetInterpretor(RaiseException: Boolean = True): TValueInterpretor;
   end;
@@ -59,6 +62,7 @@ type
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
+    function ToString(): string; override;
   end;
 
   TDSArray = class (TDSCompoundField)
@@ -68,6 +72,8 @@ type
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
+    function ToString(): string; override;
+    function ToQuotedString(): string; override;
   end;
 
   TDSStruct = class (TDSCompoundField)
@@ -115,27 +121,33 @@ type
     function ParseStruct(const Descr: string): TDSStruct;
   end;
 
+  TOnDSInterpretorGetData = reference to procedure (Addr, Size: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean});
+
   // Class for populating DataStructure from binary buffer
   TDSInterpretor = class
   private
-    FRootDS: TDSField;    // Root of DS that is parsed now
-    BufStart: Pointer;
-    FAddr: TFilePointer;  // Starting address of analysed struct in original file
+    FRootDS: TDSField;         // Root of DS that is parsed now
+//    BufStart: Pointer;
+    FStartAddr, FMaxSize: TFilePointer;  // Starting address of analysed struct in original file
+    FCurAddr: TFilePointer;    // Current
+    EndOfData: Boolean;        // End of input data reached
+    FieldsProcessed: Integer;  // To show some progress
+    procedure ReadData(var Data: TBytes; Size: Integer);
     function GetFieldSize(DS: TDSSimpleField): Integer;
-    procedure InterpretSimple(DS: TDSSimpleField; var Buf: Pointer; BufEnd: Pointer);
-    procedure InterpretStruct(DS: TDSStruct; var Buf: Pointer; BufEnd: Pointer);
-    procedure InterpretArray(DS: TDSArray; var Buf: Pointer; BufEnd: Pointer);
-    procedure InterpretConditional(DS: TDSConditional; var Buf: Pointer; BufEnd: Pointer);
-    procedure InternalInterpret(DS: TDSField; var Buf: Pointer; BufEnd: Pointer);
-    function FindLastValueByName(DS: TDSField; const AName: string): TDSField;
-    function CalculateExpression(const Expr: string; Env: TDSField): Variant;
+    procedure InterpretSimple(DS: TDSSimpleField);
+    procedure InterpretStruct(DS: TDSStruct);
+    procedure InterpretArray(DS: TDSArray);
+    procedure InterpretConditional(DS: TDSConditional);
+    procedure InternalInterpret(DS: TDSField);
+    class function FindLastValueByName(DS: TDSField; const AName: string): TDSField;
+    class function CalculateExpression(Expr: string; Env: TDSField): Variant;
     procedure ValidateField(DS: TDSSimpleField);
   public
-    procedure Interpret(DS: TDSField; Addr: TFilePointer; var Buf: Pointer; BufEnd: Pointer);
+    OnGetMoreData: TOnDSInterpretorGetData;
+    procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
   end;
 
   TStructFrame = class(TFrame)
-    DSDescrMemo: TMemo;
     DSTreeView: TTreeView;
     PnlButtonBar1: TPanel;
     BtnLoadDescr: TSpeedButton;
@@ -147,6 +159,8 @@ type
     MIDummyDataStruct: TMenuItem;
     SaveDialog1: TSaveDialog;
     EditFieldValue: TEdit;
+    DSDescrEdit: TSynEdit;
+    SynCppSyn1: TSynCppSyn;
     procedure BtnInterpretClick(Sender: TObject);
     procedure BtnLoadDescrClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
@@ -188,7 +202,7 @@ type
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
-    procedure Analyze(Addr: TFilePointer; const Data: TBytes; const Struct: string);
+    procedure Analyze(Addr, Size: TFilePointer; const Struct: string);
     function GetDataColors(Editor: TEditorForm; Addr: TFilePointer;
       Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
   end;
@@ -680,7 +694,7 @@ begin
         ReadExpectedLexem([':']);
         // Read Statement
         AFields := ReadStatement();
-        Result.Branches.AddOrSetValue(StrToInt(Trim(ACase)), AFields);  // TODO: not only ints
+        Result.Branches.AddOrSetValue(TDSInterpretor.CalculateExpression(ACase, nil), AFields);  // TODO: not only ints
         Continue;
       end
       else
@@ -760,16 +774,18 @@ procedure TDSSimpleField.SetFromString(const S: string);
 var
   Intr: TValueInterpretor;
 begin
-//  Intr := ValueInterpretors.FindInterpretor(DataType);
-//  if Intr = nil then
-//    raise EDSParserError.Create('Cannot convert string to ' + DataType)
-//  else
-//    Intr.FromString(S, Data[0], Length(Data));
   Intr := GetInterpretor();
   Intr.FromString(S, Data[0], Length(Data));
 end;
 
-function TDSSimpleField.ToString: string;
+function TDSSimpleField.ToQuotedString: string;
+begin
+  Result := ToString();
+  if (DataType = 'ansi') or (DataType = 'unicode') then
+    Result := '''' + Result + '''';
+end;
+
+function TDSSimpleField.ToString(): string;
 var
   Intr: TValueInterpretor;
 begin
@@ -810,6 +826,31 @@ begin
   inherited;
 end;
 
+function TDSCompoundField.ToString: string;
+const
+  MaxDispLen = 100;
+var
+  i: Integer;
+begin
+  Result := '(';
+  for i:=0 to Fields.Count-1 do
+  begin
+    Result := Result + Fields[i].ToQuotedString;
+    if i = Fields.Count-1 then
+      Result := Result + ')'
+    else
+    begin
+      if Length(Result) > MaxDispLen then
+      begin
+        Result := Result + '...';
+        Exit;
+      end
+      else
+        Result := Result + ', ';
+    end;
+  end;
+end;
+
 { TDSArray }
 
 procedure TDSArray.Assign(Source: TDSField);
@@ -833,6 +874,37 @@ destructor TDSArray.Destroy;
 begin
   ElementType.Free;
   inherited;
+end;
+
+function TDSArray.ToQuotedString: string;
+begin
+  Result := ToString();
+  if (ElementType is TDSSimpleField) and (
+      ((ElementType as TDSSimpleField).DataType = 'ansi') or
+      ((ElementType as TDSSimpleField).DataType = 'unicode')) then
+  begin
+    Result := '"' + Result + '"';
+  end;
+end;
+
+function TDSArray.ToString: string;
+const
+  MaxDispLen = 100;
+var
+  i: Integer;
+begin
+  if (ElementType is TDSSimpleField) and (
+      ((ElementType as TDSSimpleField).DataType = 'ansi') or
+      ((ElementType as TDSSimpleField).DataType = 'unicode')) then
+  begin
+    Result := '';
+    for i:=0 to Min(Fields.Count, MaxDispLen)-1 do
+      Result := Result + Fields[i].ToString();
+    if Fields.Count > MaxDispLen then
+      Result := Result + '...';
+  end
+  else
+    Result := inherited;
 end;
 
 { TDSStruct }
@@ -863,6 +935,11 @@ function TDSField.Duplicate(): TDSField;
 begin
   Result := TDSFieldClass(Self.ClassType).Create();
   Result.Assign(Self);
+end;
+
+function TDSField.ToQuotedString: string;
+begin
+  Result := ToString();
 end;
 
 { TDSConditional }
@@ -904,10 +981,9 @@ end;
 
 { TStructFrame }
 
-procedure TStructFrame.Analyze(Addr: TFilePointer; const Data: TBytes;
+procedure TStructFrame.Analyze(Addr, Size: TFilePointer; {const Data: TBytes;}
   const Struct: string);
 var
-  Buf, BufEnd: Pointer;
   i: Integer;
   DS: TDSField;
 begin
@@ -915,11 +991,14 @@ begin
   FreeAndNil(ShownDS);
 
   // Parse structure description
-  ShownDS := FParser.ParseStruct(DSDescrMemo.Text);
+  ShownDS := FParser.ParseStruct(Struct);
 
-  GetStartEndPointers(Data, Buf, BufEnd);
   // Populate structure fields
-  FInterpretor.Interpret(ShownDS, Addr, Buf, BufEnd);
+  FInterpretor.OnGetMoreData := procedure (AAddr, ASize: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean})
+    begin
+      Data := FEditor.EditedData.Get(AAddr, ASize);
+    end;
+  FInterpretor.Interpret(ShownDS, Addr, Size);
 
   // Show tree
   // TODO: replace with faster tree view (VirtualTreeView?)
@@ -989,24 +1068,34 @@ begin
 end;
 
 procedure TStructFrame.BtnInterpretClick(Sender: TObject);
-const
-  MaxSize = 100*KByte;
 var
-  AData: TBytes;
-  Addr: TFilePointer;
+  Addr, Size: TFilePointer;
 begin
   FEditor := MainForm.ActiveEditor;
   with FEditor do
   begin
     if SelStart = GetFileSize() then
+    // Cursor at end of file -> parse entire file
     begin
       Addr := 0;
-      AData := GetEditedData(0, MaxSize);
+      Size := EditedData.GetSize();
     end
     else
-      AData := GetSelectedOrAfterCaret(100*KByte, 100*MByte, Addr, True);
+    if SelLength > 0 then
+    // Non-empty selection -> parse it
+    begin
+      Addr := SelStart;
+      Size := SelLength;
+    end
+    else
+    // Parce from cursor until end of file
+    begin
+      Addr := SelStart;
+      Size := EditedData.GetSize() - Addr;
+    end;
   end;
-  Analyze(Addr, AData, DSDescrMemo.Text);
+
+  Analyze(Addr, Size, DSDescrEdit.Text);
 end;
 
 constructor TStructFrame.Create(AOwner: TComponent);
@@ -1164,7 +1253,7 @@ end;
 
 procedure TStructFrame.FrameResize(Sender: TObject);
 begin
-  DSDescrMemo.Constraints.MaxHeight := DSDescrMemo.Height + DSTreeView.Height - 20;
+  DSDescrEdit.Constraints.MaxHeight := DSDescrEdit.Height + DSTreeView.Height - 20;
 end;
 
 procedure TStructFrame.MIDummyDataStructClick(Sender: TObject);
@@ -1172,7 +1261,7 @@ var
   fn: string;
 begin
   fn := (Sender as TMenuItem).Caption;
-  DSDescrMemo.Lines.LoadFromFile(DSSaveFolder + fn + '.ds');
+  DSDescrEdit.Lines.LoadFromFile(DSSaveFolder + fn + '.ds');
   LblStructName.Caption := fn;
 end;
 
@@ -1188,7 +1277,7 @@ procedure TStructFrame.PnlButtonBar2MouseMove(Sender: TObject;
 begin
   if (ssLeft in Shift) and (MPos.X >= 0) then
   begin
-    DSDescrMemo.Height := DSDescrMemo.Height + (Y - MPos.Y);
+    DSDescrEdit.Height := DSDescrEdit.Height + (Y - MPos.Y);
   end;
 end;
 
@@ -1211,14 +1300,13 @@ begin
   // Field name
   S := DS.Name;
 
-  // For simple field: show value
-  if DS is TDSSimpleField then
-    S := S + ': ' + TDSSimpleField(DS).ToString();
-
   // For array: show length
   if DS is TDSArray then
   with TDSArray(DS) do
     S := S + '[' + IntToStr(Fields.Count) + ']';
+
+  // Show value
+  S := S + ': ' + DS.ToString();
 
   if (S <> ''){ or (ParentNode = nil)} then
   begin
@@ -1252,13 +1340,14 @@ begin
   fn := SaveDialog1.FileName;
 
   ForceDirectories(ExtractFilePath(fn));
-  DSDescrMemo.Lines.SaveToFile(fn);
+  DSDescrEdit.Lines.SaveToFile(fn);
+  DSDescrEdit.MarkModifiedLinesAsSaved();
   LblStructName.Caption := ChangeFileExt(ExtractFileName(fn), '');
 end;
 
 { TDSInterpretor }
 
-function TDSInterpretor.CalculateExpression(const Expr: string;
+class function TDSInterpretor.CalculateExpression(Expr: string;
   Env: TDSField): Variant;
 var
   DS: TDSField;
@@ -1266,36 +1355,50 @@ var
   Operands: TArray<string>;
   Value1, Value2: Variant;
 begin
-  if TryStrToInt(Trim(Expr), N) then Exit(N);
+  Expr := Trim(Expr);
 
-  // Equality comparison
-  if Pos('=', Expr) > 0 then
+  // Number
+  if TryStrToInt(Expr, N) then Exit(N);
+
+  // Ansi char
+  if (Length(Expr) = 3) and (Expr[Low(Expr)] = '''') and
+     (Expr[High(Expr)] = '''') then
   begin
-    Operands := Expr.Split(['='], ExcludeEmpty);
-    if Length(Operands) <> 2 then
-      raise EDSParserError.Create('Error in expression: "'+Expr+'"');
-    Value1 := CalculateExpression(Operands[0], Env);
-    Value2 := CalculateExpression(Operands[1], Env);
-    Exit(Value1 = Value2);
+    Result := Ord(AnsiChar(Expr[Low(Expr)+1]));
+    Exit;
   end;
 
-  // Field name
-  // TODO: start search from current element, not from last
-  DS := FindLastValueByName(Env, Trim(Expr));
-  if (DS <> nil) and (DS is TDSSimpleField) then
-    with TDSSimpleField(DS) do
-      if (Length(Data) > 0) and (Length(Data) <= 4) then
-      begin
-//        Result := 0;
-//        Move(Data[0], Result, Length(Data));
-        Result := GetInterpretor().ToInt(Data[0], Length(Data));
-        Exit;
-      end;
+  if Env <> nil then
+  begin
+    // Equality comparison
+    if Pos('=', Expr) > 0 then
+    begin
+      Operands := Expr.Split(['='], ExcludeEmpty);
+      if Length(Operands) <> 2 then
+        raise EDSParserError.Create('Error in expression: "'+Expr+'"');
+      Value1 := CalculateExpression(Operands[0], Env);
+      Value2 := CalculateExpression(Operands[1], Env);
+      Exit(Value1 = Value2);
+    end;
+
+    // Field name
+    // TODO: start search from current element, not from last
+    DS := FindLastValueByName(Env, Expr);
+    if (DS <> nil) and (DS is TDSSimpleField) then
+      with TDSSimpleField(DS) do
+        if (Length(Data) > 0) and (Length(Data) <= 4) then
+        begin
+  //        Result := 0;
+  //        Move(Data[0], Result, Length(Data));
+          Result := GetInterpretor().ToInt(Data[0], Length(Data));
+          Exit;
+        end;
+  end;
 
   raise EDSParserError.Create('Cannot calculate expression: "'+Expr+'"');
 end;
 
-function TDSInterpretor.FindLastValueByName(DS: TDSField;
+class function TDSInterpretor.FindLastValueByName(DS: TDSField;
   const AName: string): TDSField;
 var
   i: Integer;
@@ -1322,29 +1425,25 @@ begin
   Result := Intr.MinSize;
 end;
 
-procedure TDSInterpretor.InternalInterpret(DS: TDSField; var Buf: Pointer;
-  BufEnd: Pointer);
-var
-  AStart: Pointer;
+procedure TDSInterpretor.InternalInterpret(DS: TDSField);
 begin
-  AStart := Buf;
-  DS.BufAddr := FAddr + UIntPtr(Buf) - UIntPtr(BufStart);
+  DS.BufAddr := FCurAddr;
 
   // Real structure size is unknown, so suppose buffer size
-  MainForm.ShowProgress(Self, UIntPtr(Buf) - UIntPtr(BufStart), UIntPtr(BufEnd) - UIntPtr(BufStart), 'Interpreting data');
+  MainForm.ShowProgress(Self, FCurAddr - FStartAddr, FMaxSize, IntToStr(FieldsProcessed) + ' fields processed');
 
   try
     if DS is TDSStruct then
-      InterpretStruct(TDSStruct(DS), Buf, BufEnd)
+      InterpretStruct(TDSStruct(DS))
     else
     if DS is TDSArray then
-      InterpretArray(TDSArray(DS), Buf, BufEnd)
+      InterpretArray(TDSArray(DS))
     else
     if DS is TDSSimpleField then
-      InterpretSimple(TDSSimpleField(DS), Buf, BufEnd)
+      InterpretSimple(TDSSimpleField(DS))
     else
     if DS is TDSConditional then
-      InterpretConditional(TDSConditional(DS), Buf, BufEnd)
+      InterpretConditional(TDSConditional(DS))
     else
       raise EParserError.Create('Invalid class of field '+DS.Name);
   except
@@ -1356,31 +1455,33 @@ begin
     end;
   end;
 
-  DS.BufSize := UIntPtr(Buf) - UIntPtr(AStart)
+  DS.BufSize := FCurAddr - DS.BufAddr;
+  Inc(FieldsProcessed);
 end;
 
-procedure TDSInterpretor.Interpret(DS: TDSField; Addr: TFilePointer;
-  var Buf: Pointer; BufEnd: Pointer);
+procedure TDSInterpretor.Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
 begin
   FRootDS := DS;
-  FAddr := Addr;
-  BufStart := Buf;
+  FStartAddr := Addr;
+  FMaxSize := MaxSize;
+  FCurAddr := Addr;
+  EndOfData := False;
+  FieldsProcessed := 0;
   try
-    InternalInterpret(DS, Buf, BufEnd);
+    InternalInterpret(DS);
   finally
     MainForm.OperationDone(Self);
   end;
 end;
 
-procedure TDSInterpretor.InterpretArray(DS: TDSArray; var Buf: Pointer;
-  BufEnd: Pointer);
+procedure TDSInterpretor.InterpretArray(DS: TDSArray);
 var
   Count: Integer;
   i: Integer;
   Element: TDSField;
 begin
   // Calculate element count
-  if DS.ACount = '' then
+  if Trim(DS.ACount) = '' then
     Count := -1
   else
     Count := CalculateExpression(DS.ACount, FRootDS);
@@ -1396,19 +1497,18 @@ begin
     else
     begin
       // If empty count specified "[]", parse this array until end of buffer
-      if UIntPtr(Buf) >= UIntPtr(BufEnd) then Break;
+      if EndOfData then Break;
     end;
     Element := DS.ElementType.Duplicate();
     Element.Name := IntToStr(i);
     Element.Parent := DS;
     DS.Fields.Add(Element);
-    InternalInterpret(Element, Buf, BufEnd);
+    InternalInterpret(Element{, Buf, BufEnd});
     Inc(i);
   end;
 end;
 
-procedure TDSInterpretor.InterpretConditional(DS: TDSConditional;
-  var Buf: Pointer; BufEnd: Pointer);
+procedure TDSInterpretor.InterpretConditional(DS: TDSConditional);
 // Conditional statement like "if" or "switch"
 var
   ExprValue: Variant;
@@ -1431,18 +1531,26 @@ begin
     begin
       AField := AFields[i].Duplicate();
       DS.Fields.Add(AField);
-      InternalInterpret(AField, Buf, BufEnd);
+      InternalInterpret(AField);
     end;
   end;
 end;
 
-procedure TDSInterpretor.InterpretStruct(DS: TDSStruct;
-  var Buf: Pointer; BufEnd: Pointer);
+procedure TDSInterpretor.InterpretStruct(DS: TDSStruct);
 var
   i: Integer;
 begin
   for i:=0 to DS.Fields.Count-1 do
-    InternalInterpret(DS.Fields[i], Buf, BufEnd);
+    InternalInterpret(DS.Fields[i]);
+end;
+
+procedure TDSInterpretor.ReadData(var Data: TBytes; Size: Integer);
+begin
+  if FCurAddr + Size > FStartAddr + FMaxSize then
+    raise EDSParserError.Create('End of buffer');
+  OnGetMoreData(FCurAddr, Size, Data);
+  FCurAddr := FCurAddr + Size;
+  EndOfData := (FCurAddr = FStartAddr + FMaxSize);
 end;
 
 procedure TDSInterpretor.ValidateField(DS: TDSSimpleField);
@@ -1490,14 +1598,12 @@ begin
     DS.ErrorText := 'Value out of range';
 end;
 
-procedure TDSInterpretor.InterpretSimple(DS: TDSSimpleField; var Buf: Pointer;
-  BufEnd: Pointer);
+procedure TDSInterpretor.InterpretSimple(DS: TDSSimpleField);
 var
   Size: Integer;
 begin
   Size := GetFieldSize(DS);
-  SetLength(DS.Data, Size);
-  GetFromBuf(Buf, DS.Data[0], Size, BufEnd);
+  ReadData(DS.Data, Size);
   if DS.BigEndian then
     InvertByteOrder(DS.Data[0], Size);
   ValidateField(DS);

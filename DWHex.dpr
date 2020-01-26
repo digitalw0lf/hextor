@@ -25,7 +25,8 @@ uses
   uDataSearcher in 'uDataSearcher.pas',
   uValueInterpretors in 'uValueInterpretors.pas',
   uUndoStack in 'uUndoStack.pas',
-  uBitmapFrame in 'uBitmapFrame.pas' {BitmapFrame: TFrame};
+  uBitmapFrame in 'uBitmapFrame.pas' {BitmapFrame: TFrame},
+  uProgressForm in 'uProgressForm.pas' {ProgressForm};
 
 {$R *.TLB}
 
@@ -40,5 +41,6 @@ begin
   Application.CreateForm(TProcessSelectForm, ProcessSelectForm);
   Application.CreateForm(TBitsEditorForm, BitsEditorForm);
   Application.CreateForm(TDbgToolsForm, DbgToolsForm);
+  Application.CreateForm(TProgressForm, ProgressForm);
   Application.Run;
 end.
