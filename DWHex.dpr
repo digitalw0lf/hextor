@@ -26,7 +26,8 @@ uses
   uValueInterpretors in 'uValueInterpretors.pas',
   uUndoStack in 'uUndoStack.pas',
   uBitmapFrame in 'uBitmapFrame.pas' {BitmapFrame: TFrame},
-  uProgressForm in 'uProgressForm.pas' {ProgressForm};
+  uProgressForm in 'uProgressForm.pas' {ProgressForm},
+  uDataStruct in 'uDataStruct.pas';
 
 {$R *.TLB}
 
