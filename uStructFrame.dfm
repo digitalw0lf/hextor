@@ -5,27 +5,6 @@ object StructFrame: TStructFrame
   Height = 629
   TabOrder = 0
   OnResize = FrameResize
-  object DSTreeView: TTreeView
-    Left = 0
-    Top = 298
-    Width = 297
-    Height = 331
-    Align = alClient
-    HideSelection = False
-    Indent = 19
-    ParentShowHint = False
-    ReadOnly = True
-    RightClickSelect = True
-    ShowHint = True
-    TabOrder = 0
-    OnAdvancedCustomDrawItem = DSTreeViewAdvancedCustomDrawItem
-    OnChange = DSTreeViewChange
-    OnDblClick = DSTreeViewDblClick
-    OnEnter = DSTreeViewEnter
-    OnExit = DSTreeViewExit
-    OnHint = DSTreeViewHint
-    OnMouseDown = DSTreeViewMouseDown
-  end
   object PnlButtonBar1: TPanel
     Left = 0
     Top = 0
@@ -33,7 +12,7 @@ object StructFrame: TStructFrame
     Height = 29
     Align = alTop
     BevelOuter = bvNone
-    TabOrder = 1
+    TabOrder = 0
     object BtnLoadDescr: TSpeedButton
       Left = 4
       Top = 4
@@ -118,7 +97,7 @@ object StructFrame: TStructFrame
     Cursor = crVSplit
     Align = alTop
     BevelOuter = bvNone
-    TabOrder = 2
+    TabOrder = 1
     OnMouseDown = PnlButtonBar2MouseDown
     OnMouseMove = PnlButtonBar2MouseMove
     OnMouseUp = PnlButtonBar2MouseUp
@@ -134,17 +113,6 @@ object StructFrame: TStructFrame
       OnClick = BtnInterpretClick
     end
   end
-  object EditFieldValue: TEdit
-    Left = 144
-    Top = 304
-    Width = 121
-    Height = 21
-    TabOrder = 3
-    Text = 'EditFieldValue'
-    Visible = False
-    OnExit = EditFieldValueExit
-    OnKeyDown = EditFieldValueKeyDown
-  end
   object DSDescrEdit: TSynEdit
     Left = 0
     Top = 29
@@ -156,7 +124,7 @@ object StructFrame: TStructFrame
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
-    TabOrder = 4
+    TabOrder = 3
     CodeFolding.GutterShapeSize = 11
     CodeFolding.CollapsedLineColor = clGrayText
     CodeFolding.FolderBarLinesColor = clGrayText
@@ -180,6 +148,40 @@ object StructFrame: TStructFrame
     TabWidth = 2
     WantTabs = True
     FontSmoothing = fsmNone
+  end
+  object DSTreeView: TVirtualStringTree
+    Left = 0
+    Top = 298
+    Width = 297
+    Height = 331
+    Align = alClient
+    Header.AutoSizeIndex = 0
+    Header.MainColumn = -1
+    HintMode = hmHint
+    ParentShowHint = False
+    ShowHint = True
+    TabOrder = 4
+    OnBeforeItemErase = DSTreeViewBeforeItemErase
+    OnChange = DSTreeViewChange
+    OnEnter = DSTreeViewEnter
+    OnExit = DSTreeViewExit
+    OnFreeNode = DSTreeViewFreeNode
+    OnGetText = DSTreeViewGetText
+    OnGetHint = DSTreeViewGetHint
+    OnNodeDblClick = DSTreeViewNodeDblClick
+    ExplicitTop = 296
+    Columns = <>
+  end
+  object EditFieldValue: TEdit
+    Left = 144
+    Top = 304
+    Width = 121
+    Height = 21
+    TabOrder = 2
+    Text = 'EditFieldValue'
+    Visible = False
+    OnExit = EditFieldValueExit
+    OnKeyDown = EditFieldValueKeyDown
   end
   object SavedDescrsMenu: TPopupMenu
     AutoHotkeys = maManual

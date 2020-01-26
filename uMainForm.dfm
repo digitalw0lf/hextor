@@ -126,7 +126,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 551
-      ActivePage = PgBitmap
+      ActivePage = PgStruct
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -167,39 +167,38 @@ object MainForm: TMainForm
           TabOrder = 0
           ExplicitWidth = 412
           ExplicitHeight = 523
-          inherited DSTreeView: TTreeView
-            Top = 322
-            Width = 412
-            Height = 201
-            TabOrder = 1
-            ExplicitWidth = 412
-            ExplicitHeight = 201
-          end
           inherited PnlButtonBar1: TPanel
             Width = 412
-            TabOrder = 2
             ExplicitWidth = 412
           end
           inherited PnlButtonBar2: TPanel
-            Top = 281
+            Top = 245
             Width = 412
-            TabOrder = 3
-            ExplicitTop = 233
+            TabOrder = 2
+            ExplicitTop = 245
             ExplicitWidth = 412
             inherited BtnInterpret: TButton
               Images = nil
             end
           end
-          inherited EditFieldValue: TEdit
-            TabOrder = 4
-          end
           inherited DSDescrEdit: TSynEdit
-            Top = 65
             Width = 412
             Height = 216
-            TabOrder = 5
-            ExplicitTop = 67
+            TabOrder = 1
+            ExplicitWidth = 412
             ExplicitHeight = 216
+          end
+          inherited DSTreeView: TVirtualStringTree
+            Top = 286
+            Width = 412
+            Height = 237
+            TabOrder = 3
+            ExplicitTop = 286
+            ExplicitWidth = 412
+            ExplicitHeight = 237
+          end
+          inherited EditFieldValue: TEdit
+            TabOrder = 4
           end
         end
       end
@@ -698,7 +697,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001BC0110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001C00110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

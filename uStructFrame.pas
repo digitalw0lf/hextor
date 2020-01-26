@@ -10,11 +10,16 @@ uses
   SynHighlighterCpp,
 
   uUtil, uDWHexTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors,
-  uDataStruct;
+  uDataStruct, VirtualTrees;
 
 type
+  TDSTreeNode = record
+    Caption: string;
+    DSField: TDSField;
+  end;
+  PDSTreeNode = ^TDSTreeNode;
+
   TStructFrame = class(TFrame)
-    DSTreeView: TTreeView;
     PnlButtonBar1: TPanel;
     BtnLoadDescr: TSpeedButton;
     BtnSaveDescr: TSpeedButton;
@@ -27,6 +32,7 @@ type
     EditFieldValue: TEdit;
     DSDescrEdit: TSynEdit;
     SynCppSyn1: TSynCppSyn;
+    DSTreeView: TVirtualStringTree;
     procedure BtnInterpretClick(Sender: TObject);
     procedure BtnLoadDescrClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
@@ -38,20 +44,23 @@ type
     procedure PnlButtonBar2MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FrameResize(Sender: TObject);
-    procedure DSTreeViewChange(Sender: TObject; Node: TTreeNode);
-    procedure DSTreeViewEnter(Sender: TObject);
-    procedure DSTreeViewExit(Sender: TObject);
-    procedure DSTreeViewDblClick(Sender: TObject);
     procedure EditFieldValueExit(Sender: TObject);
     procedure EditFieldValueKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
-    procedure DSTreeViewAdvancedCustomDrawItem(Sender: TCustomTreeView;
-      Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
-      var PaintImages, DefaultDraw: Boolean);
-    procedure DSTreeViewHint(Sender: TObject; const Node: TTreeNode;
-      var Hint: string);
-    procedure DSTreeViewMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
+    procedure DSTreeViewGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
+      Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
+    procedure DSTreeViewFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure DSTreeViewBeforeItemErase(Sender: TBaseVirtualTree;
+      TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
+      var ItemColor: TColor; var EraseAction: TItemEraseAction);
+    procedure DSTreeViewChange(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure DSTreeViewNodeDblClick(Sender: TBaseVirtualTree;
+      const HitInfo: THitInfo);
+    procedure DSTreeViewEnter(Sender: TObject);
+    procedure DSTreeViewExit(Sender: TObject);
+    procedure DSTreeViewGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode;
+      Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle;
+      var HintText: string);
   private
     { Private declarations }
     FParser: TDSParser;
@@ -59,11 +68,13 @@ type
     MPos: TPoint;
     ShownDS: TDSField;
     FEditor: TEditorForm;
-    EditedNode: TTreeNode;
+    EditedNode: PVirtualNode;
     EditedDS: TDSSimpleField;
-    procedure ShowStructTree(DS: TDSField; ParentNode: TTreeNode);
-    procedure ExpandToNode(Node: TTreeNode);
+    procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
+    procedure ExpandToNode(Node: PVirtualNode);
     function DSSaveFolder(): string;
+    function GetNodeDS(Node: PVirtualNode): TDSField;
+    procedure EditorClosed(Sender: TEditorForm);
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -88,7 +99,7 @@ var
   i: Integer;
   DS: TDSField;
 begin
-  DSTreeView.Items.Clear();
+  DSTreeView.Clear();
   FreeAndNil(ShownDS);
 
   // Parse structure description
@@ -102,26 +113,28 @@ begin
   FInterpretor.Interpret(ShownDS, Addr, Size);
 
   // Show tree
-  // TODO: replace with faster tree view (VirtualTreeView?)
-  DSTreeView.Items.BeginUpdate();
+  DSTreeView.BeginUpdate();
   try
     with TDSCompoundField(ShownDS) do
       for i:=0 to Fields.Count-1 do
         ShowStructTree(Fields[i], nil);
 
-    for i:=0 to DSTreeView.Items.Count-1 do
-    begin
-      // Expand top-level nodes
-      if (DSTreeView.Items[i].Parent = nil) and (DSTreeView.Items[i].Count < 30) then
-        DSTreeView.Items[i].Expand(False);
-      // Expand nodes with errors
-      DS := DSTreeView.Items[i].Data;
-      if (DS <> nil) and (DS is TDSSimpleField) and ((DS as TDSSimpleField).ErrorText <> '') then
-        ExpandToNode(DSTreeView.Items[i]);
-      MainForm.ShowProgress(Self, i+1, DSTreeView.Items.Count, 'Expand');
-    end;
+    DSTreeView.IterateSubtree(nil,
+      procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean)
+      begin
+        // Expand top-level nodes
+        if (Node.Parent = DSTreeView.RootNode) and (DSTreeView.ChildCount[Node] < 30) then
+          DSTreeView.Expanded[Node] := True;
+        // Expand nodes with errors
+        DS := GetNodeDS(Node);
+        if (DS <> nil) and (DS is TDSSimpleField) and ((DS as TDSSimpleField).ErrorText <> '') then
+          ExpandToNode(Node);
+
+      end,
+      nil);
+
   finally
-    DSTreeView.Items.EndUpdate();
+    DSTreeView.EndUpdate();
     MainForm.OperationDone(Self);
   end;
 end;
@@ -129,16 +142,18 @@ end;
 function TStructFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
   Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
 var
-  Node: TTreeNode;
+//  Node: TTreeNode;
+  Node: PVirtualNode;
   DS: TDSField;
 begin
   Result := False;
   if Screen.ActiveControl <> DSTreeView then Exit;
   if Editor <> FEditor then Exit;
 
-  Node := DSTreeView.Selected;
+  Node := DSTreeView.FocusedNode;
+//  Node := DSTreeView.Selected;
   if Node = nil then Exit;
-  DS := Node.Data;
+  DS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
 
   Result := FillRangeInColorArray(BgColors, Addr,
     DS.BufAddr, DS.BufAddr + DS.BufSize, Color_ValueHighlightBg);
@@ -172,7 +187,10 @@ procedure TStructFrame.BtnInterpretClick(Sender: TObject);
 var
   Addr, Size: TFilePointer;
 begin
+  if Assigned(FEditor) then FEditor.OnClosed.Remove(EditorClosed);
   FEditor := MainForm.ActiveEditor;
+  FEditor.OnClosed.Add(EditorClosed);
+
   with FEditor do
   begin
     if SelStart = GetFileSize() then
@@ -202,10 +220,13 @@ end;
 constructor TStructFrame.Create(AOwner: TComponent);
 begin
   inherited;
+
   FParser := TDSParser.Create();
   FInterpretor := TDSInterpretor.Create();
   FInterpretor.OnProgress.Add(MainForm.ShowProgress);
   FInterpretor.OnOperationDone.Add(MainForm.OperationDone);
+
+  DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
 end;
 
 destructor TStructFrame.Destroy;
@@ -221,62 +242,33 @@ begin
   Result := MainForm.SettingsFolder + 'DataStruct\';
 end;
 
-procedure TStructFrame.DSTreeViewAdvancedCustomDrawItem(Sender: TCustomTreeView;
-  Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
-  var PaintImages, DefaultDraw: Boolean);
+procedure TStructFrame.DSTreeViewBeforeItemErase(Sender: TBaseVirtualTree;
+  TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
+  var ItemColor: TColor; var EraseAction: TItemEraseAction);
 var
   DS: TDSField;
 begin
-  DS := Node.Data;
-  if Stage = cdPrePaint then
-  begin
-    // Red background for fields with invalid values
-    if (DS is TDSSimpleField) and
-       ((DS as TDSSimpleField).ErrorText <> '') then
-      Sender.Canvas.Brush.Color := clRed;
-  end;
+  DS := GetNodeDS(Node);
+  // Red background for fields with invalid values
+  if (DS is TDSSimpleField) and
+     ((DS as TDSSimpleField).ErrorText <> '') then
+    ItemColor := clRed;
 end;
 
-procedure TStructFrame.DSTreeViewChange(Sender: TObject; Node: TTreeNode);
+procedure TStructFrame.DSTreeViewChange(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
 begin
   if FEditor = nil then Exit;
   FEditor.BeginUpdatePanes();
   try
     if EditFieldValue.Visible then
       EditFieldValueExit(Sender);
-    if (Node.Data <> nil) then
-      FEditor.ScrollToShow(TDSField(Node.Data).BufAddr, -1, -1);
+    if (GetNodeDS(Node) <> nil) then
+      FEditor.ScrollToShow(GetNodeDS(Node).BufAddr, -1, -1);
     FEditor.UpdatePanes();
   finally
     FEditor.EndUpdatePanes();
   end;
-end;
-
-procedure TStructFrame.DSTreeViewDblClick(Sender: TObject);
-// Edit value
-var
-  Node: TTreeNode;
-  DS: TDSField;
-  R: TRect;
-  w: Integer;
-begin
-  Node := DSTreeView.Selected;
-  if Node = nil then Exit;
-  DS := Node.Data;
-  if (DS = nil) or (not (DS is TDSSimpleField)) then Exit;
-
-  EditedNode := Node;
-  EditedDS := TDSSimpleField(DS);
-  EditFieldValue.Text := DS.ToString();
-  EditFieldValue.Modified := False;
-
-  R := Node.DisplayRect(True);
-  w := DSTreeView.Canvas.TextWidth(DS.Name + ': ');
-  EditFieldValue.Parent := DSTreeView;
-  EditFieldValue.SetBounds(R.Left + w, R.Top - 2, R.Width - w + 30, EditFieldValue.Height);
-
-  EditFieldValue.Show;
-  EditFieldValue.SetFocus();
 end;
 
 procedure TStructFrame.DSTreeViewEnter(Sender: TObject);
@@ -291,23 +283,63 @@ begin
     FEditor.UpdatePanes();
 end;
 
-procedure TStructFrame.DSTreeViewHint(Sender: TObject; const Node: TTreeNode;
-  var Hint: string);
+procedure TStructFrame.DSTreeViewFreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+begin
+  Finalize(PDSTreeNode(Sender.GetNodeData(Node))^);
+end;
+
+procedure TStructFrame.DSTreeViewGetHint(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex;
+  var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string);
 var
   DS: TDSField;
 begin
-  DS := Node.Data;
+  DS := GetNodeDS(Node);
   if (DS <> nil) and (DS is TDSSimpleField) then
-     Hint := (DS as TDSSimpleField).ErrorText
+     HintText := (DS as TDSSimpleField).ErrorText
   else
-    Hint := '';
+    HintText := '';
 end;
 
-procedure TStructFrame.DSTreeViewMouseDown(Sender: TObject;
-  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+procedure TStructFrame.DSTreeViewGetText(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
+  var CellText: string);
+var
+  Data: PDSTreeNode;
 begin
-  if (Button = mbLeft) and (not (ssDouble in Shift)) and (EditFieldValue.Visible) then
-    EditFieldValueExit(Sender);
+  Data := Sender.GetNodeData(Node);
+  if Assigned(Data) then
+    CellText := Data.Caption;
+end;
+
+procedure TStructFrame.DSTreeViewNodeDblClick(Sender: TBaseVirtualTree;
+  const HitInfo: THitInfo);
+// Edit value
+var
+  Node: PVirtualNode;
+  DS: TDSField;
+  R: TRect;
+  w: Integer;
+begin
+  DS := GetNodeDS(HitInfo.HitNode); //DSTreeView.FocusedNode);
+  if (DS = nil) or (not (DS is TDSSimpleField)) then Exit;
+
+  EditedNode := HitInfo.HitNode; //DSTreeView.FocusedNode;
+  EditedDS := TDSSimpleField(DS);
+  EditFieldValue.Text := DS.ToString();
+  EditFieldValue.Modified := False;
+
+  Node := HitInfo.HitNode; //DSTreeView.FocusedNode;
+  R := DSTreeView.GetDisplayRect(Node, -1, True);
+//  R := Node.DisplayRect(True);
+  w := DSTreeView.Canvas.TextWidth(DS.Name + ': ');
+  EditFieldValue.Parent := DSTreeView;
+  EditFieldValue.SetBounds(R.Left + w, R.Top - 2, R.Width - w + 30, EditFieldValue.Height);
+
+  EditFieldValue.Show;
+  EditFieldValue.SetFocus();
+
 end;
 
 procedure TStructFrame.EditFieldValueExit(Sender: TObject);
@@ -323,7 +355,9 @@ begin
     begin
       DS.SetFromString(EditFieldValue.Text);
       FEditor.EditedData.Change(DS.BufAddr, DS.BufSize, @DS.Data[0]);
-      EditedNode.Text := DS.Name + ': ' + DS.ToString();
+      //EditedNode.Text := DS.Name + ': ' + DS.ToString();
+      PDSTreeNode(DSTreeView.GetNodeData(EditedNode)).Caption := DS.Name + ': ' + DS.ToString();
+      DSTreeView.InvalidateNode(EditedNode);
     end;
   end;
   // Hide editor
@@ -345,11 +379,17 @@ begin
   end;
 end;
 
-procedure TStructFrame.ExpandToNode(Node: TTreeNode);
+procedure TStructFrame.EditorClosed(Sender: TEditorForm);
 begin
-  while Node <> nil do
+  DSTreeView.Clear();
+  FreeAndNil(ShownDS);
+end;
+
+procedure TStructFrame.ExpandToNode(Node: PVirtualNode);
+begin
+  while Node <> DSTreeView.RootNode do
   begin
-    Node.Expand(False);
+    DSTreeView.Expanded[Node] := True;
     Node := Node.Parent;
   end;
 end;
@@ -391,10 +431,20 @@ begin
     MPos := Point(-1, -1);
 end;
 
-procedure TStructFrame.ShowStructTree(DS: TDSField; ParentNode: TTreeNode);
+function TStructFrame.GetNodeDS(Node: PVirtualNode): TDSField;
+//var
+//  Node: PVirtualNode;
+begin
+//  Node := DSTreeView.FocusedNode;
+  if Node = nil then Exit(nil);
+  Result := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
+end;
+
+procedure TStructFrame.ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
 // Recursively show given DataStructure inside tree node
 var
-  Node: TTreeNode;
+//  Node: TTreeNode;
+  Node: PVirtualNode;
   S: string;
   i: Integer;
 begin
@@ -413,8 +463,12 @@ begin
 
   if (S <> ''){ or (ParentNode = nil)} then
   begin
-    Node := DSTreeView.Items.AddChild(ParentNode, S);
-    Node.Data := DS;
+    Node := DSTreeView.AddChild(ParentNode);
+    PDSTreeNode(Node.GetData).Caption := S;
+    PDSTreeNode(Node.GetData).DSField := DS;
+
+//    Node := DSTreeView.Items.AddChild(ParentNode, S);
+//    Node.Data := DS;
   end
   else  // Don't create separate nodes for nameless fields - e.g. conditional statements
     Node := ParentNode;
