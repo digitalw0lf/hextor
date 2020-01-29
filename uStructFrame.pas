@@ -7,7 +7,7 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Generics.Collections,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
   Vcl.Buttons, Vcl.Menus, System.Types, Math, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp,
+  SynHighlighterCpp, superobject, Clipbrd,
 
   uUtil, uDWHexTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors,
   uDataStruct, VirtualTrees;
@@ -33,6 +33,7 @@ type
     DSDescrEdit: TSynEdit;
     SynCppSyn1: TSynCppSyn;
     DSTreeView: TVirtualStringTree;
+    BtnCopyValue: TButton;
     procedure BtnInterpretClick(Sender: TObject);
     procedure BtnLoadDescrClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
@@ -61,6 +62,7 @@ type
     procedure DSTreeViewGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle;
       var HintText: string);
+    procedure BtnCopyValueClick(Sender: TObject);
   private
     { Private declarations }
     FParser: TDSParser;
@@ -75,6 +77,8 @@ type
     function DSSaveFolder(): string;
     function GetNodeDS(Node: PVirtualNode): TDSField;
     procedure EditorClosed(Sender: TEditorForm);
+    function DSValueAsJsonObject(DS: TDSField): ISuperObject;
+    function DSValueAsJson(DS: TDSField): string;
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -101,6 +105,7 @@ var
 begin
   DSTreeView.Clear();
   FreeAndNil(ShownDS);
+  BtnCopyValue.Enabled := False;
 
   // Parse structure description
   ShownDS := FParser.ParseStruct(Struct);
@@ -137,6 +142,8 @@ begin
     DSTreeView.EndUpdate();
     MainForm.OperationDone(Self);
   end;
+
+  BtnCopyValue.Enabled := True;
 end;
 
 function TStructFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
@@ -181,6 +188,12 @@ begin
   end;
 
   PopupFromControl(SavedDescrsMenu, BtnLoadDescr);
+end;
+
+procedure TStructFrame.BtnCopyValueClick(Sender: TObject);
+begin
+  if ShownDS <> nil then
+    Clipboard.AsText := DSValueAsJson(ShownDS);
 end;
 
 procedure TStructFrame.BtnInterpretClick(Sender: TObject);
@@ -342,6 +355,47 @@ begin
 
 end;
 
+function TStructFrame.DSValueAsJson(DS: TDSField): string;
+var
+  json: ISuperObject;
+begin
+  json := DSValueAsJsonObject(DS);
+  Result := json.AsJSon(True, False);
+end;
+
+function TStructFrame.DSValueAsJsonObject(DS: TDSField): ISuperObject;
+var
+  i: Integer;
+  Intr: TValueInterpretor;
+  x: Int64;
+begin
+  Result := nil;
+  if DS is TDSArray then
+  begin
+    Result := SA([]);
+    for i:=0 to (DS as TDSArray).Fields.Count-1 do
+      Result.AsArray.Add(DSValueAsJsonObject((DS as TDSArray).Fields[i]));
+  end
+  else
+  if DS is TDSCompoundField then
+  begin
+    Result := SO();
+    for i:=0 to (DS as TDSCompoundField).Fields.Count-1 do
+      (Result as TSuperObject).O[(DS as TDSCompoundField).Fields[i].Name] :=
+        DSValueAsJsonObject((DS as TDSCompoundField).Fields[i]);
+  end
+  else
+  if DS is TDSSimpleField then
+  begin
+    Intr := (DS as TDSSimpleField).GetInterpretor(False);
+    if Intr <> nil then
+    begin
+      x := Intr.ToInt((DS as TDSSimpleField).Data[0], Length((DS as TDSSimpleField).Data));
+      Result := TSuperObject.Create(x);
+    end;
+  end;
+end;
+
 procedure TStructFrame.EditFieldValueExit(Sender: TObject);
 // Apply changed field value
 var
@@ -383,6 +437,8 @@ procedure TStructFrame.EditorClosed(Sender: TEditorForm);
 begin
   DSTreeView.Clear();
   FreeAndNil(ShownDS);
+  FEditor := nil;
+  BtnCopyValue.Enabled := False;
 end;
 
 procedure TStructFrame.ExpandToNode(Node: PVirtualNode);

@@ -14,12 +14,13 @@ uses
   System.Math, Generics.Collections, Clipbrd, System.Actions, Vcl.ActnList,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
-  Vcl.FileCtrl,
+  Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
+  System.StrUtils,
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
-  uDWHexTypes, uDWHexDataSources, uEditorForm, KControls, KGrids,
+  uDWHexTypes, uDWHexDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex,
-  Vcl.Buttons, Vcl.Samples.Gauges, uBitmapFrame, uCallbackList;
+  uBitmapFrame, uCallbackList, ColoredPanel;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -147,6 +148,12 @@ type
     PgBitmap: TTabSheet;
     BitmapFrame: TBitmapFrame;
     Something1: TMenuItem;
+    N6: TMenuItem;
+    Setfilesize1: TMenuItem;
+    Insertbytes1: TMenuItem;
+    HintImage: TImage;
+    ActionSetFileSize: TAction;
+    ActionFillBytes: TAction;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -193,6 +200,8 @@ type
     procedure Undostack1Click(Sender: TObject);
     procedure CreateTestFile1Click(Sender: TObject);
     procedure Something1Click(Sender: TObject);
+    procedure ActionSetFileSizeExecute(Sender: TObject);
+    procedure ActionFillBytesExecute(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -253,7 +262,7 @@ implementation
 
 uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
-  uDbgToolsForm, uEditedData, uProgressForm;
+  uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm;
 
 { TMainForm }
 
@@ -317,6 +326,72 @@ begin
   Close();
 end;
 
+procedure TMainForm.ActionFillBytesExecute(Sender: TObject);
+// Insert bytes / Fill selection
+var
+  Insert: Boolean;
+  Addr: TFilePointer;
+  Size: Integer;
+  Data, Pattern: TBytes;
+  Rnd1, Rnd2: Integer;
+  i: Integer;
+begin
+  with ActiveEditor do
+  begin
+    FillBytesForm.FillEnabled := (SelLength > 0);
+
+    if FillBytesForm.ShowModal() <> mrOk then Exit;
+
+    Insert := (FillBytesForm.TabControl1.TabIndex = 0);
+    if Insert then
+    begin
+      Addr := CaretPos;
+      Size := StrToInt(FillBytesForm.EditCount.Text);
+    end
+    else
+    begin
+      Addr := SelStart;
+      Size := SelLength;
+    end;
+
+    SetLength(Data, Size);
+    if FillBytesForm.RBPattern.Checked then
+    // Pattern
+    begin
+      Pattern := HexToData(FillBytesForm.EditPattern.Text);
+      if Length(Pattern) = 0 then
+        raise EInvalidUserInput.Create('Specify hex pattern');
+      if Length(Pattern) = 1 then
+        FillChar(Data[0], Size, Pattern[0])
+      else
+        for i:=0 to Size-1 do
+          Data[i] := Pattern[i mod Length(Pattern)];
+    end
+    else
+    if FillBytesForm.RBRandomBytes.Checked then
+    // Random bytes
+    begin
+      Rnd1 := FillBytesForm.EditRandomMin.Value;
+      Rnd2 := FillBytesForm.EditRandomMax.Value;
+      for i:=0 to Size-1 do
+        Data[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
+    end
+    else Exit;
+
+    UndoStack.BeginAction('', IfThen(Insert, 'Insert bytes', 'Fill selection'));
+    try
+
+      if Insert then
+        EditedData.Insert(Addr, Size, @Data[0])
+      else
+        EditedData.Change(Addr, Size, @Data[0]);
+
+    finally
+      UndoStack.EndAction();
+    end;
+  end;
+end;
+
 procedure TMainForm.ActionFindExecute(Sender: TObject);
 begin
   FindReplaceForm.Show();
@@ -347,15 +422,7 @@ begin
   begin
     s := IntToStr(CaretPos);
     if not InputQuery('Go to address', 'Go to address (use $ or 0x for hex value, + or - for relative jump):', s) then Exit;
-    s := Trim(s);
-    if s = '' then Exit;
-    s := s.Replace('0x', '$');
-    s := s.Replace('x', '$');
-
-    if (s[Low(s)] = '+') or (s[Low(s)] = '-') then
-      Pos := CaretPos + StrToInt64(s)
-    else
-      Pos := StrToInt64(s);
+    Pos := StrToInt64Relative(s, CaretPos);
 
     MoveCaret(Pos, []);
   end;
@@ -551,6 +618,49 @@ begin
   end;
 end;
 
+procedure TMainForm.ActionSetFileSizeExecute(Sender: TObject);
+var
+  OldSize, NewSize: TFilePointer;
+  Value: Byte;
+  Buf: TBytes;
+begin
+  with ActiveEditor do
+  begin
+    OldSize := EditedData.GetSize();
+    SetFileSizeForm.EditOldSize.Text := IntToStr(OldSize);
+    SetFileSizeForm.EditNewSize.Text := IntToStr(OldSize);
+    if SetFileSizeForm.ShowModal() <> mrOk then Exit;
+
+    NewSize := StrToInt64Relative(SetFileSizeForm.EditNewSize.Text, OldSize);
+    if NewSize < 0 then
+      raise EInvalidUserInput.Create('Size can not be negative');
+    if NewSize > OldSize + MaxInt then
+      raise EInvalidUserInput.Create('Can not add more than 2 GBytes in one operation');
+    Value := StrToInt(SetFileSizeForm.EditFillValue.Text);
+
+    UndoStack.BeginAction('', 'Set file size');
+    try
+      if (NewSize = OldSize) then
+      begin
+        // Nothing changed
+      end
+      else
+      if NewSize < OldSize then
+      begin
+        EditedData.Delete(NewSize, OldSize - NewSize);
+      end
+      else
+      begin
+        SetLength(Buf, NewSize - OldSize);
+        FillChar(Buf[0], Length(Buf), Value);
+        EditedData.Insert(OldSize, Length(Buf), @Buf[0]);
+      end;
+    finally
+      UndoStack.EndAction();
+    end;
+  end;
+end;
+
 procedure TMainForm.ActionUndoExecute(Sender: TObject);
 begin
   with ActiveEditor do
@@ -609,6 +719,7 @@ var
   FocusInEditor: Boolean;
   S: string;
   AShortCut: TPair<TContainedAction, TShortCut>;
+  i: Integer;
 begin
   FocusInEditor := False;
   ActionCompare.Enabled := (EditorCount >= 2);
@@ -632,6 +743,9 @@ begin
 
       ActionSelectAll.Enabled := FocusInEditor;
 
+      ActionSetFileSize.Enabled := (DataSource <> nil) and (dspResizable in DataSource.GetProperties());
+      ActionFillBytes.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
+
       ActionBitsEditor.Enabled := (SelLength<=4);
     end;
   except
@@ -640,18 +754,12 @@ begin
       ActionSave.Enabled := False;
       ActionRevert.Enabled := False;
 
-      ActionUndo.Enabled := False;
+      for i:=0 to ActionList1.ActionCount-1 do
+        if (ActionList1.Actions[i].Category = 'Edit') or (ActionList1.Actions[i].Category = 'Navigation') then
+          ActionList1.Actions[i].Enabled := False;
+
       ActionUndo.Caption := 'Undo';
-      ActionRedo.Enabled := False;
       ActionRedo.Caption := 'Redo';
-
-      ActionCopy.Enabled := False;
-      ActionCut.Enabled := False;
-      ActionPaste.Enabled := False;
-
-      ActionSelectAll.Enabled := False;
-
-      ActionBitsEditor.Enabled := False;
     end;
   end;
 
@@ -789,6 +897,8 @@ begin
        (ActionList1.Actions[i].Category = 'Navigation') then
       ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
   ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
+
+  FmtHint := tFmtHintWindow.Create(Self);
 
 //  DWHexOle := TCoDWHex.Create();
 

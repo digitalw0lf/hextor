@@ -199,6 +199,14 @@
             <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uDataStruct.pas"/>
+        <DCCReference Include="uSetFileSizeForm.pas">
+            <Form>SetFileSizeForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="uFillBytesForm.pas">
+            <Form>FillBytesForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <None Include="ModelSupport_DWHex\DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\default.txaPackage"/>
         <None Include="ModelSupport_DWHex\DWHex\default.txvpck"/>
@@ -242,13 +250,13 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="ModelSupport_DWHex\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
+                <DeployFile LocalName="DWHex.ridl" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="DWHex.ridl" Configuration="Debug" Class="ProjectFile">
+                <DeployFile LocalName="ModelSupport_DWHex\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>

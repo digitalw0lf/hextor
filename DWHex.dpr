@@ -27,7 +27,11 @@ uses
   uUndoStack in 'uUndoStack.pas',
   uBitmapFrame in 'uBitmapFrame.pas' {BitmapFrame: TFrame},
   uProgressForm in 'uProgressForm.pas' {ProgressForm},
-  uDataStruct in 'uDataStruct.pas';
+  uDataStruct in 'uDataStruct.pas',
+  uSetFileSizeForm in 'uSetFileSizeForm.pas' {SetFileSizeForm},
+  uFillBytesForm in 'uFillBytesForm.pas' {FillBytesForm},
+  Vcl.Themes,
+  Vcl.Styles;
 
 {$R *.TLB}
 
@@ -43,5 +47,7 @@ begin
   Application.CreateForm(TBitsEditorForm, BitsEditorForm);
   Application.CreateForm(TDbgToolsForm, DbgToolsForm);
   Application.CreateForm(TProgressForm, ProgressForm);
+  Application.CreateForm(TSetFileSizeForm, SetFileSizeForm);
+  Application.CreateForm(TFillBytesForm, FillBytesForm);
   Application.Run;
 end.

@@ -46,6 +46,7 @@ function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
 function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeZeroBytes(Size: NativeInt): TBytes;
 function FillRangeInColorArray(var Colors: TColorArray; BaseAddr: TFilePointer; RangeStart, RangeEnd: TFilePointer; Color: TColor): Boolean;
+function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
 
 const
   EntireFile: TFileRange = (Start: 0; AEnd: -1);
@@ -104,6 +105,15 @@ begin
   for i:=Max(0, RangeStart) to Min(Length(Colors), RangeEnd)-1 do
     Colors[i] := Color;
   Result := True;
+end;
+
+function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
+// if S includes '-' or '+', it is treated as relative to OldValue
+begin
+  S := Trim(S);
+  Result := StrToInt64(S);
+  if CharInSet(S[Low(S)], ['-','+']) then
+    Result := OldValue + Result;
 end;
 
 { TFileRange }

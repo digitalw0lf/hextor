@@ -797,6 +797,7 @@ begin
     EditedData.Resizable := (dspResizable in DataSource.GetProperties());
     EditedData.ResetParts();
     HasUnsavedChanges := False;
+    UndoStack.Clear();
 
     MainForm.ImageList16.GetIcon(MainForm.GetIconIndex(DataSource), Icon);
     UpdateFormCaption();

@@ -112,6 +112,18 @@ object StructFrame: TStructFrame
       TabOrder = 0
       OnClick = BtnInterpretClick
     end
+    object BtnCopyValue: TButton
+      Left = 112
+      Top = 8
+      Width = 81
+      Height = 25
+      Caption = 'Copy JSON'
+      Enabled = False
+      ImageIndex = 10
+      Images = MainForm.ImageList16
+      TabOrder = 1
+      OnClick = BtnCopyValueClick
+    end
   end
   object DSDescrEdit: TSynEdit
     Left = 0
@@ -169,7 +181,6 @@ object StructFrame: TStructFrame
     OnGetText = DSTreeViewGetText
     OnGetHint = DSTreeViewGetHint
     OnNodeDblClick = DSTreeViewNodeDblClick
-    ExplicitTop = 296
     Columns = <>
   end
   object EditFieldValue: TEdit

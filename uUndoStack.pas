@@ -49,6 +49,7 @@ type
     function CanRedo(var Caption: string): Boolean;
     procedure BeginAction(const Code, Caption: string);
     procedure EndAction();
+    procedure Clear();
   end;
 
 implementation
@@ -134,6 +135,14 @@ begin
     Caption := Actions[CurPointer - 1].Caption
   else
     Caption := '';
+end;
+
+procedure TUndoStack.Clear;
+begin
+  Actions.Clear();
+  CurPointer := 0;
+  CurActionCode := '';
+  CurActionCaption := '';
 end;
 
 constructor TUndoStack.Create(AEditedData: TEditedData);
