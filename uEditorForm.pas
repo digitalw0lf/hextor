@@ -310,7 +310,11 @@ begin
     Start := FirstVisibleAddr() + VisibleBytesCount();
   end;
 
-  FFSkipSearcher.Find(Start, Dir, Ptr, Size);
+  try
+    FFSkipSearcher.Find(Start, Dir, Ptr, Size);
+  finally
+    MainForm.OperationDone(FFSkipSearcher);
+  end;
   BeginUpdatePanes();
   try
     ScrollToShow(Ptr, -1, -1);
@@ -435,6 +439,7 @@ begin
   UndoStack.OnOperationDone.Add(MainForm.OperationDone);
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
+  FFSkipSearcher.OnProgress.Add(MainForm.ShowProgress);
   MainForm.AddEditor(Self);
 end;
 
@@ -610,7 +615,7 @@ begin
       end;
 
       APos := CaretPos;
-      if InsertMode and (CaretInByte = 0) then
+      if (InsertMode or (APos = EditedData.GetSize())) and (CaretInByte = 0) then
       begin
         EditedData.Insert(APos, 1, @Zero);
         FCaretPos := APos;  // Keep caret pos in same byte

@@ -13,34 +13,30 @@ const
   SAME_AS_MIN_SIZE = -2;
 
 type
-  TDataToStrFunc = reference to function(const Data; Size: Integer): string;
-  TStrToDataFunc = reference to procedure(const S: string; var Data; Size: Integer);  // Raises EConvertError if failed
-  TDataToIntFunc = reference to function(const Data; Size: Integer): Int64;
+  TDataToVariantFunc = reference to function(const Data; Size: Integer): Variant;
+  TVariantToDataFunc = reference to procedure(const V: Variant; var Data; Size: Integer);  // Raises EConvertError if failed
 
   TValueInterpretor = class
   private
     function GetName: string;
   public
-    //Name: string;
     Names: TStringList;
     MinSize, MaxSize: Integer;
 //    Greedy: Boolean;
-    ToString: TDataToStrFunc;
-    FromString: TStrToDataFunc;
-    ToInt: TDataToIntFunc;
+    ToVariant: TDataToVariantFunc;
+    FromVariant: TVariantToDataFunc;
     constructor Create();
     destructor Destroy(); override;
     property Name: string read GetName;
     function AddNames(const ANames: array of string): TValueInterpretor;
-    function Set_ToInt(AToInt: TDataToIntFunc): TValueInterpretor;
   end;
 
   TValueInterpretors = class (TObjectList<TValueInterpretor>)
   protected
     procedure RegisterBuiltinInterpretors();
   public
-    function RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
-      AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{; AGreedy: Boolean = False}): TValueInterpretor;
+    function RegisterInterpretor(const ANames: array of string; AToVariant: TDataToVariantFunc;
+      AFromVariant: TVariantToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{; AGreedy: Boolean = False}): TValueInterpretor;
     function FindInterpretor(const AName: string): TValueInterpretor;
     constructor Create();
     destructor Destroy(); override;
@@ -81,20 +77,9 @@ begin
   end;
 end;
 
-function Data2Int(const Data; Size: Integer): Int64;
-// Default converter of data to integer value
-begin
-  if Size > 8 then Size := 8;
-  if (PByteArray(@Data)^[Size-1] and $80)<>0 then
-    Result := -1  // Expand sign bit
-  else
-    Result := 0;
-  Move(Data, Result, Size);
-end;
-
 // bin
 
-function Bin2Str(const Data; Size: Integer): string;
+function Bin2Variant(const Data; Size: Integer): Variant;
 var
   i: Integer;
 begin
@@ -107,12 +92,13 @@ begin
   end;
 end;
 
-procedure Str2Bin(const S: string; var Data; Size: Integer);
+procedure Variant2Bin(const V: Variant; var Data; Size: Integer);
 var
   i: Integer;
-  s1: string;
+  S, s1: string;
   P: PChar;
 begin
+  S := V;
   if S = '' then raise EConvertError.Create('Empty string');
   P := @S[Low(S)];
   i := 0;
@@ -127,7 +113,7 @@ end;
 
 // intX
 
-function Int2Str(const Data; Size: Integer): string;
+function Int2Variant(const Data; Size: Integer): Variant;
 var
   x: Int64;
 begin
@@ -137,104 +123,100 @@ begin
   else
     x := 0;
   Move(Data, x, Size);
-  Result := IntToStr(x);
+  Result := x;
 end;
 
-procedure Str2Int(const S: string; var Data; Size: Integer);
+procedure Variant2Int(const V: Variant; var Data; Size: Integer);
 var
   x: Int64;
 begin
   if Size > 8 then Size := 8;
-  x := StrToInt64(S);
+  x := V;
   Move(x, Data, Size);
 end;
 
 // uintX
 
-function UInt2Str(const Data; Size: Integer): string;
+function UInt2Variant(const Data; Size: Integer): Variant;
 var
   x: UInt64;
 begin
   if Size > 8 then Size := 8;
   x := 0;
   Move(Data, x, Size);
-  Result := UIntToStr(x);
+  Result := x;
 end;
 
-procedure Str2UInt(const S: string; var Data; Size: Integer);
+procedure Variant2UInt(const V: Variant; var Data; Size: Integer);
 var
   x: UInt64;
 begin
   if Size > 8 then Size := 8;
-  x := StrToUInt64(S);
+  x := V;
   Move(x, Data, Size);
 end;
 
 // float
 
-function Float2Str(const Data; Size: Integer): string;
+function Float2Variant(const Data; Size: Integer): Variant;
 begin
-  Result := R2S(Single(Data));
+  Result := Single(Data);
 end;
 
-procedure Str2Float(const S: string; var Data; Size: Integer);
+procedure Variant2Float(const V: Variant; var Data; Size: Integer);
 begin
-  Single(Data) := S2R(S);
-end;
-
-function Float2Int(const Data; Size: Integer): Int64;
-begin
-  Result := Trunc(Single(Data));
+  Single(Data) := V;
 end;
 
 // double
 
-function Double2Str(const Data; Size: Integer): string;
+function Double2Variant(const Data; Size: Integer): Variant;
 begin
-  Result := R2S(Double(Data));
+  Result := Double(Data);
 end;
 
-procedure Str2Double(const S: string; var Data; Size: Integer);
+procedure Variant2Double(const V: Variant; var Data; Size: Integer);
 begin
-  Double(Data) := S2R(S);
-end;
-
-function Double2Int(const Data; Size: Integer): Int64;
-begin
-  Result := Trunc(Double(Data));
+  Double(Data) := V;
 end;
 
 // Ansi
 
-function Ansi2Str(const Data; Size: Integer): string;
+function Ansi2Variant(const Data; Size: Integer): Variant;
 begin
-  Result := string(MakeStr(Data, Size));
+  Result := MakeStr(Data, Size);
 end;
 
-procedure Str2Ansi(const S: string; var Data; Size: Integer);
+procedure Variant2Ansi(const V: Variant; var Data; Size: Integer);
 var
   tmp: AnsiString;
 begin
-  if Length(S) <> Size then
+  if Length(AnsiString(V)) <> Size then
     raise EInvalidUserInput.Create('Cannot change string length, only content');
-  tmp := AnsiString(S);
+  tmp := AnsiString(V);
   Move(tmp[Low(tmp)], Data, Size);
 end;
 
 // Unicode
 
-function Unicode2Str(const Data; Size: Integer): string;
+function Unicode2Variant(const Data; Size: Integer): Variant;
+var
+  S: string;
 begin
   if (Size mod SizeOf(Char))<>0 then
     raise EConvertError.Create('Data size must be multiple of 2');
-  SetString(Result, PChar(@Data), Size div SizeOf(Char));
+  SetString(S, PChar(@Data), Size div SizeOf(Char));
+  Result := S;
 end;
 
-procedure Str2Unicode(const S: string; var Data; Size: Integer);
+procedure Variant2Unicode(const V: Variant; var Data; Size: Integer);
+var
+  tmp: string;
 begin
-  if Length(S)*SizeOf(Char) <> Size then
+  if Length(string(V))*SizeOf(Char) <> Size then
     raise EInvalidUserInput.Create('Cannot change string length, only content');
-  Move(S[Low(S)], Data, Size);
+  tmp := string(V);
+  Move(tmp[Low(tmp)], Data, Size);
 end;
 
 
@@ -268,31 +250,22 @@ begin
     Result := '';
 end;
 
-function TValueInterpretor.Set_ToInt(AToInt: TDataToIntFunc): TValueInterpretor;
-begin
-  ToInt := AToInt;
-  Result := Self;
-end;
-
 { TValueInterpretors }
 
-function TValueInterpretors.RegisterInterpretor(const AName: string; AToString: TDataToStrFunc;
-  AFromString: TStrToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{;
+function TValueInterpretors.RegisterInterpretor(const ANames: array of string; AToVariant: TDataToVariantFunc;
+  AFromVariant: TVariantToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{;
   AGreedy: Boolean = False}): TValueInterpretor;
-//var
-//  Intr:  TValueInterpretor;
 begin
   Result := TValueInterpretor.Create();
-  Result.Names.Add(AName);
+  Result.AddNames(ANames);
   Result.MinSize := AMinSize;
   if AMaxSize = SAME_AS_MIN_SIZE then
     Result.MaxSize := AMinSize
   else
     Result.MaxSize := AMaxSize;
 //  Result.Greedy := AGreedy;
-  Result.ToString := AToString;
-  Result.FromString := AFromString;
-  Result.ToInt := Data2Int;
+  Result.ToVariant := AToVariant;
+  Result.FromVariant := AFromVariant;
   Add(Result);
 end;
 
@@ -321,26 +294,26 @@ procedure TValueInterpretors.RegisterBuiltinInterpretors;
 var
   i: Integer;
 begin
-  RegisterInterpretor('int8', Int2Str, Str2Int, 1);
-  RegisterInterpretor('uint8', UInt2Str, Str2UInt, 1).AddNames(['char']);
-  RegisterInterpretor('int16', Int2Str, Str2Int, 2);
-  RegisterInterpretor('uint16', UInt2Str, Str2UInt, 2);
-  RegisterInterpretor('int32', Int2Str, Str2Int, 4).AddNames(['int']);
-  RegisterInterpretor('uint32', UInt2Str, Str2UInt, 4);
-  RegisterInterpretor('int64', Int2Str, Str2Int, 8);
-  RegisterInterpretor('uint64', UInt2Str, Str2UInt, 8);
+  RegisterInterpretor(['int8'], Int2Variant, Variant2Int, 1);
+  RegisterInterpretor(['uint8', 'char'], UInt2Variant, Variant2UInt, 1);
+  RegisterInterpretor(['int16'], Int2Variant, Variant2Int, 2);
+  RegisterInterpretor(['uint16'], UInt2Variant, Variant2UInt, 2);
+  RegisterInterpretor(['int32', 'int'], Int2Variant, Variant2Int, 4);
+  RegisterInterpretor(['uint32'], UInt2Variant, Variant2UInt, 4);
+  RegisterInterpretor(['int64'], Int2Variant, Variant2Int, 8);
+  RegisterInterpretor(['uint64'], UInt2Variant, Variant2UInt, 8);
 
   // int8_t etc.
   for i:=0 to Count-1 do
     Items[i].AddNames([Items[i].Name+'_t']);
 
-  RegisterInterpretor('bin', Bin2Str, Str2Bin, 1, 8);
+  RegisterInterpretor(['bin'], Bin2Variant, Variant2Bin, 1, 8);
 
-  RegisterInterpretor('float', Float2Str, Str2Float, 4);
-  RegisterInterpretor('double', Double2Str, Str2Double, 8);
+  RegisterInterpretor(['float'], Float2Variant, Variant2Float, 4);
+  RegisterInterpretor(['double'], Double2Variant, Variant2Double, 8);
 
-  RegisterInterpretor('ansi', Ansi2Str, Str2Ansi, 1, MAX_STR_VALUE_LENGTH{, True});
-  RegisterInterpretor('unicode', Unicode2Str, Str2Unicode, 2, MAX_STR_VALUE_LENGTH{, True});
+  RegisterInterpretor(['ansi'], Ansi2Variant, Variant2Ansi, 1, MAX_STR_VALUE_LENGTH{, True});
+  RegisterInterpretor(['unicode'], Unicode2Variant, Variant2Unicode, 2, MAX_STR_VALUE_LENGTH{, True});
 end;
 
 initialization

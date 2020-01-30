@@ -147,7 +147,7 @@ begin
           Size := ValueInterpretors[i].MinSize;
         VRow.OrigDataSize := Size;
 
-        S := ValueInterpretors[i].ToString(Data[0], Size);  // <--
+        S := ValueInterpretors[i].ToVariant(Data[0], Size);  // <--
 
         VRow.Defined := True;
       except
@@ -186,7 +186,7 @@ begin
   SetLength(Data, (ValuesGrid.Rows[ARow] as TValueGridRow).OrigDataSize);
 
   try
-    ValueInterpretors[n].FromString(s, Data[0], Length(Data));
+    ValueInterpretors[n].FromVariant(s, Data[0], Length(Data));
 
     if not DataEqual(Data, FEditor.GetEditedData(FShownRange.Start, Length(Data))) then
     begin

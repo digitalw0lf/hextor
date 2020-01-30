@@ -208,6 +208,7 @@ type
     FInitialFilesOpened: Boolean;
     FDoAfterEvent: array of TProc;
     LastProgressRefresh: Cardinal;
+    LastProgressText: string;
     OldOnActiveControlChange: TNotifyEvent;
     EditorActionShortcuts: TDictionary<TContainedAction, TShortCut>;
     procedure InitDefaultSettings();
@@ -732,6 +733,10 @@ begin
       ActionSave.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and ((HasUnsavedChanges) or (DataSource.Path=''));
       ActionRevert.Enabled := (HasUnsavedChanges);
 
+      for i:=0 to ActionList1.ActionCount-1 do
+        if (ActionList1.Actions[i].Category = 'Edit') or (ActionList1.Actions[i].Category = 'Navigation') then
+          ActionList1.Actions[i].Enabled := True;
+
       ActionUndo.Enabled := UndoStack.CanUndo(S);
       ActionUndo.Caption := 'Undo ' + S;
       ActionRedo.Enabled := UndoStack.CanRedo(S);
@@ -1093,6 +1098,7 @@ begin
   ProgressForm.ProgressTextLabel.Caption := '';
   ProgressForm.Close();
   LastProgressRefresh := 0;
+  LastProgressText := '';
 end;
 
 procedure TMainForm.RecentFilesMenuPopup(Sender: TObject);
@@ -1182,13 +1188,14 @@ procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text
 // '-' => do not change text
 begin
   if Text <> '-' then
-    ProgressForm.ProgressTextLabel.Caption := Text;
+    LastProgressText := Text;
 
   if LastProgressRefresh = 0 then LastProgressRefresh := GetTickCount();
   if (GetTickCount() - LastProgressRefresh < 100) then Exit;
   LastProgressRefresh := GetTickCount();
 
   ProgressForm.ProgressGauge.Progress := Round(Pos/Total*100);
+  ProgressForm.ProgressTextLabel.Caption := LastProgressText;
 
   if not ProgressForm.Visible then
     ProgressForm.ShowLikeModal();

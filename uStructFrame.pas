@@ -367,7 +367,7 @@ function TStructFrame.DSValueAsJsonObject(DS: TDSField): ISuperObject;
 var
   i: Integer;
   Intr: TValueInterpretor;
-  x: Int64;
+  x: Variant;
 begin
   Result := nil;
   if DS is TDSArray then
@@ -390,8 +390,12 @@ begin
     Intr := (DS as TDSSimpleField).GetInterpretor(False);
     if Intr <> nil then
     begin
-      x := Intr.ToInt((DS as TDSSimpleField).Data[0], Length((DS as TDSSimpleField).Data));
-      Result := TSuperObject.Create(x);
+      x := Intr.ToVariant((DS as TDSSimpleField).Data[0], Length((DS as TDSSimpleField).Data));
+      if VarIsOrdinal(x) then Result := TSuperObject.Create(Int64(x))
+      else
+      if VarIsFloat(x) then Result := TSuperObject.Create(Double(x))
+      else
+      if VarIsStr(x) then Result := TSuperObject.Create(string(x));
     end;
   end;
 end;

@@ -708,7 +708,7 @@ var
   Intr: TValueInterpretor;
 begin
   Intr := GetInterpretor();
-  Intr.FromString(S, Data[0], Length(Data));
+  Intr.FromVariant(S, Data[0], Length(Data));
 end;
 
 function TDSSimpleField.ToQuotedString: string;
@@ -726,7 +726,7 @@ begin
   if Intr = nil then
     Result := string(Data2Hex(Data))
   else
-    Result := Intr.ToString(Data[0], Length(Data));
+    Result := Intr.ToVariant(Data[0], Length(Data));
 end;
 
 { TDSCompoundField }
@@ -931,7 +931,7 @@ begin
   if (Length(Expr) = 3) and (Expr[Low(Expr)] = '''') and
      (Expr[High(Expr)] = '''') then
   begin
-    Result := Ord(AnsiChar(Expr[Low(Expr)+1]));
+    Result := AnsiChar(Expr[Low(Expr)+1]);
     Exit;
   end;
 
@@ -953,11 +953,11 @@ begin
     DS := FindLastValueByName(Env, Expr);
     if (DS <> nil) and (DS is TDSSimpleField) then
       with TDSSimpleField(DS) do
-        if (Length(Data) > 0) and (Length(Data) <= 4) then
+        if (Length(Data) > 0) {and (Length(Data) <= 4)} then
         begin
   //        Result := 0;
   //        Move(Data[0], Result, Length(Data));
-          Result := GetInterpretor().ToInt(Data[0], Length(Data));
+          Result := GetInterpretor().ToVariant(Data[0], Length(Data));
           Exit;
         end;
   end;
@@ -1124,14 +1124,15 @@ end;
 procedure TDSInterpretor.ValidateField(DS: TDSSimpleField);
 // Check field value against "#valid" directive and set DS.ErrorText
 
-  function StrToValue(const S: string): Int64;
+  function StrToValue(const S: string): Variant;
   // 'c' or 123
   begin
     Result := 0;
     if S = '' then Exit(0);
     if (S.StartsWith('''')) and (Length(S) = 3) and (S.EndsWith('''')) then
     begin
-      DS.GetInterpretor().FromString(S[Low(S)+1], Result, DS.GetInterpretor().MinSize);
+      //DS.GetInterpretor().FromVariant(S[Low(S)+1], Result, DS.GetInterpretor().MinSize);
+      Result := S[Low(S)+1];
     end
     else
     begin
@@ -1142,7 +1143,7 @@ procedure TDSInterpretor.ValidateField(DS: TDSSimpleField);
 var
   V: string;
   i: Integer;
-  MinValue, MaxValue, Value: Int64;
+  MinValue, MaxValue, Value: Variant;
 begin
   V := DS.ValidationStr;
   if V = '' then Exit;
@@ -1160,7 +1161,7 @@ begin
   end;
 
   // Field value as integer
-  Value := DS.GetInterpretor().ToInt(DS.Data[0], Length(DS.Data));
+  Value := DS.GetInterpretor().ToVariant(DS.Data[0], Length(DS.Data));
 
   if (Value < MinValue) or (Value > MaxValue) then
     DS.ErrorText := 'Value out of range';
