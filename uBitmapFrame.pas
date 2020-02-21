@@ -261,7 +261,7 @@ begin
   FEditor := MainForm.GetActiveEditorNoEx;
   if not Parent.Visible then Exit;
 
-  if (Sender <> nil) and (Sender.EditedData.GetSize() <> PrevFileSize) then
+  if (Sender <> nil) and (Sender.Data.GetSize() <> PrevFileSize) then
     UpdateScrollBars();
   Redraw();
 end;
@@ -327,7 +327,7 @@ begin
   BitsPerLine := BitsPerPixel * AWidth;
 
   FirstVisibleBit := BaseVisibleBit div BitsPerLine * BitsPerLine + ByteShift * 8;
-  Data := FEditor.EditedData.Get(FirstVisibleBit div 8, SY * (BitsPerLine div 8));
+  Data := FEditor.Data.Get(FirstVisibleBit div 8, SY * (BitsPerLine div 8));
 
   PixelCount := Length(Data) * 8 div BitsPerPixel;
   for p:=0 to PixelCount-1 do
@@ -430,7 +430,7 @@ begin
   end;
   BitAddr := ((y * AWidth + x) - HScroll + FirstVisibleBit div BitsPerPixel) * BitsPerPixel;
 
-  Result := (BitAddr >= 0) and (BitAddr < FEditor.EditedData.GetSize() * 8);
+  Result := (BitAddr >= 0) and (BitAddr < FEditor.Data.GetSize() * 8);
 end;
 
 procedure TBitmapFrame.TrackBarHScrollChange(Sender: TObject);
@@ -469,8 +469,8 @@ begin
   end;
 
   // Adjust vertical scrollbar
-  FBitsPerScrollBarTick := Max(FEditor.EditedData.GetSize() * 8 div 10000{00000}, 1);
-  PrevFileSize := FEditor.EditedData.GetSize();
+  FBitsPerScrollBarTick := Max(FEditor.Data.GetSize() * 8 div 10000{00000}, 1);
+  PrevFileSize := FEditor.Data.GetSize();
   if PrevFileSize = 0 then
     ConfigureScrollbar(VertScrollBar, 0, 0)
   else

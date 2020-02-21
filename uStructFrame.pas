@@ -113,7 +113,7 @@ begin
   // Populate structure fields
   FInterpretor.OnGetMoreData := procedure (AAddr, ASize: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean})
     begin
-      Data := FEditor.EditedData.Get(AAddr, ASize);
+      Data := FEditor.Data.Get(AAddr, ASize);
     end;
   FInterpretor.Interpret(ShownDS, Addr, Size);
 
@@ -210,7 +210,7 @@ begin
     // Cursor at end of file -> parse entire file
     begin
       Addr := 0;
-      Size := EditedData.GetSize();
+      Size := Data.GetSize();
     end
     else
     if SelLength > 0 then
@@ -223,7 +223,7 @@ begin
     // Parce from cursor until end of file
     begin
       Addr := SelStart;
-      Size := EditedData.GetSize() - Addr;
+      Size := Data.GetSize() - Addr;
     end;
   end;
 
@@ -412,7 +412,7 @@ begin
     if DS <> nil then
     begin
       DS.SetFromString(EditFieldValue.Text);
-      FEditor.EditedData.Change(DS.BufAddr, DS.BufSize, @DS.Data[0]);
+      FEditor.Data.Change(DS.BufAddr, DS.BufSize, @DS.Data[0]);
       //EditedNode.Text := DS.Name + ': ' + DS.ToString();
       PDSTreeNode(DSTreeView.GetNodeData(EditedNode)).Caption := DS.Name + ': ' + DS.ToString();
       DSTreeView.InvalidateNode(EditedNode);

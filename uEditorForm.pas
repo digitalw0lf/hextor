@@ -10,13 +10,13 @@ uses
 
   uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData,
   uCallbackList, DWHex_TLB, Vcl.Buttons, System.ImageList, Vcl.ImgList,
-  uDataSearcher, uUndoStack, uLogFile;
+  uDataSearcher, uUndoStack, uLogFile, uComAPIAttribute;
 
 type
   TEditorForm = class;
 
   // Callback that is used by tools to colorise displayed data in editor
-  TGetDataColors = function (Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
+  TGetDataColors = function (Editor: TEditorForm; Addr: TFilePointer; Size: Integer; AData: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
 
   TFFSkipSearcher = class(TDataSearcher)
   // Searcher for skipping given byte value
@@ -24,7 +24,7 @@ type
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; override;
   end;
 
-  TEditorForm = class(TForm, {IEditorForm,} IDispatch{, IProvideClassInfo})
+  TEditorForm = class(TForm)
     PaneHex: TEditorPane;
     PaneLnNum: TEditorPane;
     PaneText: TEditorPane;
@@ -70,8 +70,10 @@ type
     procedure TypingActionChangeTimerTimer(Sender: TObject);
   private
     { Private declarations }
+    FData: TEditedData;
     FDestroyed: Boolean;  // Some events (e.g. FormResize) are oddly called after form destruction
     FCaretPos: TFilePointer;
+    FSelStart, FSelLength: TFilePointer;
     SelDragStart, SelDragEnd: TFilePointer;
     WasLeftMouseDown: Boolean;
     FCaretInByte: Integer;
@@ -118,14 +120,14 @@ type
   public
     { Public declarations }
     DataSource: TDWHexDataSource;
-    EditedData: TEditedData;
     UndoStack: TUndoStack;
-    SelStart, SelLength: TFilePointer;
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     OnByteColsChanged: TCallbackListP1<TEditorForm>;
 //    property AutoObject: TAutoObject read FAutoObject implements IDispatch;
+    [API]
+    property Data: TEditedData read FData write FData;
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
@@ -133,10 +135,11 @@ type
     procedure NewFileOpened(ResetCaret: Boolean);
     function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
     function GetOrigFileSize(): TFilePointer;
+    [API]
     function GetFileSize(): TFilePointer;
     procedure UpdatePanes();
     procedure UpdateScrollBars();
-    procedure UpdateSkipFFButtons(const Data: TBytes);
+    procedure UpdateSkipFFButtons(const AData: TBytes);
     function GetVisibleRowsCount(): Integer;
     function GetVisibleColsCount(IncludePartial: Boolean = True): Integer;
     function FirstVisibleAddr(): TFilePointer;
@@ -144,14 +147,23 @@ type
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
     function DeleteSelected(): TFilePointer;
     procedure ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
+    [API]
     property CaretPos: TFilePointer read FCaretPos write SetCaretPos;
     property CaretInByte: Integer read FCaretInByte write SetCaretInByte;
+    [API]
+    property SelStart: TFilePointer read FSelStart;
+    [API]
+    property SelLength: TFilePointer read FSelLength;
+    [API]
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
+    [API]
     procedure SetSelection(AStart, AEnd: TFilePointer);
     procedure ScrollToShow(Addr: TFilePointer; RowsFromBorder: Integer = 0; ColsFromBorder: Integer = 0);
     procedure ScrollToCaret();
+    [API]
     procedure BeginUpdatePanes();
+    [API]
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
     function ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
@@ -164,17 +176,17 @@ type
     function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
 
     // OLE wrappers:
-    function GetEditedDataOle(Addr, Size: Int64; ZerosBeyondEoF: WordBool = False): OleVariant; stdcall;
+//    function GetEditedDataOle(Addr, Size: Int64; ZerosBeyondEoF: WordBool = False): OleVariant; stdcall;
 //    function IEditorForm.GetEditedData = GetEditedDataOle;
-    function GetFileSizeOle(): TFilePointer; stdcall;
+//    function GetFileSizeOle(): TFilePointer; stdcall;
 //    function IEditorForm.GetFileSize = GetFileSizeOle;
 
 //    function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
 //    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult; stdcall;
-    function GetIDsOfNames(const IID: TGUID; Names: Pointer;
-      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
-    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
-      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
+//    function GetIDsOfNames(const IID: TGUID; Names: Pointer;
+//      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
+//    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+//      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
 //    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
 
   end;
@@ -244,9 +256,9 @@ var
 begin
   AdjustPositionInData(FCaretPos, OpAddr, OpSize);
   ASelEnd := SelStart + SelLength;
-  AdjustPositionInData(SelStart, OpAddr, OpSize);
+  AdjustPositionInData(FSelStart, OpAddr, OpSize);
   AdjustPositionInData(ASelEnd, OpAddr, OpSize);
-  SelLength := ASelEnd - SelStart;
+  FSelLength := ASelEnd - FSelStart;
 
   AdjustPositionInData(SelDragStart, OpAddr, OpSize);
   AdjustPositionInData(SelDragEnd, OpAddr, OpSize);
@@ -295,7 +307,7 @@ var
   Start, Ptr: TFilePointer;
   Dir, Size: Integer;
 begin
-  FFSkipSearcher.Haystack := EditedData;
+  FFSkipSearcher.Haystack := Data;
   FFSkipSearcher.Params.Range := EntireFile;
 
   Dir := (Sender as TSpeedButton).Tag;
@@ -340,7 +352,7 @@ end;
 
 procedure TEditorForm.ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
 begin
-  EditedData.Change(Addr, Length(Value), @Value[0]);
+  Data.Change(Addr, Length(Value), @Value[0]);
 end;
 
 function TEditorForm.ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
@@ -353,7 +365,7 @@ begin
   SameSource := (DataSourceType = DataSource.ClassType) and
                 (SameFileName(APath, DataSource.Path));
 
-  InplaceSaving := SameSource and (not EditedData.HasMovements());
+  InplaceSaving := SameSource and (not Data.HasMovements());
   UseTempFile := (SameSource) and (not InplaceSaving);
   Result := True;
 end;
@@ -402,7 +414,7 @@ begin
   FDestroyed := True;
   MainForm.RemoveEditor(Self);
   UndoStack.Free;
-  EditedData.Free;
+  Data.Free;
   DataSource.Free;
   FFSkipSearcher.Free;
 //  FreeAndNil(FAutoObject);
@@ -430,9 +442,9 @@ end;
 procedure TEditorForm.FormCreate(Sender: TObject);
 begin
 //  FAutoObject := TAutoObject.Create();
-  EditedData := TEditedData.Create({Self});
-  EditedData.OnDataChanged.Add(DataChanged);
-  UndoStack := TUndoStack.Create(EditedData);
+  Data := TEditedData.Create({Self});
+  Data.OnDataChanged.Add(DataChanged);
+  UndoStack := TUndoStack.Create(Data);
   UndoStack.OnActionCreating.Add(UndoActionCreating);
   UndoStack.OnActionReverted.Add(UndoActionReverted);
   UndoStack.OnProgress.Add(MainForm.ShowProgress);
@@ -548,8 +560,8 @@ begin
             if SelLength > 0 then
               DeleteSelected()
             else
-            if (Sender = PaneText) and (CaretPos < EditedData.GetSize()) then
-              EditedData.Delete(CaretPos, 1);
+            if (Sender = PaneText) and (CaretPos < Data.GetSize()) then
+              Data.Delete(CaretPos, 1);
           end;
 
       VK_BACK:
@@ -560,13 +572,13 @@ begin
               DeleteSelected()
             else
             if (Sender = PaneText) and (CaretPos > 0) then
-              EditedData.Delete(CaretPos - 1, 1);
+              Data.Delete(CaretPos - 1, 1);
           end
           else
           begin
             // In overwrite mode, allow to backspace-delete from end of file
-            if (Sender = PaneText) and (CaretPos > 0) and (CaretPos = EditedData.GetSize()) and (EditedData.Resizable) then
-              EditedData.Delete(CaretPos - 1, 1);
+            if (Sender = PaneText) and (CaretPos > 0) and (CaretPos = Data.GetSize()) and (Data.Resizable) then
+              Data.Delete(CaretPos - 1, 1);
           end;
         end;
     end;
@@ -615,9 +627,9 @@ begin
       end;
 
       APos := CaretPos;
-      if (InsertMode or (APos = EditedData.GetSize())) and (CaretInByte = 0) then
+      if (InsertMode or (APos = Data.GetSize())) and (CaretInByte = 0) then
       begin
-        EditedData.Insert(APos, 1, @Zero);
+        Data.Insert(APos, 1, @Zero);
         FCaretPos := APos;  // Keep caret pos in same byte
       end;
       Buf := GetEditedData(APos, 1, dspResizable in DataSource.GetProperties());
@@ -682,24 +694,13 @@ end;
 
 function TEditorForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
 begin
-  Result := EditedData.Get(Addr, Size, ZerosBeyondEoF);
-end;
-
-function TEditorForm.GetEditedDataOle(Addr, Size: Int64;
-  ZerosBeyondEoF: WordBool): OleVariant;
-var
-  Data: TBytes;
-begin
-  Data := GetEditedData(Addr, Size, ZerosBeyondEoF);
-  Result := VarArrayCreate([Low(Data), High(Data)], varByte);
-  Move(Data[0], VarArrayLock(Result)^, Length(Data));
-  VarArrayUnlock(Result);
+  Result := Data.Get(Addr, Size, ZerosBeyondEoF);
 end;
 
 function TEditorForm.GetFileSize: TFilePointer;
 // Edited file size (including appended region)
 begin
-  Result := EditedData.GetSize();
+  Result := Data.GetSize();
 end;
 
 function TEditorForm.GetOrigFileSize: TFilePointer;
@@ -769,18 +770,18 @@ begin
   HorzScrollPos := HorzScrollBar.Position;
 end;
 
-function TEditorForm.Invoke(DispID: Integer; const IID: TGUID;
-  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
-  ArgErr: Pointer): HResult;
-begin
-  OleVariant(VarResult^) := 2345;
-//  Result := inherited;
-end;
+//function TEditorForm.Invoke(DispID: Integer; const IID: TGUID;
+//  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
+//  ArgErr: Pointer): HResult;
+//begin
+//  OleVariant(VarResult^) := 2345;
+////  Result := inherited;
+//end;
 
 procedure TEditorForm.MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
 // Move caret and adjust/remove selection
 begin
-  NewPos := BoundValue(NewPos, 0, EditedData.GetSize());
+  NewPos := BoundValue(NewPos, 0, Data.GetSize());
   if ssShift in Shift then
     SelDragEnd := NewPos
   else
@@ -798,9 +799,9 @@ procedure TEditorForm.NewFileOpened(ResetCaret: Boolean);
 begin
   BeginUpdatePanes();
   try
-    EditedData.DataSource := DataSource;
-    EditedData.Resizable := (dspResizable in DataSource.GetProperties());
-    EditedData.ResetParts();
+    Data.DataSource := DataSource;
+    Data.Resizable := (dspResizable in DataSource.GetProperties());
+    Data.ResetParts();
     HasUnsavedChanges := False;
     UndoStack.Clear();
 
@@ -891,7 +892,7 @@ begin
   BeginUpdatePanes();
   try
     NewCaretPos := SelStart + NewSize;
-    EditedData.Change(SelStart, SelLength, NewSize, Value);
+    Data.Change(SelStart, SelLength, NewSize, Value);
     MoveCaret(NewCaretPos, []);
     ScrollToCaret();
   finally
@@ -947,7 +948,7 @@ begin
 
   // Write regions
   try
-    for APart in EditedData.Parts do
+    for APart in Data.Parts do
     begin
       if (InplaceSaving) and (APart.PartType = ptSource) then Continue;
       case APart.PartType of
@@ -957,7 +958,7 @@ begin
           Dest.ChangeData(APart.Addr, APart.Size, APart.Data[0]);
       end;
 
-      MainForm.ShowProgress(Self, APart.Addr + APart.Size, EditedData.GetSize, '-');
+      MainForm.ShowProgress(Self, APart.Addr + APart.Size, Data.GetSize, '-');
     end;
   finally
     MainForm.OperationDone(Self);
@@ -966,8 +967,8 @@ begin
 
   // If saving in-place, we may have to truncate file
   if (InplaceSaving) and (dspResizable in Dest.GetProperties()) and
-     (EditedData.GetSize() <> Dest.GetSize) then
-    Dest.SetSize(EditedData.GetSize());
+     (Data.GetSize() <> Dest.GetSize) then
+    Dest.SetSize(Data.GetSize());
 
 
   if UseTempFile then
@@ -1182,15 +1183,15 @@ procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer);
 begin
   if AEnd=-1 then
   begin
-    SelStart := AStart;
-    SelLength := 0;
+    FSelStart := AStart;
+    FSelLength := 0;
   end
   else
   begin
     if AStart>AEnd then
       Swap8Bytes(AStart, AEnd);
-    SelStart := AStart;
-    SelLength := AEnd-AStart;
+    FSelStart := AStart;
+    FSelLength := AEnd-AStart;
   end;
   UpdatePanes();
   SelectionChanged();
@@ -1226,15 +1227,15 @@ end;
 procedure TEditorForm.ShowSelectionInfo();
 // Show info in statusbar about values under caret
 var
-  Data: TBytes;
+  AData: TBytes;
   x: Int64;
 begin
   if SelLength = 0 then
   begin
     StatusBar.Panels[0].Text := 'Addr: ' + IntToStr(CaretPos) + '( '+'0x' + IntToHex(CaretPos, 2) + ')';
-    Data := GetEditedData(CaretPos, 1);
-    if Length(Data)>=1 then
-      StatusBar.Panels[1].Text := 'Byte: ' + IntToStr(Data[0])
+    AData := GetEditedData(CaretPos, 1);
+    if Length(AData)>=1 then
+      StatusBar.Panels[1].Text := 'Byte: ' + IntToStr(AData[0])
     else
       StatusBar.Panels[1].Text := '';
   end
@@ -1243,10 +1244,10 @@ begin
     StatusBar.Panels[0].Text := 'Selected: ' + IntToStr(SelLength) + ' bytes';
     if (SelLength <= 8) then
     begin
-      Data := GetEditedData(SelStart, SelLength);
+      AData := GetEditedData(SelStart, SelLength);
       x := 0;
-      Move(Data[0], x, Length(Data));
-      StatusBar.Panels[1].Text := 'As '+IntToStr(Length(Data))+'-byte value: ' + IntToStr(x);
+      Move(AData[0], x, Length(AData));
+      StatusBar.Panels[1].Text := 'As '+IntToStr(Length(AData))+'-byte value: ' + IntToStr(x);
     end
     else
       StatusBar.Panels[1].Text := '';
@@ -1255,7 +1256,7 @@ end;
 
 procedure TEditorForm.SomeDataChanged;
 begin
-  HasUnsavedChanges := EditedData.HasChanges();
+  HasUnsavedChanges := Data.HasChanges();
   UpdateScrollBars();
   UpdatePanes();
   MainForm.UpdateMsgPanel();
@@ -1333,7 +1334,7 @@ end;
 
 procedure TEditorForm.UpdatePanes;
 var
-  Data: TBytes;
+  AData: TBytes;
   i, len: Integer;
   Rows, LnNumChars: Integer;
   Lines: TStringList;
@@ -1360,11 +1361,11 @@ begin
 
     // Get visible data
 //    StartTimeMeasure();
-    Data := GetEditedData(FirstVisibleAddress, Rows * ByteColumns);
+    AData := GetEditedData(FirstVisibleAddress, Rows * ByteColumns);
 //    EndTimeMeasure('GetData', True);
 
-    VisibleRangeEnd := FirstVisibleAddress + Length(Data);
-    IncludesFileEnd := (Length(Data) < Rows * ByteColumns);
+    VisibleRangeEnd := FirstVisibleAddress + Length(AData);
+    IncludesFileEnd := (Length(AData) < Rows * ByteColumns);
 
     // Line numbers
     Lines := PaneLnNum.Lines;
@@ -1377,7 +1378,7 @@ begin
       LnNumChars := 8
     else
       LnNumChars := 4;
-    for i:=0 to DivRoundUp(Length(Data), ByteColumns)-1 do
+    for i:=0 to DivRoundUp(Length(AData), ByteColumns)-1 do
     begin
       Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, LnNumChars));
     end;
@@ -1388,9 +1389,9 @@ begin
     Lines.Clear();
     ws := StringOfChar(' ', ByteColumns * 3);
     len := 0;
-    for i:=0 to Length(Data)-1 do
+    for i:=0 to Length(AData)-1 do
     begin
-      ByteToHex(Data[i], @ws[Low(ws) + len]);
+      ByteToHex(AData[i], @ws[Low(ws) + len]);
       Inc(len, 3);
       if ((i+1) mod ByteColumns)=0 then
       begin
@@ -1410,12 +1411,12 @@ begin
     SetLength(s, ByteColumns);
     s := StringOfChar(AnsiChar(' '), ByteColumns);
     len := 0;
-    for i:=0 to Length(Data)-1 do
+    for i:=0 to Length(AData)-1 do
     begin
-      if (Data[i] < Ord(' ')) or (Data[i] = $7F) or (Data[i] = $98) then
+      if (AData[i] < Ord(' ')) or (AData[i] = $7F) or (AData[i] = $98) then
         c := '.'
       else
-        c := AnsiChar(Data[i]);
+        c := AnsiChar(AData[i]);
       s[Low(s) + len] := c;
       Inc(len);
       if ((i+1) mod ByteColumns)=0 then
@@ -1451,7 +1452,7 @@ begin
 //    EndTimeMeasure('EndUpdatePanes', True);
   end;
 
-  UpdateSkipFFButtons(Data);
+  UpdateSkipFFButtons(AData);
 
 //  EndTimeMeasure('UpdatePanes', True);
 end;
@@ -1517,7 +1518,7 @@ begin
   // Changed bytes
   Parts := TEditedData.TDataPartList.Create(False);
   try
-    EditedData.GetOverlappingParts(FirstVis, VisSize, Parts);
+    Data.GetOverlappingParts(FirstVis, VisSize, Parts);
     for i:=0 to Parts.Count-1 do
       if Parts[i].PartType = ptBuffer then
         FillRangeInColorArray(BgColors, FirstVis, Parts[i].Addr, Parts[i].Addr+Parts[i].Size, Color_ChangedByte);
@@ -1590,7 +1591,7 @@ begin
   end;
 end;
 
-procedure TEditorForm.UpdateSkipFFButtons(const Data: TBytes);
+procedure TEditorForm.UpdateSkipFFButtons(const AData: TBytes);
 // Show "Skip FF" buttons if there is a lot of repeating bytes
 // in start/end of viewed area
 
@@ -1599,7 +1600,7 @@ procedure TEditorForm.UpdateSkipFFButtons(const Data: TBytes);
     Vis: Boolean;
     i: Integer;
   begin
-    if (Length(Data) = 0) or
+    if (Length(AData) = 0) or
        ((Btn.Tag = -1) and (n1 + FirstVisibleAddr() = 0)) or
        ((Btn.Tag =  1) and (n2 + FirstVisibleAddr() = GetFileSize() - 1)) then
       // Don't show if we are at file start/end
@@ -1608,7 +1609,7 @@ procedure TEditorForm.UpdateSkipFFButtons(const Data: TBytes);
     begin
       Vis := True;
       for i:=n1+1 to n2 do
-        if Data[i] <> Data[n1] then
+        if AData[i] <> AData[n1] then
         begin
           Vis := False;
           Break;
@@ -1617,7 +1618,7 @@ procedure TEditorForm.UpdateSkipFFButtons(const Data: TBytes);
     Btn.Visible := Vis;
     if Vis then
     begin
-      AByte := Data[n1];
+      AByte := AData[n1];
       Btn.Caption := 'Skip '+IntToHex(AByte, 2);
       Btn.Hint := HintTemplate.Replace('%', IntToHex(AByte, 2));
     end;
@@ -1625,8 +1626,8 @@ procedure TEditorForm.UpdateSkipFFButtons(const Data: TBytes);
   end;
 
 begin
-  ShowBtn(BtnSkipFFBack, 0, Min(Length(Data) div 4, 4096), FFSkipBackByte, 'Skip backward to previous non-% byte');
-  ShowBtn(BtnSkipFFFwd, High(Data) - Min(Length(Data) div 4, 4096), High(Data), FFSkipFwdByte, 'Skip forward to next non-% byte');
+  ShowBtn(BtnSkipFFBack, 0, Min(Length(AData) div 4, 4096), FFSkipBackByte, 'Skip backward to previous non-% byte');
+  ShowBtn(BtnSkipFFFwd, High(AData) - Min(Length(AData) div 4, 4096), High(AData), FFSkipFwdByte, 'Skip forward to next non-% byte');
 end;
 
 function TEditorForm.VisibleBytesCount: Integer;
@@ -1641,27 +1642,27 @@ begin
   NewFileOpened(True);
 end;
 
-function TEditorForm.GetFileSizeOle: TFilePointer;
-begin
-  Result := GetFileSize();
-end;
+//function TEditorForm.GetFileSizeOle: TFilePointer;
+//begin
+//  Result := GetFileSize();
+//end;
 
-function TEditorForm.GetIDsOfNames(const IID: TGUID; Names: Pointer; NameCount,
-  LocaleID: Integer; DispIDs: Pointer): HResult;
-//var
-//  S: string;
-//  Info: PPropInfo;
-begin
-   Result := S_OK;
-//   // Получаем имя функции или свойства
-//   S := PPChar(Names)^;
-//   // Проверяем, есть ли VCL-свойство с таким же именем
-//   Info := GetPropInfo(ClassInfo, S);
-//   if Assigned(Info) then
-//     // Свойство есть, возвращаем в качестве DispId
-//     // адрес структуры PropInfo
-     PDispIDList(DispIds)[0] := 1;// Integer(Info);
-end;
+//function TEditorForm.GetIDsOfNames(const IID: TGUID; Names: Pointer; NameCount,
+//  LocaleID: Integer; DispIDs: Pointer): HResult;
+////var
+////  S: string;
+////  Info: PPropInfo;
+//begin
+//   Result := S_OK;
+////   // Получаем имя функции или свойства
+////   S := PPChar(Names)^;
+////   // Проверяем, есть ли VCL-свойство с таким же именем
+////   Info := GetPropInfo(ClassInfo, S);
+////   if Assigned(Info) then
+////     // Свойство есть, возвращаем в качестве DispId
+////     // адрес структуры PropInfo
+//     PDispIDList(DispIds)[0] := 1;// Integer(Info);
+//end;
 
 { TFFSkipSearcher }
 

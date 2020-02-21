@@ -210,7 +210,7 @@ procedure TFindReplaceForm.FillParams(aReplace, aCanFindInSel: Boolean);
 begin
   with Searcher do
   begin
-    Haystack := GetTargetEditor.EditedData;
+    Haystack := GetTargetEditor.Data;
 
     Params.Text := EditFindText.Text;
     Params.bHex := CBFindHex.Checked;

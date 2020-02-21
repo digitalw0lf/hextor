@@ -36,7 +36,8 @@ implementation
 
 procedure TProgressForm.BtnAbortClick(Sender: TObject);
 begin
-  FOperationAborted := True;
+//  FOperationAborted := True;
+  Close();
 end;
 
 procedure TProgressForm.FormClose(Sender: TObject; var Action: TCloseAction);

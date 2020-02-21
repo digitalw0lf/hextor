@@ -69,22 +69,6 @@ object ScriptFrame: TScriptFrame
       2143341208000000ED030000ED030000D2F1594E010000002200000010270000
       010007004A00530063007200690070007400}
   end
-  object MemoScript: TRichEdit
-    Left = 0
-    Top = 33
-    Width = 401
-    Height = 475
-    Align = alClient
-    Font.Charset = RUSSIAN_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -13
-    Font.Name = 'Courier New'
-    Font.Style = []
-    ParentFont = False
-    ScrollBars = ssBoth
-    TabOrder = 2
-    Zoom = 100
-  end
   object OutputPanel: TPanel
     Left = 0
     Top = 512
@@ -92,7 +76,7 @@ object ScriptFrame: TScriptFrame
     Height = 132
     Align = alBottom
     BevelOuter = bvNone
-    TabOrder = 3
+    TabOrder = 2
     object MemoOutput: TRichEdit
       Left = 0
       Top = 20
@@ -130,6 +114,39 @@ object ScriptFrame: TScriptFrame
         ExplicitHeight = 21
       end
     end
+  end
+  object ScriptEdit: TSynEdit
+    Left = 0
+    Top = 33
+    Width = 401
+    Height = 475
+    Align = alClient
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -13
+    Font.Name = 'Courier New'
+    Font.Style = []
+    TabOrder = 3
+    CodeFolding.GutterShapeSize = 11
+    CodeFolding.CollapsedLineColor = clGrayText
+    CodeFolding.FolderBarLinesColor = clGrayText
+    CodeFolding.IndentGuidesColor = clGray
+    CodeFolding.IndentGuides = True
+    CodeFolding.ShowCollapsedLine = False
+    CodeFolding.ShowHintMark = True
+    UseCodeFolding = False
+    Gutter.DigitCount = 3
+    Gutter.Font.Charset = DEFAULT_CHARSET
+    Gutter.Font.Color = clWindowText
+    Gutter.Font.Height = -11
+    Gutter.Font.Name = 'Courier New'
+    Gutter.Font.Style = []
+    Gutter.ShowLineNumbers = True
+    FontSmoothing = fsmNone
+    ExplicitLeft = 152
+    ExplicitTop = 136
+    ExplicitWidth = 200
+    ExplicitHeight = 150
   end
   object Timer1: TTimer
     Left = 104

@@ -294,12 +294,6 @@ object MainForm: TMainForm
               2143341208000000ED030000ED030000D2F1594E010000002200000010270000
               010007004A00530063007200690070007400}
           end
-          inherited MemoScript: TRichEdit
-            Width = 412
-            Height = 354
-            ExplicitWidth = 412
-            ExplicitHeight = 354
-          end
           inherited OutputPanel: TPanel
             Top = 391
             Width = 412
@@ -317,6 +311,10 @@ object MainForm: TMainForm
                 ExplicitLeft = 355
               end
             end
+          end
+          inherited ScriptEdit: TSynEdit
+            Width = 412
+            Height = 354
           end
         end
       end
@@ -756,7 +754,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001D00110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001E40110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

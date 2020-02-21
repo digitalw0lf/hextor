@@ -7,7 +7,7 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Buttons,
   Vcl.StdCtrls, Vcl.OleCtrls, MSScriptControl_TLB, Vcl.ComCtrls,
 
-  uUtil;
+  uUtil, SynEdit;
 
 type
   TScriptFrame = class(TFrame)
@@ -15,12 +15,12 @@ type
     BtnRun: TSpeedButton;
     ScriptControl1: TScriptControl;
     Timer1: TTimer;
-    MemoScript: TRichEdit;
     Splitter1: TSplitter;
     OutputPanel: TPanel;
     MemoOutput: TRichEdit;
     OutputToolPanel: TPanel;
     BtnClearOutput: TSpeedButton;
+    ScriptEdit: TSynEdit;
     procedure BtnRunClick(Sender: TObject);
     procedure BtnClearOutputClick(Sender: TObject);
   private
@@ -45,7 +45,7 @@ var
   AText: string;
   Res: OleVariant;
 begin
-  AText := MemoScript.Text;
+  AText := ScriptEdit.Text;
 
   AppSettings.Script.Text := AText;
   MainForm.SaveSettings();
@@ -68,9 +68,11 @@ end;
 
 procedure TScriptFrame.Init;
 begin
-  MemoScript.Text := AppSettings.Script.Text;
+  ScriptEdit.Text := AppSettings.Script.Text;
 
 //  ScriptControl1.AddObject('DWHex', MainForm.DWHexOle, False);
+  ScriptControl1.AddObject('app', MainForm.APIEnv.GetAPIWrapper(MainForm), True);
+  ScriptControl1.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
 
 end;
 
@@ -81,7 +83,7 @@ end;
 
 procedure TScriptFrame.Uninit;
 begin
-  AppSettings.Script.Text := MemoScript.Text;
+  AppSettings.Script.Text := ScriptEdit.Text;
 end;
 
 end.

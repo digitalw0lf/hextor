@@ -353,8 +353,8 @@ begin
     Editors[i].OnByteColsChanged.Add(EditorByteColsChanged);
   end;
 
-  Size1 := Editors[0].EditedData.GetSize();
-  Size2 := Editors[1].EditedData.GetSize();
+  Size1 := Editors[0].Data.GetSize();
+  Size2 := Editors[1].Data.GetSize();
   MaxSize := Max(Size1, Size2);
   MinSize := Min(Size1, Size2);
   ProcessedSize := 0;
@@ -372,7 +372,7 @@ begin
       Portion := Min(BlockSize, MinSize - P);
   //    StartTimeMeasure();
       for i:=0 to 1 do
-        Buf[i] := Editors[i].EditedData.Get(P, Portion, False);
+        Buf[i] := Editors[i].Data.Get(P, Portion, False);
   //    EndTimeMeasure('Cmp.Read', True);
 
       // Compare

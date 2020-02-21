@@ -26,6 +26,7 @@ type
     ScrBmp: TBitmap;
     SelStart, SelLength: Integer;
     FUpdating: Integer;
+    FNeedUpdate: Boolean;
     procedure Paint; override;
     procedure InternalPaint();
     procedure DoEnter; override;
@@ -108,10 +109,12 @@ end;
 
 procedure TEditorPane.EndUpdate;
 begin
-  if FUpdating=0 then Exit;
+  if FUpdating = 0 then Exit;
   Dec(FUpdating);
-  if FUpdating=0 then
+  if (FUpdating = 0) and (FNeedUpdate) then
+  begin
     Paint();
+  end;
 end;
 
 function TEditorPane.GetCharAt(x, y: Integer; var Pos: TPoint): Boolean;
@@ -250,7 +253,12 @@ end;
 procedure TEditorPane.Paint;
 begin
 //  inherited Paint;
-  if FUpdating>0 then Exit;
+  if FUpdating>0 then
+  begin
+    FNeedUpdate := True;
+    Exit;
+  end;
+  FNeedUpdate := False;
   if (ScrBmp.Width<>Width) or (ScrBmp.Height<>Height) then
     ScrBmp.SetSize(Width, Height);
   InternalPaint();

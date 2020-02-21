@@ -106,7 +106,7 @@ end;
 procedure TValueFrame.UpdateInfo;
 // Show selection/data under cursor as values
 var
-  Data: TBytes;
+  AData: TBytes;
   Greedy: Boolean;
   i, Size: Integer;
   S: string;
@@ -125,7 +125,7 @@ begin
 
   with FEditor do
   begin
-    Data := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
+    AData := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
     Greedy := (SelLength > 0);
 
     SetKGridRowCount(ValuesGrid, ValueInterpretors.Count + 1);
@@ -134,7 +134,7 @@ begin
       VRow := ValuesGrid.Rows[i+1] as TValueGridRow;
       VRow.Defined := False;
       VRow.Hint := '';
-      if Length(Data) < ValueInterpretors[i].MinSize then
+      if Length(AData) < ValueInterpretors[i].MinSize then
       begin
         S := SUndefinedValue;
         VRow.Hint := 'Not enough data';
@@ -142,12 +142,12 @@ begin
       else
       try
         if (Greedy) {and (ValueInterpretors[i].Greedy)} then
-          Size := Min(ValueInterpretors[i].MaxSize, Length(Data))
+          Size := Min(ValueInterpretors[i].MaxSize, Length(AData))
         else
           Size := ValueInterpretors[i].MinSize;
         VRow.OrigDataSize := Size;
 
-        S := ValueInterpretors[i].ToVariant(Data[0], Size);  // <--
+        S := ValueInterpretors[i].ToVariant(AData[0], Size);  // <--
 
         VRow.Defined := True;
       except

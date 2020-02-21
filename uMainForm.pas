@@ -20,7 +20,7 @@ uses
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uDWHexTypes, uDWHexDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex,
-  uBitmapFrame, uCallbackList, ColoredPanel;
+  uBitmapFrame, uCallbackList, ColoredPanel, uComAPIAttribute;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -49,6 +49,13 @@ type
 //    Colors: record
 //      ValueHighlightBg: TColor;
 //    end;
+  end;
+
+  [API]
+  TDWHexUtils = class
+  public
+    procedure Sleep(milliseconds: Cardinal);
+    procedure Alert(V: Variant);
   end;
 
   TMainForm = class(TForm)
@@ -228,7 +235,9 @@ type
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
-    DWHexOle: TCoDWHex;
+//    DWHexOle: TCoDWHex;
+    APIEnv: TAPIEnvironment;
+    Utils: TDWHexUtils;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     procedure OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
@@ -241,15 +250,20 @@ type
     procedure SelectionChanged();
     procedure VisibleRangeChanged();
     function GetIconIndex(DataSource: TDWHexDataSource): Integer;
+    [API]
     property ActiveEditor: TEditorForm read GetActiveEditor write SetActiveEditor;
     function GetActiveEditorNoEx: TEditorForm;
+    [API]
     property EditorCount: Integer read GetEditorCount;
+    [API]
     property Editors[Index: Integer]: TEditorForm read GetEditor;
     procedure AddEditor(AEditor: TEditorForm);
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
     procedure DoAfterEvent(Proc: TProc);
+    [API]
     procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
+    [API]
     procedure OperationDone(Sender: TObject);
   end;
 
@@ -333,7 +347,7 @@ var
   Insert: Boolean;
   Addr: TFilePointer;
   Size: Integer;
-  Data, Pattern: TBytes;
+  AData, Pattern: TBytes;
   Rnd1, Rnd2: Integer;
   i: Integer;
 begin
@@ -355,7 +369,7 @@ begin
       Size := SelLength;
     end;
 
-    SetLength(Data, Size);
+    SetLength(AData, Size);
     if FillBytesForm.RBPattern.Checked then
     // Pattern
     begin
@@ -363,10 +377,10 @@ begin
       if Length(Pattern) = 0 then
         raise EInvalidUserInput.Create('Specify hex pattern');
       if Length(Pattern) = 1 then
-        FillChar(Data[0], Size, Pattern[0])
+        FillChar(AData[0], Size, Pattern[0])
       else
         for i:=0 to Size-1 do
-          Data[i] := Pattern[i mod Length(Pattern)];
+          AData[i] := Pattern[i mod Length(Pattern)];
     end
     else
     if FillBytesForm.RBRandomBytes.Checked then
@@ -375,7 +389,7 @@ begin
       Rnd1 := FillBytesForm.EditRandomMin.Value;
       Rnd2 := FillBytesForm.EditRandomMax.Value;
       for i:=0 to Size-1 do
-        Data[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
+        AData[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
     end
     else Exit;
 
@@ -383,9 +397,9 @@ begin
     try
 
       if Insert then
-        EditedData.Insert(Addr, Size, @Data[0])
+        Data.Insert(Addr, Size, @AData[0])
       else
-        EditedData.Change(Addr, Size, @Data[0]);
+        Data.Change(Addr, Size, @AData[0]);
 
     finally
       UndoStack.EndAction();
@@ -578,7 +592,7 @@ procedure TMainForm.ActionSaveSelectionAsExecute(Sender: TObject);
 // If same file is chosen, re-open it with new content
 var
   SameFile: Boolean;
-  Data: TBytes;
+  AData: TBytes;
   fn: string;
 begin
   with ActiveEditor do
@@ -599,11 +613,11 @@ begin
     if SameFile then
       if Application.MessageBox('Current file will be overwritten and re-opened with new content', 'Replace file', MB_OKCANCEL) <> IDOK then Exit;
 
-    Data := GetEditedData(SelStart, SelLength);
+    AData := GetEditedData(SelStart, SelLength);
 
     if SameFile then CloseCurrentFile(False);
 
-    SaveEntireFile(fn, Data);
+    SaveEntireFile(fn, AData);
 
     if SameFile then
       OpenFile(TDWHexDataSourceType(DataSource.ClassType), fn);
@@ -627,7 +641,7 @@ var
 begin
   with ActiveEditor do
   begin
-    OldSize := EditedData.GetSize();
+    OldSize := Data.GetSize();
     SetFileSizeForm.EditOldSize.Text := IntToStr(OldSize);
     SetFileSizeForm.EditNewSize.Text := IntToStr(OldSize);
     if SetFileSizeForm.ShowModal() <> mrOk then Exit;
@@ -648,13 +662,13 @@ begin
       else
       if NewSize < OldSize then
       begin
-        EditedData.Delete(NewSize, OldSize - NewSize);
+        Data.Delete(NewSize, OldSize - NewSize);
       end
       else
       begin
         SetLength(Buf, NewSize - OldSize);
         FillChar(Buf[0], Length(Buf), Value);
-        EditedData.Insert(OldSize, Length(Buf), @Buf[0]);
+        Data.Insert(OldSize, Length(Buf), @Buf[0]);
       end;
     finally
       UndoStack.EndAction();
@@ -905,7 +919,10 @@ begin
 
   FmtHint := tFmtHintWindow.Create(Self);
 
+  Utils := TDWHexUtils.Create();
+
 //  DWHexOle := TCoDWHex.Create();
+  APIEnv := TAPIEnvironment.Create();
 
   ScriptFrame.Init();
 end;
@@ -919,7 +936,8 @@ begin
   EditorActionShortcuts.Free;
   FEditors.Free;
 
-//  DWHexOle.Free;
+  Utils.Free;
+  APIEnv.Free;
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
@@ -1110,7 +1128,7 @@ procedure TMainForm.Regions1Click(Sender: TObject);
 var
   s: string;
 begin
-  s := ActiveEditor.EditedData.GetDebugDescr();
+  s := ActiveEditor.Data.GetDebugDescr();
   Application.MessageBox(PChar(s),'');
 end;
 
@@ -1344,7 +1362,7 @@ begin
     begin
       if ChooseSaveMethod(TDWHexDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
       begin
-        ASize := EditedData.GetSize();
+        ASize := Data.GetSize();
         if ASize > WarnSize then
         begin
           if UseTempFile then
@@ -1387,6 +1405,18 @@ begin
     Catcher.Free;
   end;
   Msg.Result := 0;
+end;
+
+{ TDWHexUtils }
+
+procedure TDWHexUtils.Alert(V: Variant);
+begin
+  Application.MessageBox(PChar(string(V)), 'Alert', MB_OK);
+end;
+
+procedure TDWHexUtils.Sleep(milliseconds: Cardinal);
+begin
+  System.SysUtils.Sleep(milliseconds);
 end;
 
 end.

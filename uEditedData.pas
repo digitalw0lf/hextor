@@ -6,7 +6,8 @@ uses
   System.Types, System.SysUtils, Generics.Collections, Math, Vcl.Forms,
   Generics.Defaults,
 
-  uDWHexTypes, uDWHexDataSources, uUtil, uCallbackList, uLogFile, uSkipList;
+  uDWHexTypes, uDWHexDataSources, uUtil, uCallbackList, uLogFile, uSkipList,
+  uComAPIAttribute;
 
 type
   // This class contains virtual "data" of edited file.
@@ -64,15 +65,23 @@ type
     function HasMovements(): Boolean;
     function GetDebugDescr(): string;
 
+    [API]
     function GetSize(): TFilePointer;
-    function Get(Addr: TFilePointer; Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
+    function Get(Addr: TFilePointer; Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes; overload;
+    [API]
+    function Get(Addr: TFilePointer): Byte; overload;
 
     procedure ReplaceParts(Addr, OldSize: TFilePointer; const NewParts: array of TDataPart {TDataPartList});
 
     procedure Change(Addr, OldSize, NewSize: TFilePointer; Value: PByteArray); overload;
+    [API]
+    procedure Change(Addr: TFilePointer; Value: Byte); overload;
 
     procedure Change(Addr: TFilePointer; Size: TFilePointer; Value: PByteArray); overload;
-    procedure Insert(Addr: TFilePointer; Size: TFilePointer; Value: PByteArray);
+    procedure Insert(Addr: TFilePointer; Size: TFilePointer; Value: PByteArray); overload;
+    [API]
+    procedure Insert(Addr: TFilePointer; Value: Byte); overload;
+    [API]
     procedure Delete(Addr: TFilePointer; Size: TFilePointer);
   end;
 
@@ -102,6 +111,11 @@ procedure TEditedData.Change(Addr: TFilePointer; Size: TFilePointer;
   Value: PByteArray);
 begin
   Change(Addr, Size, Size, Value);
+end;
+
+procedure TEditedData.Change(Addr: TFilePointer; Value: Byte);
+begin
+  Change(Addr, 1, 1, @Value);
 end;
 
 constructor TEditedData.Create();
@@ -189,6 +203,17 @@ begin
   end;
 
 //  EndTimeMeasure('Get', True);
+end;
+
+function TEditedData.Get(Addr: TFilePointer): Byte;
+var
+  Buf: TBytes;
+begin
+  Buf := Get(Addr, 1, False);
+  if Buf <> nil then
+    Result := Buf[0]
+  else
+    Result := 0;
 end;
 
 function TEditedData.GetDebugDescr: string;
@@ -281,6 +306,11 @@ begin
   Result := HasChanges() and FHasMovements;
 end;
 
+procedure TEditedData.Insert(Addr: TFilePointer; Value: Byte);
+begin
+  Insert(Addr, 1, @Value);
+end;
+
 procedure TEditedData.Insert(Addr: TFilePointer; Size: TFilePointer;
   Value: PByteArray);
 begin
@@ -360,13 +390,16 @@ procedure TEditedData.ResetParts;
 var
   Part: TDataPart;
 begin
+  FOriginalSize := DataSource.GetSize();
   Parts.Clear();
   // Create initial part corresponding to entire DataSource
-  Part := TDataPart.Create(ptSource, 0, DataSource.GetSize());
-  Part.SourceAddr := 0;
-  Parts.AddOrSet(Part);
-  FSize := Part.Size;
-  FOriginalSize := Part.Size;
+  if FOriginalSize > 0 then
+  begin
+    Part := TDataPart.Create(ptSource, 0, FOriginalSize);
+    Part.SourceAddr := 0;
+    Parts.AddOrSet(Part);
+  end;
+  FSize := FOriginalSize;
   FHasMovements := False;
 end;
 
