@@ -28,3 +28,7 @@ switch (expression) {
   default: statementD;
 }
 
+arr.index
+arr.length
+
+expression: JS expression

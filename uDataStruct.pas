@@ -4,7 +4,7 @@ interface
 
 uses
   System.SysUtils, System.Classes, Winapi.Windows, Generics.Collections,
-  System.Math,
+  System.Math, Winapi.ActiveX, MSScriptControl_TLB, Variants,
 
   uDWHexTypes, uValueInterpretors, uLogFile, uUtil, uCallbackList;
 
@@ -16,6 +16,7 @@ type
   EDSParserError = class (Exception);
   TDSSimpleDataType = string;  // e.g. 'uint16'
   TDSCompoundField = class;
+  TDSComWrapper = class;
 
   // Base class for all elements
   TDSField = class
@@ -27,9 +28,11 @@ type
     BufSize: Integer;
     DescrLineNum: Integer;  // Line number in structure description text
     constructor Create(); virtual;
+    destructor Destroy(); override;
     procedure Assign(Source: TDSField); virtual;
     function Duplicate(): TDSField;
     function ToQuotedString(): string; virtual;
+    function FullName(): string;
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -46,6 +49,7 @@ type
     ErrorText: string;
     constructor Create(); override;
     procedure Assign(Source: TDSField); override;
+    function ValueAsVariant(): Variant;
     function ToString(): string; override;
     function ToQuotedString(): string; override;
     procedure SetFromString(const S: string); virtual;
@@ -54,12 +58,16 @@ type
 
   // For arrays and structures
   TDSCompoundField = class (TDSField)
+  private
+    FComWrapper: TDSComWrapper;
+    FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
   public
     Fields: TObjectList<TDSField>;
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
+    function GetComWrapper(): TDSComWrapper;
   end;
 
   TDSArray = class (TDSCompoundField)
@@ -87,6 +95,24 @@ type
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
+  end;
+
+  TDSComWrapper = class(TInterfacedObject, IDispatch)
+  private const
+    DISPID_INDEX  = 1000001;  // "index" pseudo-field of arrays
+    DISPID_LENGTH = 1000002;  // "length" pseudo-field of arrays
+  private
+    DSField: TDSField;
+  public
+    function GetIDsOfNames(const IID: TGUID; Names: Pointer;
+      NameCount: Integer; LocaleID: Integer; DispIDs: Pointer): HRESULT;
+      virtual; stdcall;
+    function GetTypeInfo(Index: Integer; LocaleID: Integer;
+      out TypeInfo): HRESULT; stdcall;
+    function GetTypeInfoCount(out Count: Integer): HRESULT; stdcall;
+    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+      Flags: Word; var Params; VarResult: Pointer; ExcepInfo: Pointer;
+      ArgErr: Pointer): HRESULT; virtual; stdcall;
   end;
 
   // Class for parsing structure description to DS's
@@ -129,6 +155,8 @@ type
     FCurAddr: TFilePointer;    // Current
     EndOfData: Boolean;        // End of input data reached
     FieldsProcessed: Integer;  // To show some progress
+    ScriptControl: TScriptControl;  // Expression evaluator
+//    DSStack: TStack<TDSField>; // Current stack of nested structures
     procedure ReadData(var Data: TBytes; Size: Integer);
     function GetFieldSize(DS: TDSSimpleField): Integer;
     procedure InterpretSimple(DS: TDSSimpleField);
@@ -137,13 +165,21 @@ type
     procedure InterpretConditional(DS: TDSConditional);
     procedure InternalInterpret(DS: TDSField);
     class function FindLastValueByName(DS: TDSField; const AName: string): TDSField;
-    class function CalculateExpression(Expr: string; Env: TDSField): Variant;
+    class function CalculateExpressionSimple(Expr: string; CurField: TDSField): Variant;
+    function CalculateExpression(Expr: string; CurField: TDSField): Variant;
+    procedure PrepareScriptEnv(CurField: TDSField);
     procedure ValidateField(DS: TDSSimpleField);
   public
     OnGetMoreData: TOnDSInterpretorGetData;
     OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
     OnOperationDone: TCallbackListP1<{Sender:}TObject>;
     procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
+    constructor Create();
+    destructor Destroy(); override;
+
+//    procedure CheckParent(DS: TDSField);
+    class procedure DbgDescribe(DS: TDSField; Text: TStrings; Indent: string; AParent: TDSField);
+    class function DbgDescr(DS: TDSField): string;
   end;
 
 implementation
@@ -396,24 +432,31 @@ function TDSParser.ReadIfStatement: TDSConditional;
 var
   S: string;
   AFields, AElseFields: TArrayOfDSField;
+  i: Integer;
 begin
+  Result := TDSConditional.Create();
+  Result.DescrLineNum := CurLineNum;
+
   // Read Condition
   ReadExpectedLexem(['(']);
   S := ReadExpressionStr();
   ReadExpectedLexem([')']);
+  Result.ACondition := S;
 
-  // Read Statement
+  // Read If Statement
   AFields := ReadStatement();
+  for i:=0 to Length(AFields)-1 do
+    AFields[i].Parent := Result;
 
+  // Read Else Statement
   if SameName(PeekLexem(), 'else') then
   begin
     ReadLexem();
     AElseFields := ReadStatement();
+    for i:=0 to Length(AElseFields)-1 do
+      AElseFields[i].Parent := Result;
   end;
 
-  Result := TDSConditional.Create();
-  Result.DescrLineNum := CurLineNum;
-  Result.ACondition := S;
   // "if" branch
   Result.Branches.AddOrSetValue(True, AFields);
   // "else" branch
@@ -605,6 +648,7 @@ function TDSParser.ReadSwitchStatement: TDSConditional;
 var
   S, ACond, ACase: string;
   AFields: TArrayOfDSField;
+  i: Integer;
 begin
   // Read Condition
   ReadExpectedLexem(['(']);
@@ -627,7 +671,9 @@ begin
         ReadExpectedLexem([':']);
         // Read Statement
         AFields := ReadStatement();
-        Result.Branches.AddOrSetValue(TDSInterpretor.CalculateExpression(ACase, nil), AFields);  // TODO: not only ints
+        for i:=0 to Length(AFields)-1 do
+          AFields[i].Parent := Result;
+        Result.Branches.AddOrSetValue(TDSInterpretor.CalculateExpressionSimple(ACase, nil), AFields);  // TODO: not only ints
         Continue;
       end
       else
@@ -636,6 +682,8 @@ begin
         ReadExpectedLexem([':']);
         // Read Statement
         AFields := ReadStatement();
+        for i:=0 to Length(AFields)-1 do
+          AFields[i].Parent := Result;
         Result.Branches.AddOrSetValue(DSDefaultCaseVariant, AFields);
         Continue;
       end
@@ -729,6 +777,11 @@ begin
     Result := Intr.ToVariant(Data[0], Length(Data));
 end;
 
+function TDSSimpleField.ValueAsVariant: Variant;
+begin
+  Result := GetInterpretor(True).ToVariant(Data[0], Length(Data));
+end;
+
 { TDSCompoundField }
 
 procedure TDSCompoundField.Assign(Source: TDSField);
@@ -755,8 +808,21 @@ end;
 
 destructor TDSCompoundField.Destroy;
 begin
+  if Assigned(FComWrapper) then
+    FComWrapper._Release();
   Fields.Free;
   inherited;
+end;
+
+function TDSCompoundField.GetComWrapper: TDSComWrapper;
+begin
+  if FComWrapper = nil then
+  begin
+    FComWrapper := TDSComWrapper.Create();
+    FComWrapper.DSField := Self;
+    FComWrapper._AddRef();
+  end;
+  Result := FComWrapper;
 end;
 
 function TDSCompoundField.ToString: string;
@@ -792,6 +858,7 @@ begin
   if Source is TDSArray then
   begin
     ElementType := (Source as TDSArray).ElementType.Duplicate();
+    ElementType.Parent := Self;
     ACount := (Source as TDSArray).ACount;
   end;
 
@@ -864,10 +931,29 @@ begin
 
 end;
 
+destructor TDSField.Destroy;
+begin
+
+  inherited;
+end;
+
 function TDSField.Duplicate(): TDSField;
 begin
   Result := TDSFieldClass(Self.ClassType).Create();
   Result.Assign(Self);
+end;
+
+function TDSField.FullName: string;
+var
+  ParentFullName: string;
+begin
+  Result := Name;
+  if Parent <> nil then
+    ParentFullName := Parent.FullName()
+  else
+    ParentFullName := '';
+  if ParentFullName <> '' then
+    Result := ParentFullName + '.' + Result;
 end;
 
 function TDSField.ToQuotedString: string;
@@ -880,6 +966,8 @@ end;
 procedure TDSConditional.Assign(Source: TDSField);
 var
   APair: TPair<Variant, TArrayOfDSField>;
+  AFields: TArrayOfDSField;
+  i: Integer;
 begin
   inherited;
   if Source is TDSConditional then
@@ -889,7 +977,10 @@ begin
     // Clone all conditional branches
     for APair in (Source as TDSConditional).Branches do
     begin
-      Branches.AddOrSetValue(APair.Key, DuplicateDSFieldArray(APair.Value));
+      AFields := DuplicateDSFieldArray(APair.Value);
+      for i:=0 to Length(AFields)-1 do
+        AFields[i].Parent := Self;
+      Branches.AddOrSetValue(APair.Key, AFields);
     end;
   end;
 end;
@@ -914,14 +1005,67 @@ end;
 
 { TDSInterpretor }
 
-class function TDSInterpretor.CalculateExpression(Expr: string;
-  Env: TDSField): Variant;
-var
-  DS: TDSField;
-  N: Integer;
-  Operands: TArray<string>;
-  Value1, Value2: Variant;
+function TDSInterpretor.CalculateExpression(Expr: string;
+  CurField: TDSField): Variant;
+//var
+//  DS: TDSField;
+//  Operands: TArray<string>;
+//  Value1, Value2: Variant;
 begin
+//  WriteLogF('Struct_Intepret', 'Expression: ' + Expr);
+  try
+    Expr := Trim(Expr);
+
+    Result := CalculateExpressionSimple(Expr, CurField);
+    if not VarIsEmpty(Result) then Exit;
+
+    PrepareScriptEnv(CurField);
+    Result := ScriptControl.Eval(Expr);
+//    Exit;
+//
+//    if CurField <> nil then
+//    begin
+//      // Equality comparison
+//      if Pos('=', Expr) > 0 then
+//      begin
+//        Operands := Expr.Split(['='], ExcludeEmpty);
+//        if Length(Operands) <> 2 then
+//          raise EDSParserError.Create('Error in expression: "'+Expr+'"');
+//        Value1 := CalculateExpression(Operands[0], CurField);
+//        Value2 := CalculateExpression(Operands[1], CurField);
+//        Exit(Value1 = Value2);
+//      end;
+//
+//      // Field name
+//      // TODO: start search from current element, not from last
+//      DS := FindLastValueByName(CurField, Expr);
+//      if (DS <> nil) and (DS is TDSSimpleField) then
+//        with TDSSimpleField(DS) do
+//          if (Length(Data) > 0) {and (Length(Data) <= 4)} then
+//          begin
+//    //        Result := 0;
+//    //        Move(Data[0], Result, Length(Data));
+//            Result := GetInterpretor().ToVariant(Data[0], Length(Data));
+//            Exit;
+//          end;
+//    end;
+
+    if VarIsEmpty(Result) then
+      raise EDSParserError.Create('Cannot calculate expression: "'+Expr+'"');
+
+  finally
+//    WriteLogF('Struct_Intepret', 'Result: ' + string(Result));
+  end;
+
+end;
+
+class function TDSInterpretor.CalculateExpressionSimple(Expr: string;
+  CurField: TDSField): Variant;
+// Calculate expression that does not requires ScriptControl
+var
+  N: Integer;
+begin
+  VarClear(Result);
   Expr := Trim(Expr);
 
   // Number
@@ -934,35 +1078,69 @@ begin
     Result := AnsiChar(Expr[Low(Expr)+1]);
     Exit;
   end;
+end;
 
-  if Env <> nil then
-  begin
-    // Equality comparison
-    if Pos('=', Expr) > 0 then
-    begin
-      Operands := Expr.Split(['='], ExcludeEmpty);
-      if Length(Operands) <> 2 then
-        raise EDSParserError.Create('Error in expression: "'+Expr+'"');
-      Value1 := CalculateExpression(Operands[0], Env);
-      Value2 := CalculateExpression(Operands[1], Env);
-      Exit(Value1 = Value2);
-    end;
+//procedure TDSInterpretor.CheckParent(DS: TDSField);
+//var
+//  i: Integer;
+//begin
+//  if DS is TDSCompoundField then
+//  begin
+//    for i:=0 to (DS as TDSCompoundField).Fields.Count-1 do
+//    begin
+//      if (DS as TDSCompoundField).Fields[i].Parent <> DS then
+//        WriteLogF('Check', DS.Name+' '+(DS as TDSCompoundField).Fields[i].Name+' '+(DS as TDSCompoundField).Fields[i].Parent.Name);
+//      CheckParent((DS as TDSCompoundField).Fields[i]);
+//    end;
+//  end;
+//end;
 
-    // Field name
-    // TODO: start search from current element, not from last
-    DS := FindLastValueByName(Env, Expr);
-    if (DS <> nil) and (DS is TDSSimpleField) then
-      with TDSSimpleField(DS) do
-        if (Length(Data) > 0) {and (Length(Data) <= 4)} then
-        begin
-  //        Result := 0;
-  //        Move(Data[0], Result, Length(Data));
-          Result := GetInterpretor().ToVariant(Data[0], Length(Data));
-          Exit;
-        end;
+constructor TDSInterpretor.Create;
+begin
+  inherited;
+  ScriptControl := TScriptControl.Create(nil);
+  ScriptControl.Language := 'JScript';
+//  DSStack := TStack<TDSField>.Create();
+end;
+
+class function TDSInterpretor.DbgDescr(DS: TDSField): string;
+var
+  sl: TStringList;
+begin
+  sl := TStringList.Create();
+  try
+    DbgDescribe(DS, sl, '', DS.Parent);
+    Result := sl.Text;
+  finally
+    sl.Free;
   end;
+end;
 
-  raise EDSParserError.Create('Cannot calculate expression: "'+Expr+'"');
+class procedure TDSInterpretor.DbgDescribe(DS: TDSField; Text: TStrings;
+  Indent: string; AParent: TDSField);
+var
+  i: Integer;
+  s: string;
+begin
+  s := Indent + IntToHex(UIntPtr(DS), SizeOf(UIntPtr)*2) + ') ' + DS.ClassName + ' ' + DS.Name;
+  if DS is TDSSimpleField then
+    s := s + ' ' + DS.ToString();
+  s := s + ' ^' + IntToHex(UIntPtr(DS.Parent), SizeOf(UIntPtr)*2);
+  if DS.Parent <> AParent then
+    s := s + '!!!';
+  Text.Add(s);
+  if DS is TDSCompoundField then
+  begin
+    for i:=0 to (DS as TDSCompoundField).Fields.Count-1 do
+      DbgDescribe((DS as TDSCompoundField).Fields[i], Text, Indent + '  ', DS);
+  end;
+end;
+
+destructor TDSInterpretor.Destroy;
+begin
+  ScriptControl.Free;
+//  DSStack.Free;
+  inherited;
 end;
 
 class function TDSInterpretor.FindLastValueByName(DS: TDSField;
@@ -997,23 +1175,23 @@ begin
   DS.BufAddr := FCurAddr;
 
   // Real structure size is unknown, so suppose buffer size
-  //MainForm.ShowProgress(Self, FCurAddr - FStartAddr, FMaxSize, IntToStr(FieldsProcessed) + ' fields processed');
   OnProgress.Call(Self, FCurAddr - FStartAddr, FMaxSize, IntToStr(FieldsProcessed) + ' fields processed');
 
   try
+    if DS is TDSSimpleField then
+      InterpretSimple(TDSSimpleField(DS))
+    else
     if DS is TDSStruct then
       InterpretStruct(TDSStruct(DS))
     else
     if DS is TDSArray then
       InterpretArray(TDSArray(DS))
     else
-    if DS is TDSSimpleField then
-      InterpretSimple(TDSSimpleField(DS))
-    else
     if DS is TDSConditional then
       InterpretConditional(TDSConditional(DS))
     else
       raise EParserError.Create('Invalid class of field '+DS.Name);
+//    WriteLogF('Struct_Intepret', AnsiString(DS.ClassName+' '+DS.Name+' = '+DS.ToString));
   except
     on E: Exception do
     begin
@@ -1029,12 +1207,15 @@ end;
 
 procedure TDSInterpretor.Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
 begin
+//  CheckParent(DS);
+
   FRootDS := DS;
   FStartAddr := Addr;
   FMaxSize := MaxSize;
   FCurAddr := Addr;
   EndOfData := False;
   FieldsProcessed := 0;
+  WriteLogF('Struct_Intepret', 'Start');
   try
     InternalInterpret(DS);
   finally
@@ -1052,10 +1233,12 @@ begin
   if Trim(DS.ACount) = '' then
     Count := -1
   else
-    Count := CalculateExpression(DS.ACount, FRootDS);
+    Count := CalculateExpression(DS.ACount, DS);
 
   i := 0;
   DS.Fields.Clear();
+  if Count > 0 then
+    DS.Fields.Capacity := Count;
   while True do
   begin
     if Count >= 0 then
@@ -1069,9 +1252,9 @@ begin
     end;
     Element := DS.ElementType.Duplicate();
     Element.Name := IntToStr(i);
-    Element.Parent := DS;
-    DS.Fields.Add(Element);
-    InternalInterpret(Element{, Buf, BufEnd});
+//    Element.Parent := DS;
+    DS.FCurParsedItem := DS.Fields.Add(Element);
+    InternalInterpret(Element);
     Inc(i);
   end;
 end;
@@ -1085,7 +1268,7 @@ var
   i: Integer;
 begin
   // Calculate condition
-  ExprValue := CalculateExpression(DS.ACondition, FRootDS);
+  ExprValue := CalculateExpression(DS.ACondition, DS);
 
   AFields := nil;
   // Find fields corresponding to condition value
@@ -1098,7 +1281,7 @@ begin
     for i:=0 to Length(AFields)-1 do
     begin
       AField := AFields[i].Duplicate();
-      DS.Fields.Add(AField);
+      DS.FCurParsedItem := DS.Fields.Add(AField);
       InternalInterpret(AField);
     end;
   end;
@@ -1109,7 +1292,26 @@ var
   i: Integer;
 begin
   for i:=0 to DS.Fields.Count-1 do
+  begin
+    DS.FCurParsedItem := i;
     InternalInterpret(DS.Fields[i]);
+  end;
+end;
+
+procedure TDSInterpretor.PrepareScriptEnv(CurField: TDSField);
+// Populate ScriptControl with already parsed fields to use them in expressions.
+// Innermost have higher precedence.
+var
+  DS: TDSField;
+begin
+  ScriptControl.Reset();
+  DS := CurField;
+  while DS <> nil do
+  begin
+    if DS is TDSCompoundField then
+      ScriptControl.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
+    DS := DS.Parent;
+  end;
 end;
 
 procedure TDSInterpretor.ReadData(var Data: TBytes; Size: Integer);
@@ -1176,6 +1378,122 @@ begin
   if DS.BigEndian then
     InvertByteOrder(DS.Data[0], Size);
   ValidateField(DS);
+end;
+
+{ TDSComWrapper }
+
+function TDSComWrapper.GetIDsOfNames(const IID: TGUID; Names: Pointer;
+  NameCount, LocaleID: Integer; DispIDs: Pointer): HRESULT;
+type
+  PNames = ^TNames;
+  TNames = array[0..100] of POleStr;
+  PDispIDs = ^TDispIDs;
+  TDispIDs = array[0..100] of Cardinal;
+var
+  i: Integer;
+  AName: string;
+begin
+  AName := PNames(Names)^[0];
+  if DSField is TDSArray then
+  begin
+    if SameText('index', AName) then
+    // ArrayName.index = current index in array
+    begin
+      PCardinal(DispIDs)^ := DISPID_INDEX;
+      Exit(S_OK);
+    end;
+    if SameText('length', AName) then
+    // ArrayName.length = length of array
+    begin
+      PCardinal(DispIDs)^ := DISPID_LENGTH;
+      Exit(S_OK);
+    end;
+  end;
+  if DSField is TDSCompoundField then
+    for i:=0 to (DSField as TDSCompoundField).Fields.Count-1 do
+      if SameText((DSField as TDSCompoundField).Fields[i].Name, AName) then
+      begin
+        PCardinal(DispIDs)^ := i;
+        Exit(S_OK);
+      end;
+  Result := DISP_E_UNKNOWNNAME;
+end;
+
+function TDSComWrapper.GetTypeInfo(Index, LocaleID: Integer;
+  out TypeInfo): HRESULT;
+begin
+  Result := E_NOTIMPL;
+end;
+
+function TDSComWrapper.GetTypeInfoCount(out Count: Integer): HRESULT;
+begin
+  Result := E_NOTIMPL;
+end;
+
+function TDSComWrapper.Invoke(DispID: Integer; const IID: TGUID;
+  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
+  ArgErr: Pointer): HRESULT;
+var
+  Field: TDSField;
+  LoggedName, LoggedValue: string;
+begin
+  Result := DISP_E_MEMBERNOTFOUND;
+  // Must be a compound field
+  if not (DSField is TDSCompoundField) then
+    Exit(DISP_E_MEMBERNOTFOUND);
+  // Cannot assign fields here
+  if ((Flags and (DISPATCH_METHOD or DISPATCH_PROPERTYPUT or DISPATCH_PROPERTYPUTREF)) <> 0) then
+    Exit(DISP_E_MEMBERNOTFOUND);
+
+  LoggedValue := '';
+  try
+    // "index" pseudo-field = current index in array
+    if DispID = DISPID_INDEX then
+    begin
+      if not (DSField is TDSArray) then
+        Exit(DISP_E_MEMBERNOTFOUND);
+      LoggedName := 'index';
+      POleVariant(VarResult)^ := (DSField as TDSArray).FCurParsedItem;
+      Exit(S_OK);
+    end;
+    // "length" pseudo-field = length of array
+    if DispID = DISPID_LENGTH then
+    begin
+      if not (DSField is TDSArray) then
+        Exit(DISP_E_MEMBERNOTFOUND);
+      LoggedName := 'length';
+      POleVariant(VarResult)^ := (DSField as TDSArray).Fields.Count;
+      Exit(S_OK);
+    end;
+
+    // Unknown DispID
+    if (DispID < 0) or (DispID >=(DSField as TDSCompoundField).Fields.Count) then
+      Exit(DISP_E_MEMBERNOTFOUND);
+
+    Result := S_OK;
+    Field := (DSField as TDSCompoundField).Fields[DispID];
+    LoggedName := Field.FullName();
+
+    if Field is TDSCompoundField then
+    // For compound field - return wrapper object
+    begin
+      POleVariant(VarResult)^ := (Field as TDSCompoundField).GetComWrapper() as IDispatch;
+      LoggedValue := Field.ToString();
+    end
+    else
+    if Field is TDSSimpleField then
+    // For simple field - return value
+    begin
+      POleVariant(VarResult)^ := (Field as TDSSimpleField).ValueAsVariant();
+    end;
+  finally
+    if Result = S_OK then
+    begin
+      if LoggedValue = '' then
+        LoggedValue := string(POleVariant(VarResult)^);
+//      WriteLogF('Struct_Intepret', LoggedName + ' = ' + LoggedValue);
+    end;
+  end;
 end;
 
 end.

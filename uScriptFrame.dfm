@@ -143,10 +143,6 @@ object ScriptFrame: TScriptFrame
     Gutter.Font.Style = []
     Gutter.ShowLineNumbers = True
     FontSmoothing = fsmNone
-    ExplicitLeft = 152
-    ExplicitTop = 136
-    ExplicitWidth = 200
-    ExplicitHeight = 150
   end
   object Timer1: TTimer
     Left = 104

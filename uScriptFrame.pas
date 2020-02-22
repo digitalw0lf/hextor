@@ -25,6 +25,7 @@ type
     procedure BtnClearOutputClick(Sender: TObject);
   private
     { Private declarations }
+    procedure PrepareScriptEnv();
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -36,7 +37,7 @@ type
 implementation
 
 uses
-  uMainForm;
+  uMainForm, uDataStruct;
 
 {$R *.dfm}
 
@@ -50,7 +51,9 @@ begin
   AppSettings.Script.Text := AText;
   MainForm.SaveSettings();
 
-  Res := ScriptControl1.Eval(AText);
+  PrepareScriptEnv();
+
+  Res := ScriptControl1.Eval(AText);  // <--
 
   MemoOutput.Lines.Add(Res);
   ShowMemoCaret(MemoOutput, True);
@@ -69,11 +72,19 @@ end;
 procedure TScriptFrame.Init;
 begin
   ScriptEdit.Text := AppSettings.Script.Text;
+end;
 
-//  ScriptControl1.AddObject('DWHex', MainForm.DWHexOle, False);
+procedure TScriptFrame.PrepareScriptEnv;
+begin
+  ScriptControl1.Reset();
+  // Main application object
   ScriptControl1.AddObject('app', MainForm.APIEnv.GetAPIWrapper(MainForm), True);
+  // Utility functions
   ScriptControl1.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
-
+  // Parsed structure from StructFrame
+  if (MainForm.StructFrame.ShownDS <> nil) and
+     (MainForm.StructFrame.ShownDS is TDSCompoundField) then
+  ScriptControl1.AddObject('ds', (MainForm.StructFrame.ShownDS as TDSCompoundField).GetComWrapper(), False);
 end;
 
 procedure TScriptFrame.BtnClearOutputClick(Sender: TObject);

@@ -123,7 +123,13 @@ begin
   else
     x := 0;
   Move(Data, x, Size);
-  Result := x;
+//  Result := x;
+  case Size of
+    1: Result := ShortInt(x);
+    2: Result := SmallInt(x);
+    3, 4: Result := Integer(x);
+    else Result := Int64(x);
+  end;
 end;
 
 procedure Variant2Int(const V: Variant; var Data; Size: Integer);
@@ -144,7 +150,13 @@ begin
   if Size > 8 then Size := 8;
   x := 0;
   Move(Data, x, Size);
-  Result := x;
+//  Result := x;
+  case Size of
+    1: Result := Byte(x);
+    2: Result := Word(x);
+    3, 4: Result := Cardinal(x);
+    else Result := Int64(x);  // Troubles with COM/TScriptControl and UInt64
+  end;
 end;
 
 procedure Variant2UInt(const V: Variant; var Data; Size: Integer);

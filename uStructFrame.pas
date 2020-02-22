@@ -68,7 +68,7 @@ type
     FParser: TDSParser;
     FInterpretor: TDSInterpretor;
     MPos: TPoint;
-    ShownDS: TDSField;
+    FShownDS: TDSField;
     FEditor: TEditorForm;
     EditedNode: PVirtualNode;
     EditedDS: TDSSimpleField;
@@ -86,6 +86,7 @@ type
     procedure Analyze(Addr, Size: TFilePointer; const Struct: string);
     function GetDataColors(Editor: TEditorForm; Addr: TFilePointer;
       Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
+    property ShownDS: TDSField read FShownDS;
   end;
 
 implementation
@@ -104,11 +105,11 @@ var
   DS: TDSField;
 begin
   DSTreeView.Clear();
-  FreeAndNil(ShownDS);
+  FreeAndNil(FShownDS);
   BtnCopyValue.Enabled := False;
 
   // Parse structure description
-  ShownDS := FParser.ParseStruct(Struct);
+  FShownDS := FParser.ParseStruct(Struct);
 
   // Populate structure fields
   FInterpretor.OnGetMoreData := procedure (AAddr, ASize: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean})
@@ -440,7 +441,7 @@ end;
 procedure TStructFrame.EditorClosed(Sender: TEditorForm);
 begin
   DSTreeView.Clear();
-  FreeAndNil(ShownDS);
+  FreeAndNil(FShownDS);
   FEditor := nil;
   BtnCopyValue.Enabled := False;
 end;
