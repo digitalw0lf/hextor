@@ -1,4 +1,4 @@
-unit uDWHexDataSources;
+unit uHextorDataSources;
 
 {$WARN SYMBOL_PLATFORM OFF}
 
@@ -7,13 +7,13 @@ interface
 uses
   System.SysUtils, System.Types, System.Classes, Winapi.Windows, System.Math,
 
-  uDWHexTypes, uLogFile;
+  uHextorTypes, uLogFile;
 
 type
   TDataSourceProperty = (dspWritable, dspResizable);
   TDataSourceProperties = set of TDataSourceProperty;
 
-  TDWHexDataSource = class
+  THextorDataSource = class
   private
     FPath: string;
   public
@@ -28,12 +28,12 @@ type
     procedure SetSize(NewSize: TFilePointer); virtual;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
     function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
-    procedure CopyContentFrom(Source: TDWHexDataSource); virtual;
+    procedure CopyContentFrom(Source: THextorDataSource); virtual;
   end;
 
-  TDWHexDataSourceType = class of TDWHexDataSource;
+  THextorDataSourceType = class of THextorDataSource;
 
-  TFileDataSource = class (TDWHexDataSource)
+  TFileDataSource = class (THextorDataSource)
   protected
     FileStream: TFileStream;
   public
@@ -46,7 +46,7 @@ type
     procedure SetSize(NewSize: TFilePointer); override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
     function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
-    procedure CopyContentFrom(Source: TDWHexDataSource); override;
+    procedure CopyContentFrom(Source: THextorDataSource); override;
   end;
 
   TDiskDataSource = class (TFileDataSource)
@@ -61,7 +61,7 @@ type
     function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
   end;
 
-  TProcMemDataSource = class (TDWHexDataSource)
+  TProcMemDataSource = class (THextorDataSource)
   protected
     hProcess: Cardinal;
   public
@@ -77,15 +77,15 @@ type
 
 implementation
 
-{ TDWHexDataSource }
+{ THextorDataSource }
 
-function TDWHexDataSource.CanBeSaved: Boolean;
+function THextorDataSource.CanBeSaved: Boolean;
 // Is it possible to execute "Save" action for currently assigned data source
 begin
   Result := dspWritable in GetProperties();
 end;
 
-procedure TDWHexDataSource.CopyContentFrom(Source: TDWHexDataSource);
+procedure THextorDataSource.CopyContentFrom(Source: THextorDataSource);
 const
   BlockSize = 10*MByte;
 var
@@ -106,24 +106,24 @@ begin
   end;
 end;
 
-constructor TDWHexDataSource.Create(const APath: string);
+constructor THextorDataSource.Create(const APath: string);
 begin
   inherited Create();
   FPath := APath;
 end;
 
-destructor TDWHexDataSource.Destroy;
+destructor THextorDataSource.Destroy;
 begin
 
   inherited;
 end;
 
-function TDWHexDataSource.GetProperties: TDataSourceProperties;
+function THextorDataSource.GetProperties: TDataSourceProperties;
 begin
   Result := [];
 end;
 
-procedure TDWHexDataSource.SetSize(NewSize: TFilePointer);
+procedure THextorDataSource.SetSize(NewSize: TFilePointer);
 begin
   //raise Exception.Create('Size change not supported');
 end;
@@ -146,7 +146,7 @@ begin
   Result := Size;
 end;
 
-procedure TFileDataSource.CopyContentFrom(Source: TDWHexDataSource);
+procedure TFileDataSource.CopyContentFrom(Source: THextorDataSource);
 // Called on closed dest
 //var
 //  Dir: string;

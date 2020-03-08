@@ -6,7 +6,7 @@ uses
   System.Types, System.SysUtils, Generics.Collections, Math, Vcl.Forms,
   Generics.Defaults,
 
-  uDWHexTypes, uDWHexDataSources, uUtil, uCallbackList, uLogFile, uSkipList,
+  uHextorTypes, uHextorDataSources, uUtil, uCallbackList, uLogFile, uSkipList,
   uComAPIAttribute;
 
 type
@@ -49,7 +49,7 @@ type
     procedure RecalcAddressesAfter(OldAddr, NewAddr: TFilePointer);
     procedure BoundToRange(var Addr, Size: TFilePointer);
   public
-    DataSource: TDWHexDataSource;
+    DataSource: THextorDataSource;
     Resizable: Boolean;
     Parts: TDataPartSkipList;  // Treat as private except for saving to file
     // Data changed event. "Value" may be nil if fired as a result on Undo

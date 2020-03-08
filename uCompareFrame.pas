@@ -7,7 +7,7 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Math,
   Generics.Collections, System.Types, Vcl.StdCtrls,
 
-  uDWHexTypes, uEditorForm, uEditedData, uLogFile, ColoredPanel, Vcl.Buttons;
+  uHextorTypes, uEditorForm, uEditedData, uLogFile, ColoredPanel, Vcl.Buttons;
 
 type
   TCompareFrame = class(TFrame)

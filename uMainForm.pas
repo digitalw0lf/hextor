@@ -18,8 +18,8 @@ uses
   System.StrUtils,
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
-  uDWHexTypes, uDWHexDataSources, uEditorForm,
-  uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame, uCoDWHex,
+  uHextorTypes, uHextorDataSources, uEditorForm,
+  uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, ColoredPanel, uComAPIAttribute;
 
 const
@@ -32,7 +32,7 @@ const
 //  MAX_TAB_WIDTH = 200;
 
 type
-  TDWHexSettings = class
+  THextorSettings = class
   public type
     TRecentFileRec = record
       FileName: string;
@@ -52,7 +52,7 @@ type
   end;
 
   [API]
-  TDWHexUtils = class
+  THextorUtils = class
   public
     procedure Sleep(milliseconds: Cardinal);
     procedure Alert(V: Variant);
@@ -237,12 +237,12 @@ type
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
-//    DWHexOle: TCoDWHex;
+//    HextorOle: TCoHextor;
     APIEnv: TAPIEnvironment;
-    Utils: TDWHexUtils;
+    Utils: THextorUtils;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
-    procedure OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
+    procedure OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveSettings();
     procedure CheckEnabledActions();
@@ -251,7 +251,7 @@ type
     procedure ActiveEditorChanged();
     procedure SelectionChanged();
     procedure VisibleRangeChanged();
-    function GetIconIndex(DataSource: TDWHexDataSource): Integer;
+    function GetIconIndex(DataSource: THextorDataSource): Integer;
     [API]
     property ActiveEditor: TEditorForm read GetActiveEditor write SetActiveEditor;
     function GetActiveEditorNoEx: TEditorForm;
@@ -273,7 +273,7 @@ type
 
 var
   MainForm: TMainForm;
-  AppSettings: TDWHexSettings;
+  AppSettings: THextorSettings;
 
 implementation
 
@@ -585,7 +585,7 @@ begin
   with ActiveEditor do
   begin
     if DataSource.CanBeSaved() then
-      SaveFile(TDWHexDataSourceType(DataSource.ClassType), DataSource.Path)
+      SaveFile(THextorDataSourceType(DataSource.ClassType), DataSource.Path)
     else
       ActionSaveAsExecute(Sender);
   end;
@@ -624,7 +624,7 @@ begin
     SaveEntireFile(fn, AData);
 
     if SameFile then
-      OpenFile(TDWHexDataSourceType(DataSource.ClassType), fn);
+      OpenFile(THextorDataSourceType(DataSource.ClassType), fn);
   end;
 end;
 
@@ -895,12 +895,12 @@ var
 begin
   bWriteLogFile := True;
 //  bThreadedLogWrite := False;
-  AppSettings := TDWHexSettings.Create();
+  AppSettings := THextorSettings.Create();
 
-  // Get path to settings folder (AppData\DWHex)
+  // Get path to settings folder (AppData\Hextor)
   SetLength(ws, MAX_PATH);
   i:=SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @ws[Low(ws)]);
-  if i=0 then  SettingsFolder := AddSlash(PChar(ws)) + 'DWHex\'
+  if i=0 then  SettingsFolder := AddSlash(PChar(ws)) + 'Hextor\'
          else  SettingsFolder := ExePath + 'Settings\';
   SettingsFile := SettingsFolder + 'Settings.json';
 
@@ -928,9 +928,9 @@ begin
 
   FmtHint := tFmtHintWindow.Create(Self);
 
-  Utils := TDWHexUtils.Create();
+  Utils := THextorUtils.Create();
 
-//  DWHexOle := TCoDWHex.Create();
+//  HextorOle := TCoHextor.Create();
   APIEnv := TAPIEnvironment.Create();
 
   ScriptFrame.Init();
@@ -1007,12 +1007,12 @@ begin
   Result := FEditors.IndexOf(AEditor);
 end;
 
-function TMainForm.GetIconIndex(DataSource: TDWHexDataSource): Integer;
+function TMainForm.GetIconIndex(DataSource: THextorDataSource): Integer;
 // Index in ImageList16 for given DataSource
 var
-  DSType: TDWHexDataSourceType;
+  DSType: THextorDataSourceType;
 begin
-  DSType := TDWHexDataSourceType(DataSource.ClassType);
+  DSType := THextorDataSourceType(DataSource.ClassType);
   if DSType = TDiskDataSource then  Result := 4
   else if DSType = TProcMemDataSource then  Result := 5
   else Result := 7;
@@ -1027,7 +1027,7 @@ begin
 end;
 
 type
-  TInitPluginProc = procedure(App: OleVariant {IDWHexApp}); stdcall;
+  TInitPluginProc = procedure(App: OleVariant {IHextorApp}); stdcall;
 //  TInsertProc = procedure(Addr: TFilePointer; Value: Byte) of Object;
 //  TInitPluginProc = procedure(InsProc: TInsertProc); stdcall;
 
@@ -1035,12 +1035,12 @@ procedure TMainForm.Loadplugin1Click(Sender: TObject);
 var
   hLib: HMODULE;
   pInit: TInitPluginProc;
-  //app: IDWHexApp;
+  //app: IHextorApp;
   app: OleVariant;
 begin
   hLib := LoadLibrary(PChar(ExePath + 'Plugins\PluginTest.dll'));
   pInit := GetProcAddress(hLib, 'init');
-  app := APIEnv.GetAPIWrapper(MainForm);//as IDWHexApp;
+  app := APIEnv.GetAPIWrapper(MainForm);//as IHextorApp;
   pInit(app);
 //  pInit(MainForm.ActiveEditor.Data.Insert);
 
@@ -1059,9 +1059,9 @@ begin
     json := SO('');
 
   ctx := TSuperRttiContext.Create;
-  Value := TValue.From<TDWHexSettings>(AppSettings);
+  Value := TValue.From<THextorSettings>(AppSettings);
 
-  ctx.FromJson(TypeInfo(TDWHexSettings), json, Value);
+  ctx.FromJson(TypeInfo(THextorSettings), json, Value);
 
   ctx.Free;
 end;
@@ -1113,9 +1113,9 @@ begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
 end;
 
-procedure TMainForm.OpenFile(DataSourceType: TDWHexDataSourceType; const AFileName: string);
+procedure TMainForm.OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string);
 var
-  DS: TDWHexDataSource;
+  DS: THextorDataSource;
 begin
   DS := DataSourceType.Create(AFileName);
   try
@@ -1171,10 +1171,10 @@ end;
 
 procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
 var
-  AFrame: IDWHexToolFrame;
+  AFrame: IHextorToolFrame;
 begin
   AppSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
-  if Supports(RightPanelPageControl.ActivePage.Controls[0], IDWHexToolFrame, AFrame) then
+  if Supports(RightPanelPageControl.ActivePage.Controls[0], IHextorToolFrame, AFrame) then
     AFrame.OnShown();
 end;
 
@@ -1196,7 +1196,7 @@ begin
     fs.WriteBuffer(BOM, SizeOf(BOM));
 
     ctx := TSuperRttiContext.Create;
-    ctx.AsJson<TDWHexSettings>(AppSettings).SaveTo(fs, True, False);
+    ctx.AsJson<THextorSettings>(AppSettings).SaveTo(fs, True, False);
     ctx.Free;
   finally
     fs.Free;
@@ -1390,7 +1390,7 @@ begin
     ShowMsg := False;
     if (DataSource <> nil) then
     begin
-      if ChooseSaveMethod(TDWHexDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
+      if ChooseSaveMethod(THextorDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
       begin
         ASize := Data.GetSize();
         if ASize > WarnSize then
@@ -1437,14 +1437,14 @@ begin
   Msg.Result := 0;
 end;
 
-{ TDWHexUtils }
+{ THextorUtils }
 
-procedure TDWHexUtils.Alert(V: Variant);
+procedure THextorUtils.Alert(V: Variant);
 begin
   Application.MessageBox(PChar(string(V)), 'Alert', MB_OK);
 end;
 
-procedure TDWHexUtils.Sleep(milliseconds: Cardinal);
+procedure THextorUtils.Sleep(milliseconds: Cardinal);
 begin
   System.SysUtils.Sleep(milliseconds);
 end;

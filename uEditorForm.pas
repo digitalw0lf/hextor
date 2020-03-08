@@ -8,8 +8,8 @@ uses
   Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
   System.Win.ComObj, System.TypInfo, Winapi.ActiveX,
 
-  uUtil, uDWHexTypes, uDWHexDataSources, uEditorPane, uEditedData,
-  uCallbackList, DWHex_TLB, Vcl.Buttons, System.ImageList, Vcl.ImgList,
+  uUtil, uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
+  uCallbackList, Vcl.Buttons, System.ImageList, Vcl.ImgList,
   uDataSearcher, uUndoStack, uLogFile, uComAPIAttribute;
 
 type
@@ -104,7 +104,7 @@ type
     procedure ShowSelectionInfo();
     procedure AddCurrentFileToRecentFiles();
     procedure SelectionChanged();
-    procedure CopyDataRegion(Source, Dest: TDWHexDataSource; SourceAddr, DestAddr, Size: TFilePointer);
+    procedure CopyDataRegion(Source, Dest: THextorDataSource; SourceAddr, DestAddr, Size: TFilePointer);
     procedure SetInsertMode(Value: Boolean);
     function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
     procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
@@ -119,7 +119,7 @@ type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
     { Public declarations }
-    DataSource: TDWHexDataSource;
+    DataSource: THextorDataSource;
     UndoStack: TUndoStack;
     OnClosed: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
@@ -131,7 +131,7 @@ type
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
-    procedure SaveFile(DataSourceType: TDWHexDataSourceType; const APath: string);
+    procedure SaveFile(DataSourceType: THextorDataSourceType; const APath: string);
     procedure NewFileOpened(ResetCaret: Boolean);
     function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
     function GetOrigFileSize(): TFilePointer;
@@ -166,7 +166,7 @@ type
     [API]
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
-    function ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
+    function ChooseSaveMethod(DataSourceType: THextorDataSourceType; const APath: string;
       var InplaceSaving, UseTempFile: Boolean): Boolean;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property HorzScrollPos: Integer read FHorzScrollPos write SetHorzScrollPos;
@@ -221,7 +221,7 @@ end;
 
 procedure TEditorForm.AddCurrentFileToRecentFiles;
 var
-  Recent: TDWHexSettings.TRecentFileRec;
+  Recent: THextorSettings.TRecentFileRec;
   n, i: Integer;
 begin
   if (DataSource.ClassType <> TFileDataSource) or (ExtractFilePath(DataSource.Path) = '') then Exit;
@@ -355,7 +355,7 @@ begin
   Data.Change(Addr, Length(Value), @Value[0]);
 end;
 
-function TEditorForm.ChooseSaveMethod(DataSourceType: TDWHexDataSourceType; const APath: string;
+function TEditorForm.ChooseSaveMethod(DataSourceType: THextorDataSourceType; const APath: string;
   var InplaceSaving, UseTempFile: Boolean): Boolean;
 // How can we save our modified data to given target:
 // Can we only write changed parts, or maybe we'll have to use temp file?
@@ -370,7 +370,7 @@ begin
   Result := True;
 end;
 
-procedure TEditorForm.CopyDataRegion(Source, Dest: TDWHexDataSource; SourceAddr,
+procedure TEditorForm.CopyDataRegion(Source, Dest: THextorDataSource; SourceAddr,
   DestAddr, Size: TFilePointer);
 const
   BlockSize = 10*MByte;
@@ -910,9 +910,9 @@ begin
   TopVisibleRow := TFilePointer(VertScrollBar.Position) * FLinesPerScrollBarTick;
 end;
 
-procedure TEditorForm.SaveFile(DataSourceType: TDWHexDataSourceType; const APath: string);
+procedure TEditorForm.SaveFile(DataSourceType: THextorDataSourceType; const APath: string);
 var
-  Dest: TDWHexDataSource;
+  Dest: THextorDataSource;
   InplaceSaving, UseTempFile: Boolean;
   TempFileName: string;
   APart: TEditedData.TDataPart;

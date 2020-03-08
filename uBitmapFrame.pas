@@ -8,10 +8,10 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls,
   Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Samples.Spin, Math, System.Types,
 
-  uDWHexTypes, uEditorForm, Vcl.Buttons;
+  uHextorTypes, uEditorForm, Vcl.Buttons;
 
 type
-  TBitmapFrame = class(TFrame, IDWHexToolFrame)
+  TBitmapFrame = class(TFrame, IHextorToolFrame)
     MainPaintBox: TPaintBox;
     LeftPanel: TPanel;
     TopPanel: TPanel;

@@ -10,7 +10,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
   System.UITypes,
 
-  uDWHexTypes, uMainForm, uEditorForm, uEditedData, uUtil, uCallbackList,
+  uHextorTypes, uMainForm, uEditorForm, uEditedData, uUtil, uCallbackList,
   uDataSearcher;
 
 type

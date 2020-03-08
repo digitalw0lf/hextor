@@ -6,7 +6,7 @@ uses
   System.SysUtils, System.Classes, Winapi.Windows, Generics.Collections,
   System.Math, Winapi.ActiveX, MSScriptControl_TLB, Variants,
 
-  uDWHexTypes, uValueInterpretors, uLogFile, uUtil, uCallbackList;
+  uHextorTypes, uValueInterpretors, uLogFile, uUtil, uCallbackList;
 
 const
   // Synthetic "case" label for "default" branch

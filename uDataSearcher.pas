@@ -5,7 +5,7 @@ interface
 uses
   System.SysUtils,
 
-  uDWHexTypes, uEditedData, uCallbackList, uUtil;
+  uHextorTypes, uEditedData, uCallbackList, uUtil;
 
 type
   TSearchParams = record

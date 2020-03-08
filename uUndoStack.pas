@@ -5,7 +5,7 @@ interface
 uses
   Generics.Collections,
 
-  uDWHexTypes, uEditedData, uCallbackList;
+  uHextorTypes, uEditedData, uCallbackList;
 
 type
   // Undo stack contains Actions, each Action consists of Changes

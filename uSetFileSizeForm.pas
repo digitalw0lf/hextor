@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
 
-  ColoredPanel, uDWHexTypes;
+  ColoredPanel, uHextorTypes;
 
 type
   TSetFileSizeForm = class(TForm)

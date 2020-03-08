@@ -1,11 +1,11 @@
-program DWHex;
+program Hextor;
 
 uses
   FastMM4,
   Vcl.Forms,
   uEditorPane in 'uEditorPane.pas',
-  uDWHexTypes in 'uDWHexTypes.pas',
-  uDWHexDataSources in 'uDWHexDataSources.pas',
+  uHextorTypes in 'uHextorTypes.pas',
+  uHextorDataSources in 'uHextorDataSources.pas',
   uMainForm in 'uMainForm.pas' {MainForm},
   uFindReplaceForm in 'uFindReplaceForm.pas' {FindReplaceForm},
   uDiskSelectForm in 'uDiskSelectForm.pas' {DiskSelectForm},
@@ -18,8 +18,6 @@ uses
   uCompareFrame in 'uCompareFrame.pas' {CompareFrame: TFrame},
   uCallbackList in 'uCallbackList.pas',
   uScriptFrame in 'uScriptFrame.pas' {ScriptFrame: TFrame},
-  DWHex_TLB in 'DWHex_TLB.pas',
-  uCoDWHex in 'uCoDWHex.pas' {CoDWHex: CoClass},
   uDbgToolsForm in 'uDbgToolsForm.pas' {DbgToolsForm},
   uProfilerFrame in 'D:\Work\Trunk\Units\Components\uProfilerFrame.pas' {ProfilerFrame: TFrame},
   uDataSearcher in 'uDataSearcher.pas',
@@ -32,8 +30,6 @@ uses
   uFillBytesForm in 'uFillBytesForm.pas' {FillBytesForm},
   Vcl.Themes,
   Vcl.Styles;
-
-{$R *.TLB}
 
 {$R *.res}
 

@@ -9,7 +9,7 @@ uses
   Vcl.Buttons, Vcl.Menus, System.Types, Math, SynEdit, SynEditHighlighter,
   SynHighlighterCpp, superobject, Clipbrd,
 
-  uUtil, uDWHexTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors,
+  uUtil, uHextorTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors,
   uDataStruct, VirtualTrees;
 
 type

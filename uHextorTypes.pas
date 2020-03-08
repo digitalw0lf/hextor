@@ -1,4 +1,4 @@
-unit uDWHexTypes;
+unit uHextorTypes;
 
 interface
 
@@ -35,7 +35,7 @@ type
 
   TColorArray = array of TColor;
 
-  IDWHexToolFrame = interface
+  IHextorToolFrame = interface
     ['{4AB18488-6B7D-4A9B-9892-EC91DDF81745}']
     procedure OnShown();
   end;

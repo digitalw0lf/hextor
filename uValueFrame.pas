@@ -7,13 +7,13 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, KControls, KGrids, Math,
   Generics.Collections, Vcl.StdCtrls, Clipbrd, System.Types, Vcl.Menus,
 
-  uDWHexTypes, uUtil, uEditorForm, uValueInterpretors;
+  uHextorTypes, uUtil, uEditorForm, uValueInterpretors;
 
 const
   SUndefinedValue = 'N/A';
 
 type
-  TValueFrame = class(TFrame, IDWHexToolFrame)
+  TValueFrame = class(TFrame, IHextorToolFrame)
     ValuesGrid: TKGrid;
     ValuePopupMenu: TPopupMenu;
     MICopyValue: TMenuItem;

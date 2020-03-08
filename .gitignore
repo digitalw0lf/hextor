@@ -4,10 +4,10 @@
 *.identcache
 *.local
 *.stat
-/DWHex.res
+/Hextor.res
 /__history
 /__recovery
 /Test
 /Win32
 /Win64
-/ModelSupport_DWHex
+/ModelSupport_Hextor
