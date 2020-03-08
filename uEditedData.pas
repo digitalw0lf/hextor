@@ -280,14 +280,16 @@ begin
 end;
 
 function TEditedData.HasChanges: Boolean;
-// False if we have only one part that is equal to entire source.
+// False if we have only one part that is equal to entire source
+// (or source and current data both empty)
 var
   Part: TDataPart;
 begin
-  Result := False;
+  if FOriginalSize = 0 then Result := False
+                       else Result := True;
   for Part in Parts do
     if (Part.PartType = ptSource) and (Part.Addr = 0) and (Part.Size = FOriginalSize) then
-      Continue
+      Result := False
     else
       Exit(True);
 end;

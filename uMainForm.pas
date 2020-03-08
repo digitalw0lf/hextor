@@ -161,6 +161,7 @@ type
     HintImage: TImage;
     ActionSetFileSize: TAction;
     ActionFillBytes: TAction;
+    Loadplugin1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -209,6 +210,7 @@ type
     procedure Something1Click(Sender: TObject);
     procedure ActionSetFileSizeExecute(Sender: TObject);
     procedure ActionFillBytesExecute(Sender: TObject);
+    procedure Loadplugin1Click(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -265,6 +267,8 @@ type
     procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
     [API]
     procedure OperationDone(Sender: TObject);
+    [API]
+    procedure DoTest(x: Integer);
   end;
 
 var
@@ -879,6 +883,11 @@ begin
   AfterEventTimer.Enabled := True;
 end;
 
+procedure TMainForm.DoTest(x: Integer);
+begin
+  Application.MessageBox(PChar(IntToStr(x)), 'DoTest', MB_OK);
+end;
+
 procedure TMainForm.FormCreate(Sender: TObject);
 var
   ws: string;
@@ -1015,6 +1024,27 @@ begin
   AppSettings.ByteColumns := -1;
 
 //  AppSettings.Colors.ValueHighlightBg := $FFD0A0;
+end;
+
+type
+  TInitPluginProc = procedure(App: OleVariant {IDWHexApp}); stdcall;
+//  TInsertProc = procedure(Addr: TFilePointer; Value: Byte) of Object;
+//  TInitPluginProc = procedure(InsProc: TInsertProc); stdcall;
+
+procedure TMainForm.Loadplugin1Click(Sender: TObject);
+var
+  hLib: HMODULE;
+  pInit: TInitPluginProc;
+  //app: IDWHexApp;
+  app: OleVariant;
+begin
+  hLib := LoadLibrary(PChar(ExePath + 'Plugins\PluginTest.dll'));
+  pInit := GetProcAddress(hLib, 'init');
+  app := APIEnv.GetAPIWrapper(MainForm);//as IDWHexApp;
+  pInit(app);
+//  pInit(MainForm.ActiveEditor.Data.Insert);
+
+  FreeLibrary(hLib);
 end;
 
 procedure TMainForm.LoadSettings;

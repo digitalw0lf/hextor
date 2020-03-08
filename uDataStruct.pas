@@ -97,6 +97,7 @@ type
     procedure Assign(Source: TDSField); override;
   end;
 
+  // DS wrapper for scripts
   TDSComWrapper = class(TInterfacedObject, IDispatch)
   private const
     DISPID_INDEX  = 1000001;  // "index" pseudo-field of arrays

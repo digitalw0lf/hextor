@@ -315,6 +315,8 @@ object MainForm: TMainForm
           inherited ScriptEdit: TSynEdit
             Width = 412
             Height = 354
+            ExplicitWidth = 412
+            ExplicitHeight = 354
           end
         end
       end
@@ -555,6 +557,10 @@ object MainForm: TMainForm
         Caption = 'Something'
         OnClick = Something1Click
       end
+      object Loadplugin1: TMenuItem
+        Caption = 'Load plugin'
+        OnClick = Loadplugin1Click
+      end
     end
   end
   object OpenDialog1: TOpenDialog
@@ -754,7 +760,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001E40110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001EC0110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

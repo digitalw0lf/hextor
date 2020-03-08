@@ -1382,6 +1382,7 @@ begin
     begin
       Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, LnNumChars));
     end;
+    PaneLnNum.Refresh();
 
     // Hex
 //    StartTimeMeasure();

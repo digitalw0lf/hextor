@@ -116,7 +116,13 @@ begin
     begin
       Data := FEditor.Data.Get(AAddr, ASize);
     end;
-  FInterpretor.Interpret(ShownDS, Addr, Size);
+  try
+    FInterpretor.Interpret(ShownDS, Addr, Size);
+  except
+    // Show message and a partially parsed DS too
+    on E: Exception do
+      ShowException(E, ExceptAddr);
+  end;
 
   // Show tree
   DSTreeView.BeginUpdate();
