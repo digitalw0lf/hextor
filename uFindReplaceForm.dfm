@@ -118,13 +118,22 @@ object FindReplaceForm: TFindReplaceForm
       TabOrder = 3
     end
     object CBFindInSelection: TCheckBox
-      Left = 343
+      Left = 447
       Top = 84
       Width = 84
       Height = 17
       Caption = 'In selection'
       TabOrder = 8
       OnClick = CBFindInSelectionClick
+    end
+    object BtnFindList: TButton
+      Left = 350
+      Top = 80
+      Width = 90
+      Height = 25
+      Caption = 'List'
+      TabOrder = 9
+      OnClick = BtnFindCountClick
     end
   end
   object GBReplace: TGroupBox

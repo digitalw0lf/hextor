@@ -163,7 +163,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 551
-      ActivePage = PgStruct
+      ActivePage = PgSearchResult
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -185,7 +185,7 @@ object MainForm: TMainForm
             ExplicitHeight = 523
             ColWidths = (
               64
-              347)
+              343)
             RowHeights = (
               21
               21)
@@ -356,6 +356,61 @@ object MainForm: TMainForm
           end
         end
       end
+      object PgSearchResult: TTabSheet
+        Caption = 'SearchResult'
+        ImageIndex = 5
+        inline SearchResultsFrame: TSearchResultsFrame
+          Left = 0
+          Top = 0
+          Width = 412
+          Height = 523
+          Align = alClient
+          TabOrder = 0
+          ExplicitWidth = 412
+          ExplicitHeight = 523
+          inherited PageControl: TPageControl
+            Width = 412
+            Height = 523
+            ExplicitWidth = 412
+            ExplicitHeight = 523
+            inherited TabSheet1: TTabSheet
+              ExplicitLeft = 4
+              ExplicitTop = 24
+              ExplicitWidth = 404
+              ExplicitHeight = 495
+              inherited ResultsList: TVirtualStringTree
+                Width = 404
+                Height = 476
+                TabOrder = 1
+                ExplicitWidth = 404
+                ExplicitHeight = 476
+                Columns = <
+                  item
+                    Position = 0
+                    Text = 'Address'
+                    Width = 70
+                  end
+                  item
+                    Position = 1
+                    Text = 'Hex'
+                    Width = 230
+                  end
+                  item
+                    Position = 2
+                    Text = 'Text'
+                    Width = 100
+                  end>
+              end
+              inherited StatusBar1: TStatusBar
+                Top = 476
+                Width = 404
+                ExplicitTop = 476
+                ExplicitWidth = 404
+              end
+            end
+          end
+        end
+      end
     end
     object MsgPanel: TPanel
       Left = 0
@@ -519,6 +574,24 @@ object MainForm: TMainForm
       end
       object Insertbytes1: TMenuItem
         Action = ActionFillBytes
+      end
+    end
+    object View1: TMenuItem
+      Caption = 'View'
+      object MIEncodingMenu: TMenuItem
+        Caption = 'Text encoding'
+        OnClick = MIEncodingMenuClick
+        object ANSI1: TMenuItem
+          Caption = 'ANSI default (0)'
+          RadioItem = True
+          OnClick = ANSI1Click
+        end
+        object ASCII1: TMenuItem
+          Tag = 1
+          Caption = 'OEM default (1)'
+          RadioItem = True
+          OnClick = ANSI1Click
+        end
       end
     end
     object Tools1: TMenuItem
@@ -760,7 +833,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001F40110001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F004001040210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

@@ -34,6 +34,7 @@ type
     Timer1: TTimer;
     CBReplaceInSelection: TCheckBox;
     CBAskReplace: TCheckBox;
+    BtnFindList: TButton;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -72,17 +73,31 @@ begin
   FillParams(False, True);
   Count := 0;
   Start := Searcher.Params.Range.Start;
+  if Sender = BtnFindList then
+    MainForm.SearchResultsFrame.BeginUpdateList(GetTargetEditor, Searcher.Params.Text);
   try
     while Searcher.Find(Start, 1, Ptr, Size) do
     begin
       Inc(Count);
+      if Sender = BtnFindList then
+      begin
+        MainForm.SearchResultsFrame.AddListItem(TFileRange.Create(Ptr, Ptr + Size));
+      end;
+
       Start := Ptr+Size;
       MainForm.ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size, 'Found '+IntToStr(Count)+' time(s)');
     end;
   finally
     MainForm.OperationDone(Searcher);
+    if Sender = BtnFindList then
+      MainForm.SearchResultsFrame.EndUpdateList();
   end;
-  Application.MessageBox(PChar('Search string found '+IntToStr(Count)+' times'), 'Search', MB_OK);
+  if Sender = BtnFindList then
+  begin
+    MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
+  end
+  else
+    Application.MessageBox(PChar('Search string found '+IntToStr(Count)+' times'), 'Search', MB_OK);
 end;
 
 procedure TFindReplaceForm.BtnFindNextClick(Sender: TObject);

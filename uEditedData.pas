@@ -7,7 +7,7 @@ uses
   Generics.Defaults,
 
   uHextorTypes, uHextorDataSources, uUtil, uCallbackList, uLogFile, uSkipList,
-  uComAPIAttribute;
+  uOleAutoAPIWrapper;
 
 type
   // This class contains virtual "data" of edited file.

@@ -15,12 +15,13 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
-  System.StrUtils,
+  System.StrUtils, MSScriptControl_TLB,
 
   uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame,
-  uBitmapFrame, uCallbackList, ColoredPanel, uComAPIAttribute;
+  uBitmapFrame, uCallbackList, ColoredPanel, uOleAutoAPIWrapper,
+  uSearchResultsFrame;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -162,6 +163,12 @@ type
     ActionSetFileSize: TAction;
     ActionFillBytes: TAction;
     Loadplugin1: TMenuItem;
+    PgSearchResult: TTabSheet;
+    SearchResultsFrame: TSearchResultsFrame;
+    View1: TMenuItem;
+    MIEncodingMenu: TMenuItem;
+    ANSI1: TMenuItem;
+    ASCII1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -211,6 +218,8 @@ type
     procedure ActionSetFileSizeExecute(Sender: TObject);
     procedure ActionFillBytesExecute(Sender: TObject);
     procedure Loadplugin1Click(Sender: TObject);
+    procedure ANSI1Click(Sender: TObject);
+    procedure MIEncodingMenuClick(Sender: TObject);
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -262,6 +271,7 @@ type
     procedure AddEditor(AEditor: TEditorForm);
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
+    procedure ShowToolFrame(Frame: TFrame);
     procedure DoAfterEvent(Proc: TProc);
     [API]
     procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
@@ -345,6 +355,18 @@ begin
   Close();
 end;
 
+type
+  [API]
+  TFillExpressionVars = class
+  private
+    fx, fp, fi, fa: Integer;
+  public
+    property x: Integer read fx;
+    property p: Integer read fp;
+    property i: Integer read fi;
+    property a: Integer read fa;
+  end;
+
 procedure TMainForm.ActionFillBytesExecute(Sender: TObject);
 // Insert bytes / Fill selection
 var
@@ -352,8 +374,11 @@ var
   Addr: TFilePointer;
   Size: Integer;
   AData, Pattern: TBytes;
+  Expression: string;
   Rnd1, Rnd2: Integer;
   i: Integer;
+  ScriptControl: TScriptControl;  // Expression evaluator
+  ScriptVars: TFillExpressionVars;
 begin
   with ActiveEditor do
   begin
@@ -373,11 +398,12 @@ begin
       Size := SelLength;
     end;
 
-    SetLength(AData, Size);
+    StartTimeMeasure();
     if FillBytesForm.RBPattern.Checked then
     // Pattern
     begin
       Pattern := HexToData(FillBytesForm.EditPattern.Text);
+      SetLength(AData, Size);
       if Length(Pattern) = 0 then
         raise EInvalidUserInput.Create('Specify hex pattern');
       if Length(Pattern) = 1 then
@@ -387,15 +413,57 @@ begin
           AData[i] := Pattern[i mod Length(Pattern)];
     end
     else
+    if FillBytesForm.RBExpression.Checked then
+    // JavaScript expression
+    begin
+      Pattern := HexToData(FillBytesForm.EditPattern.Text);
+      Expression := FillBytesForm.EditExpression.Text;
+      if Insert then
+      begin
+        SetLength(AData, Size);
+        FillChar(AData[0], Size, 0);
+      end
+      else
+        AData := Data.Get(Addr, Size);
+      ScriptControl := TScriptControl.Create(nil);
+      ScriptControl.Language := 'JScript';
+      ScriptVars := TFillExpressionVars.Create();
+      try
+        ScriptControl.AddObject('ScriptVars', APIEnv.GetAPIWrapper(ScriptVars), True);
+        ScriptControl.AddCode('function calc() { return ('+Expression+');}');
+        for i:=0 to Size-1 do
+        begin
+          ScriptVars.fx := AData[i];
+          if Length(Pattern) > 0 then
+            ScriptVars.fp := Pattern[i mod Length(Pattern)]
+          else
+            ScriptVars.fp := 0;
+          ScriptVars.fi := i;
+          ScriptVars.fa := Addr + i;
+//          AData[i] := ScriptControl.Eval(Expression);
+          AData[i] := ScriptControl.Eval('calc()');
+          if i mod 10000 = 0 then
+            ShowProgress(Sender, i+1, Size);
+        end;
+      finally
+        OperationDone(Sender);
+        APIEnv.ObjectDestroyed(ScriptVars);
+        ScriptVars.Free;
+        ScriptControl.Free;
+      end;
+    end
+    else
     if FillBytesForm.RBRandomBytes.Checked then
     // Random bytes
     begin
+      SetLength(AData, Size);
       Rnd1 := FillBytesForm.EditRandomMin.Value;
       Rnd2 := FillBytesForm.EditRandomMax.Value;
       for i:=0 to Size-1 do
         AData[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
     end
     else Exit;
+    EndTimeMeasure('Fill', True);
 
     UndoStack.BeginAction('', IfThen(Insert, 'Insert bytes', 'Fill selection'));
     try
@@ -878,6 +946,7 @@ begin
 end;
 
 procedure TMainForm.DoAfterEvent(Proc: TProc);
+// Proc will be called by timer just after processing of current event
 begin
   FDoAfterEvent := FDoAfterEvent + [TProc(Proc)];
   AfterEventTimer.Enabled := True;
@@ -1108,6 +1177,16 @@ begin
   OpenFile(TFileDataSource, (Sender as TMenuItem).Caption);
 end;
 
+procedure TMainForm.MIEncodingMenuClick(Sender: TObject);
+// Show current editor encoding
+var
+  AEncoding, i: Integer;
+begin
+  AEncoding := ActiveEditor.TextEncoding;
+  for i:=0 to MIEncodingMenu.Count-1 do
+    MIEncodingMenu.Items[i].Checked := (MIEncodingMenu.Items[i].Tag = AEncoding);
+end;
+
 procedure TMainForm.MIRecentFilesMenuClick(Sender: TObject);
 begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
@@ -1253,6 +1332,15 @@ begin
   if ProgressForm.FOperationAborted then Abort();
 end;
 
+procedure TMainForm.ShowToolFrame(Frame: TFrame);
+//var
+//  i: Integer;
+begin
+//  for i:=0 to RightPanelPageControl.PageCount-1 do
+  if Frame.Parent is TTabSheet then
+    RightPanelPageControl.ActivePage := TTabSheet(Frame.Parent);
+end;
+
 procedure TMainForm.Something1Click(Sender: TObject);
 var
   i: Integer;
@@ -1288,6 +1376,12 @@ begin
     Delete(FDoAfterEvent, 0, 1);
     AProc();
   end;
+end;
+
+procedure TMainForm.ANSI1Click(Sender: TObject);
+// Change current editor encoding
+begin
+  ActiveEditor.TextEncoding := (Sender as TMenuItem).Tag;
 end;
 
 procedure TMainForm.estchangespeed1Click(Sender: TObject);

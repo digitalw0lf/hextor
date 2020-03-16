@@ -141,6 +141,7 @@
         <DCCReference Include="uEditorPane.pas"/>
         <DCCReference Include="uHextorTypes.pas"/>
         <DCCReference Include="uHextorDataSources.pas"/>
+        <DCCReference Include="d:\Work\Branches\AutomationPluginAPI\Units\uOleAutoAPIWrapper.pas"/>
         <DCCReference Include="uMainForm.pas">
             <Form>MainForm</Form>
         </DCCReference>
@@ -189,21 +190,22 @@
         <DCCReference Include="uUndoStack.pas"/>
         <DCCReference Include="uBitmapFrame.pas">
             <Form>BitmapFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uProgressForm.pas">
             <Form>ProgressForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uDataStruct.pas"/>
         <DCCReference Include="uSetFileSizeForm.pas">
             <Form>SetFileSizeForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uFillBytesForm.pas">
             <Form>FillBytesForm</Form>
+        </DCCReference>
+        <DCCReference Include="uSearchResultsFrame.pas">
+            <Form>SearchResultsFrame</Form>
             <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>

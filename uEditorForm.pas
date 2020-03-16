@@ -10,7 +10,7 @@ uses
 
   uUtil, uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
   uCallbackList, Vcl.Buttons, System.ImageList, Vcl.ImgList,
-  uDataSearcher, uUndoStack, uLogFile, uComAPIAttribute;
+  uDataSearcher, uUndoStack, uLogFile, uOleAutoAPIWrapper;
 
 type
   TEditorForm = class;
@@ -26,7 +26,7 @@ type
 
   TEditorForm = class(TForm)
     PaneHex: TEditorPane;
-    PaneLnNum: TEditorPane;
+    PaneAddr: TEditorPane;
     PaneText: TEditorPane;
     VertScrollBar: TScrollBar;
     StatusBar: TStatusBar;
@@ -91,6 +91,7 @@ type
     FHorzScrollPos: Integer;
     FFSkipSearcher: TFFSkipSearcher;
     FFSkipBackByte, FFSkipFwdByte: Byte;
+    FTextEncoding: Integer;
 //    FAutoObject: TAutoObject;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
@@ -115,6 +116,7 @@ type
     procedure SetByteColumnsSetting(const Value: Integer);
     procedure SetHorzScrollPos(Value: Integer);
     procedure BreakCurrentTypingAction();
+    procedure SetTextEncoding(const Value: Integer);
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
@@ -174,21 +176,7 @@ type
     property ByteColumnsSetting: Integer read FByteColumnsSetting write SetByteColumnsSetting;
     procedure CalculateByteColumns();
     function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
-
-    // OLE wrappers:
-//    function GetEditedDataOle(Addr, Size: Int64; ZerosBeyondEoF: WordBool = False): OleVariant; stdcall;
-//    function IEditorForm.GetEditedData = GetEditedDataOle;
-//    function GetFileSizeOle(): TFilePointer; stdcall;
-//    function IEditorForm.GetFileSize = GetFileSizeOle;
-
-//    function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
-//    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult; stdcall;
-//    function GetIDsOfNames(const IID: TGUID; Names: Pointer;
-//      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
-//    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
-//      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
-//    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
-
+    property TextEncoding: Integer read FTextEncoding write SetTextEncoding;
   end;
 
 procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
@@ -289,7 +277,7 @@ end;
 procedure TEditorForm.BeginUpdatePanes;
 begin
   Inc(FUpdating);
-  PaneLnNum.BeginUpdate();
+  PaneAddr.BeginUpdate();
   PaneHex.BeginUpdate();
   PaneText.BeginUpdate();
 end;
@@ -665,7 +653,7 @@ begin
   ActiveControl := (Sender as TWinControl);
   if not ActiveControl.Focused then
     ActiveControl.SetFocus();
-  if (Sender <> PaneLnNum) and (Button = mbLeft) then
+  if (Sender <> PaneAddr) and (Button = mbLeft) then
   begin
     WasLeftMouseDown := True;
     PaneMouseMove(Sender, True, Shift+[ssLeft], X, Y);
@@ -675,7 +663,7 @@ end;
 procedure TEditorForm.PaneHexMouseMove(Sender: TObject; Shift: TShiftState; X,
   Y: Integer);
 begin
-  if (Sender <> PaneLnNum) and (ssLeft in Shift) and (WasLeftMouseDown) then
+  if (Sender <> PaneAddr) and (ssLeft in Shift) and (WasLeftMouseDown) then
     PaneMouseMove(Sender, False, Shift, X, Y);
 end;
 
@@ -856,6 +844,7 @@ end;
 
 procedure TEditorForm.PaneTextKeyPress(Sender: TObject; var Key: Char);
 var
+  s: RawByteString;
   c: AnsiChar;
 begin
   if Key >= ' ' then
@@ -863,8 +852,10 @@ begin
     BeginUpdatePanes();
     UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
-      // Maybe some better way to convert single unicode char to current locale ansi char?
-      c := AnsiString(string(Key))[Low(AnsiString)];
+      // Maybe some better way to convert single unicode char to selected CP char?
+      s := string(Key);  // Converts to system CP
+      SetCodePage(s, TextEncoding, True);
+      c := s[Low(s)];
       if InsertMode then
       begin
 //        DeleteSelected();
@@ -925,7 +916,13 @@ begin
   if InplaceSaving then
   // If saving to same file, re-open it for writing
   begin
-    DataSource.Open(fmOpenReadWrite);
+    try
+      DataSource.Open(fmOpenReadWrite);
+    except
+      // If failed to open for write (e.g. used by other app) - re-open for reading
+      DataSource.Open(fmOpenRead);
+      raise;
+    end;
     Dest := DataSource;
   end
   else
@@ -1197,6 +1194,15 @@ begin
   SelectionChanged();
 end;
 
+procedure TEditorForm.SetTextEncoding(const Value: Integer);
+begin
+  if Value <> FTextEncoding then
+  begin
+    FTextEncoding := Value;
+    UpdatePanes();
+  end;
+end;
+
 procedure TEditorForm.SetTopVisibleRow(Value: TFilePointer);
 var
   MaxTopRow: TFilePointer;
@@ -1279,7 +1285,7 @@ begin
       UpdatePanes();
   end;
 
-  PaneLnNum.EndUpdate();
+  PaneAddr.EndUpdate();
   PaneHex.EndUpdate();
   PaneText.EndUpdate();
 end;
@@ -1335,10 +1341,11 @@ end;
 procedure TEditorForm.UpdatePanes;
 var
   AData: TBytes;
-  i, len: Integer;
-  Rows, LnNumChars: Integer;
+  i, len, j: Integer;
+  Rows, AddrChars: Integer;
   Lines: TStringList;
-  s: AnsiString;
+  //s: AnsiString;
+  s: RawByteString;
   c: AnsiChar;
   FirstVisibleAddress, VisibleRangeEnd: TFilePointer;
   FileSize: TFilePointer;
@@ -1367,22 +1374,22 @@ begin
     VisibleRangeEnd := FirstVisibleAddress + Length(AData);
     IncludesFileEnd := (Length(AData) < Rows * ByteColumns);
 
-    // Line numbers
-    Lines := PaneLnNum.Lines;
+    // Address
+    Lines := PaneAddr.Lines;
     Lines.Clear();
     FileSize := GetFileSize();
     if FileSize > TFilePointer($FFFFFFFF) then
-      LnNumChars := 10
+      AddrChars := 10
     else
     if FileSize > TFilePointer($FFFF) then
-      LnNumChars := 8
+      AddrChars := 8
     else
-      LnNumChars := 4;
+      AddrChars := 4;
     for i:=0 to DivRoundUp(Length(AData), ByteColumns)-1 do
     begin
-      Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, LnNumChars));
+      Lines.Add(IntToHex(FirstVisibleAddress + i*ByteColumns, AddrChars));
     end;
-    PaneLnNum.Refresh();
+    PaneAddr.Refresh();
 
     // Hex
 //    StartTimeMeasure();
@@ -1410,7 +1417,10 @@ begin
     Lines := PaneText.Lines;
     Lines.Clear();
     SetLength(s, ByteColumns);
-    s := StringOfChar(AnsiChar(' '), ByteColumns);
+    //s := StringOfChar(AnsiChar(' '), ByteColumns);
+    SetLength(s, ByteColumns);
+    FillChar(s[Low(s)], Length(s), AnsiChar(' '));
+    SetCodePage(s, TextEncoding, False);
     len := 0;
     for i:=0 to Length(AData)-1 do
     begin

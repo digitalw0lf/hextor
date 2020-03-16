@@ -3,8 +3,8 @@ object FillBytesForm: TFillBytesForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Insert bytes / Fill selection'
-  ClientHeight = 270
-  ClientWidth = 269
+  ClientHeight = 313
+  ClientWidth = 278
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -19,19 +19,19 @@ object FillBytesForm: TFillBytesForm
   object TabControl1: TTabControl
     Left = 0
     Top = 0
-    Width = 269
-    Height = 270
+    Width = 278
+    Height = 313
     Align = alClient
     TabOrder = 0
     Tabs.Strings = (
       'Insert bytes'
-      'Fill selection')
+      'Fill/Alter selection')
     TabIndex = 0
     OnChange = TabControl1Change
     OnChanging = TabControl1Changing
     object LblCount: TLabel
       Left = 16
-      Top = 172
+      Top = 224
       Width = 33
       Height = 13
       Caption = 'Count:'
@@ -55,13 +55,11 @@ object FillBytesForm: TFillBytesForm
       Width = 177
       Height = 17
       Caption = 'Hex Pattern:'
-      Checked = True
       TabOrder = 1
-      TabStop = True
     end
     object RBRandomBytes: TRadioButton
       Left = 16
-      Top = 96
+      Top = 148
       Width = 177
       Height = 17
       Caption = 'Random bytes from range:'
@@ -69,7 +67,7 @@ object FillBytesForm: TFillBytesForm
     end
     object EditRandomMin: TSpinEdit
       Left = 16
-      Top = 119
+      Top = 171
       Width = 65
       Height = 22
       MaxValue = 255
@@ -79,7 +77,7 @@ object FillBytesForm: TFillBytesForm
     end
     object EditRandomMax: TSpinEdit
       Left = 104
-      Top = 119
+      Top = 171
       Width = 65
       Height = 22
       MaxValue = 255
@@ -89,7 +87,7 @@ object FillBytesForm: TFillBytesForm
     end
     object BtnOK: TButton
       Left = 40
-      Top = 224
+      Top = 276
       Width = 75
       Height = 25
       Caption = 'OK'
@@ -99,7 +97,7 @@ object FillBytesForm: TFillBytesForm
     end
     object BtnCancel: TButton
       Left = 158
-      Top = 224
+      Top = 276
       Width = 75
       Height = 25
       Cancel = True
@@ -109,11 +107,34 @@ object FillBytesForm: TFillBytesForm
     end
     object EditCount: TEdit
       Left = 72
-      Top = 169
+      Top = 221
       Width = 121
       Height = 21
       TabOrder = 7
-      Text = '0'
+      Text = '1'
+    end
+    object RBExpression: TRadioButton
+      Left = 16
+      Top = 92
+      Width = 177
+      Height = 17
+      Caption = 'Expression:'
+      Checked = True
+      TabOrder = 8
+      TabStop = True
+    end
+    object EditExpression: TComboBox
+      Left = 16
+      Top = 115
+      Width = 232
+      Height = 21
+      ItemIndex = 0
+      TabOrder = 9
+      Text = 'x'
+      Items.Strings = (
+        'x'
+        'x xor p'
+        'i')
     end
   end
 end

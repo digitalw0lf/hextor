@@ -19,6 +19,8 @@ type
     BtnCancel: TButton;
     LblCount: TLabel;
     EditCount: TEdit;
+    RBExpression: TRadioButton;
+    EditExpression: TComboBox;
     procedure TabControl1Change(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure TabControl1Changing(Sender: TObject; var AllowChange: Boolean);

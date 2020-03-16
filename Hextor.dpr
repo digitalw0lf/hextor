@@ -6,6 +6,7 @@ uses
   uEditorPane in 'uEditorPane.pas',
   uHextorTypes in 'uHextorTypes.pas',
   uHextorDataSources in 'uHextorDataSources.pas',
+  uOleAutoAPIWrapper in 'd:\Work\Branches\AutomationPluginAPI\Units\uOleAutoAPIWrapper.pas',
   uMainForm in 'uMainForm.pas' {MainForm},
   uFindReplaceForm in 'uFindReplaceForm.pas' {FindReplaceForm},
   uDiskSelectForm in 'uDiskSelectForm.pas' {DiskSelectForm},
@@ -29,7 +30,8 @@ uses
   uSetFileSizeForm in 'uSetFileSizeForm.pas' {SetFileSizeForm},
   uFillBytesForm in 'uFillBytesForm.pas' {FillBytesForm},
   Vcl.Themes,
-  Vcl.Styles;
+  Vcl.Styles,
+  uSearchResultsFrame in 'uSearchResultsFrame.pas' {SearchResultsFrame: TFrame};
 
 {$R *.res}
 
