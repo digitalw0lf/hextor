@@ -1,7 +1,7 @@
 unit uMainForm;
 
-{$WARN IMPLICIT_STRING_CAST OFF}
-{$WARN IMPLICIT_STRING_CAST_LOSS OFF}
+//{$WARN IMPLICIT_STRING_CAST OFF}
+//{$WARN IMPLICIT_STRING_CAST_LOSS OFF}
 {$WARN SYMBOL_PLATFORM OFF}
 {$WARN UNIT_PLATFORM OFF}
 //{$WARN SYMBOL_DEPRECATED OFF}
@@ -169,6 +169,20 @@ type
     MIEncodingMenu: TMenuItem;
     ANSI1: TMenuItem;
     ASCII1: TMenuItem;
+    ActionSelectRange: TAction;
+    SelectRangeFormPanel: TPanel;
+    LblSelRangeStart: TLabel;
+    EditSelRangeStart: TEdit;
+    LblSelRangeEnd: TLabel;
+    EditSelRangeEnd: TEdit;
+    BtnSelRangeOk: TButton;
+    BtnSelRangeCancel: TButton;
+    ImageProxy1: TImageProxy;
+    MISelectRange: TMenuItem;
+    EditorTabMenu: TPopupMenu;
+    MICloseEditorTab: TMenuItem;
+    ActionPasteAs: TAction;
+    MIPasteAs: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -220,6 +234,15 @@ type
     procedure Loadplugin1Click(Sender: TObject);
     procedure ANSI1Click(Sender: TObject);
     procedure MIEncodingMenuClick(Sender: TObject);
+    procedure ActionSelectRangeExecute(Sender: TObject);
+    procedure MICloseEditorTabClick(Sender: TObject);
+  private type
+    TShortCutSet = record
+      ShortCut: TShortCut;
+      //SecondaryShortCuts: TCustomShortCutList;
+      //SecondaryShortCuts: TArray<string>;
+      SecondaryShortCuts: string;  // = Action.SecondaryShortCuts.Text
+    end;
   private
     { Private declarations }
     FEditors: TObjectList<TEditorForm>;
@@ -228,10 +251,12 @@ type
     LastProgressRefresh: Cardinal;
     LastProgressText: string;
     OldOnActiveControlChange: TNotifyEvent;
-    EditorActionShortcuts: TDictionary<TContainedAction, TShortCut>;
+    EditorActionShortcuts: TDictionary<TContainedAction, TShortCutSet>;
+    EditorForTabMenu: TEditorForm;
     procedure InitDefaultSettings();
     procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
+    procedure WMClipboardUpdate(var Msg: TMessage); message WM_CLIPBOARDUPDATE;
     function GetActiveEditor: TEditorForm;
     procedure SetActiveEditor(const Value: TEditorForm);
     function CreateNewEditor(): TEditorForm;
@@ -291,7 +316,8 @@ implementation
 
 uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
-  uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm;
+  uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
+  uPasteAsForm;
 
 { TMainForm }
 
@@ -325,7 +351,7 @@ end;
 
 procedure TMainForm.ActionCompareExecute(Sender: TObject);
 begin
-  PgCompare.Show();
+  ShowToolFrame(CompareFrame);
   CompareFrame.ShowCompareDialog();
 end;
 
@@ -340,9 +366,9 @@ begin
       if Application.MessageBox(PChar('Try to copy '+IntToStr(SelLength div MByte)+' megabytes to system clipboard?'), PChar('Copy'), MB_YESNO) <> IDYES then Exit;
     Buf := GetEditedData(SelStart, SelLength);
     if ActiveControl=PaneHex then
-      s := Data2Hex(Buf, True)
+      s := string(Data2Hex(Buf, True))
     else
-      s := MakeStr(Buf);
+      s := string(MakeStr(Buf));
     Clipboard.AsText := s;
 
     if (Sender = ActionCut) and (InsertMode) then
@@ -402,7 +428,7 @@ begin
     if FillBytesForm.RBPattern.Checked then
     // Pattern
     begin
-      Pattern := HexToData(FillBytesForm.EditPattern.Text);
+      Pattern := HexToData(AnsiString(FillBytesForm.EditPattern.Text));
       SetLength(AData, Size);
       if Length(Pattern) = 0 then
         raise EInvalidUserInput.Create('Specify hex pattern');
@@ -416,7 +442,7 @@ begin
     if FillBytesForm.RBExpression.Checked then
     // JavaScript expression
     begin
-      Pattern := HexToData(FillBytesForm.EditPattern.Text);
+      Pattern := HexToData(AnsiString(FillBytesForm.EditPattern.Text));
       Expression := FillBytesForm.EditExpression.Text;
       if Insert then
       begin
@@ -585,11 +611,19 @@ var
 begin
   with ActiveEditor do
   begin
-    s := Clipboard.AsText;
-    if ActiveControl=PaneHex then
-      Buf := HexToData(s)
+    if Sender = ActionPasteAs then
+    begin
+      if PasteAsForm.ShowModal() <> mrOk then Exit;
+      Buf := PasteAsForm.ResultData;
+    end
     else
-      Buf := Str2Bytes(AnsiString(s));
+    begin
+      s := Clipboard.AsText;
+      if ActiveControl=PaneHex then
+        Buf := HexToData(AnsiString(s))
+      else
+        Buf := Str2Bytes(AnsiString(s));
+    end;
     if Length(Buf)=0 then Exit;
 
     BeginUpdatePanes();
@@ -705,6 +739,34 @@ begin
   end;
 end;
 
+procedure TMainForm.ActionSelectRangeExecute(Sender: TObject);
+var
+  Range: TFileRange;
+begin
+  with ActiveEditor do
+  begin
+    Range := TFileRange.Create(SelStart, SelStart + SelLength);
+
+    EditSelRangeStart.Text := IntToStr(Range.Start);
+    EditSelRangeEnd.Text := IntToStr(Range.AEnd);
+    with MakeFormWithContent(SelectRangeFormPanel, bsDialog, 'Select range') do
+    begin
+      if ShowModal() <> mrOk then Exit;
+    end;
+
+    Range.Start := StrToInt64Relative(EditSelRangeStart.Text, Range.Start);
+    Range.AEnd := StrToInt64Relative(EditSelRangeEnd.Text, Range.AEnd);
+
+    BeginUpdatePanes();
+    try
+      CaretPos := Range.Start;
+      SetSelection(Range.Start, Range.AEnd);
+    finally
+      EndUpdatePanes();
+    end;
+  end;
+end;
+
 procedure TMainForm.ActionSetFileSizeExecute(Sender: TObject);
 var
   OldSize, NewSize: TFilePointer;
@@ -805,14 +867,17 @@ procedure TMainForm.CheckEnabledActions;
 var
   FocusInEditor: Boolean;
   S: string;
-  AShortCut: TPair<TContainedAction, TShortCut>;
+  AShortCut: TPair<TContainedAction, TShortCutSet>;
   i: Integer;
+  AEditor: TEditorForm;
 begin
   FocusInEditor := False;
   ActionCompare.Enabled := (EditorCount >= 2);
 
-  try
-    with ActiveEditor do
+  AEditor := GetActiveEditorNoEx();
+  if AEditor <> nil then
+  begin
+    with AEditor do
     begin
       FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
@@ -828,36 +893,50 @@ begin
       ActionRedo.Enabled := UndoStack.CanRedo(S);
       ActionRedo.Caption := 'Redo ' + S;
 
-      ActionCopy.Enabled := (FocusInEditor) and (SelLength > 0);
+      ActionCopy.Enabled := {(FocusInEditor) and} (SelLength > 0);
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
-      ActionPaste.Enabled := FocusInEditor;
+      ActionPaste.Enabled := Clipboard.HasFormat(CF_UNICODETEXT) and (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
+      ActionPasteAs.Enabled := ActionPaste.Enabled;
 
-      ActionSelectAll.Enabled := FocusInEditor;
+      ActionSelectAll.Enabled := True; //FocusInEditor;
 
       ActionSetFileSize.Enabled := (DataSource <> nil) and (dspResizable in DataSource.GetProperties());
       ActionFillBytes.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
 
       ActionBitsEditor.Enabled := (SelLength<=4);
     end;
-  except
-    on E: ENoActiveEditor do
-    begin
-      ActionSave.Enabled := False;
-      ActionRevert.Enabled := False;
+  end
+  else
+  begin
+    ActionSave.Enabled := False;
+    ActionRevert.Enabled := False;
 
-      for i:=0 to ActionList1.ActionCount-1 do
-        if (ActionList1.Actions[i].Category = 'Edit') or (ActionList1.Actions[i].Category = 'Navigation') then
-          ActionList1.Actions[i].Enabled := False;
+    for i:=0 to ActionList1.ActionCount-1 do
+      if (ActionList1.Actions[i].Category = 'Edit') or (ActionList1.Actions[i].Category = 'Navigation') then
+        ActionList1.Actions[i].Enabled := False;
 
-      ActionUndo.Caption := 'Undo';
-      ActionRedo.Caption := 'Redo';
-    end;
+    ActionUndo.Caption := 'Undo';
+    ActionRedo.Caption := 'Redo';
   end;
 
   // Register/unregister action shortcuts
   for AShortCut in EditorActionShortcuts do
-    if FocusInEditor then AShortCut.Key.ShortCut := AShortCut.Value
-                     else AShortCut.Key.ShortCut := 0;
+    if FocusInEditor then
+    begin
+      AShortCut.Key.ShortCut := AShortCut.Value.ShortCut;
+      AShortCut.Key.SecondaryShortCuts.Text := AShortCut.Value.SecondaryShortCuts;
+    end
+    else
+    begin
+      AShortCut.Key.ShortCut := 0;
+      AShortCut.Key.SecondaryShortCuts.Clear;
+    end;
+end;
+
+procedure TMainForm.MICloseEditorTabClick(Sender: TObject);
+begin
+  if EditorForTabMenu <> nil then
+    EditorForTabMenu.Close();
 end;
 
 function TMainForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
@@ -927,7 +1006,7 @@ begin
 
     for i:=0 to Size div BlockSize-1 do
     begin
-      s1 := Format('-------- Block %8d --------', [i]);
+      s1 := AnsiString(Format('-------- Block %8d --------', [i]));
       Move(s1[Low(s1)], Block[0], Length(s1));
       fs.WriteBuffer(Block[0], BlockSize);
       ShowProgress(Sender, i+1, Size div BlockSize);
@@ -979,6 +1058,9 @@ begin
   // We will catch drag'n'dropped files
   DragAcceptFiles(Handle, True);
 
+  // Listen for clipboard changes
+  AddClipboardFormatListener(Handle);
+
   FEditors := TObjectList<TEditorForm>.Create(False);
   RightPanelPageControl.ActivePageIndex := AppSettings.ActiveRightPage;
   if AppSettings.RightPanelWidth > 0 then
@@ -988,7 +1070,7 @@ begin
   Screen.OnActiveControlChange := ActiveControlChanged;
 
   // Remember actions whose shortcuts should only be active in main editors
-  EditorActionShortcuts := TDictionary<TContainedAction, TShortCut>.Create();
+  EditorActionShortcuts := TDictionary<TContainedAction, TShortCutSet>.Create();
   for i:=0 to ActionList1.ActionCount-1 do
     if (ActionList1.Actions[i].Category = 'Edit') or
        (ActionList1.Actions[i].Category = 'Navigation') then
@@ -1007,6 +1089,8 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  RemoveClipboardFormatListener(Handle);
+
   ScriptFrame.Uninit();
 
   SaveSettings();
@@ -1158,6 +1242,7 @@ procedure TMainForm.MDITabsMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
   n: Integer;
+  Pt: TPoint;
 begin
   n := MDITabs.IndexOfTabAt(X, Y);
   if n >= 0 then
@@ -1166,6 +1251,16 @@ begin
       mbMiddle:
         begin
           Editors[n].Close();
+        end;
+      mbRight:
+        begin
+          EditorForTabMenu := Editors[n];
+          EditorForTabMenu.OnClosed.Add(procedure(Sender: TEditorForm)
+            begin
+              EditorForTabMenu := nil;
+            end);
+          Pt := (Sender as TControl).ClientToScreen(Point(X,Y));
+          EditorTabMenu.Popup(Pt.X, Pt.Y);
         end;
     end;
   end;
@@ -1304,10 +1399,13 @@ procedure TMainForm.ShortCutsWhenEditorActive(const AActions: array of TContaine
 // actions make their shortcuts not work in other windows and controls
 var
   i: Integer;
+  ASet: TShortCutSet;
 begin
   for i:=0 to Length(AActions)-1 do
   begin
-    EditorActionShortcuts.AddOrSetValue(AActions[i], AActions[i].ShortCut);
+    ASet.ShortCut := AActions[i].ShortCut;
+    ASet.SecondaryShortCuts := AActions[i].SecondaryShortCuts.Text;
+    EditorActionShortcuts.AddOrSetValue(AActions[i], ASet);
   end;
 end;
 
@@ -1509,6 +1607,11 @@ end;
 procedure TMainForm.VisibleRangeChanged;
 begin
   OnVisibleRangeChanged.Call(GetActiveEditorNoEx());
+end;
+
+procedure TMainForm.WMClipboardUpdate(var Msg: TMessage);
+begin
+  CheckEnabledActions();
 end;
 
 procedure TMainForm.WMDropFiles(var Msg: TWMDropFiles);

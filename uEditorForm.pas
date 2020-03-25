@@ -853,7 +853,7 @@ begin
     UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
       // Maybe some better way to convert single unicode char to selected CP char?
-      s := string(Key);  // Converts to system CP
+      s := RawByteString(string(Key));  // Converts to system CP
       SetCodePage(s, TextEncoding, True);
       c := s[Low(s)];
       if InsertMode then
@@ -1341,7 +1341,7 @@ end;
 procedure TEditorForm.UpdatePanes;
 var
   AData: TBytes;
-  i, len, j: Integer;
+  i, len: Integer;
   Rows, AddrChars: Integer;
   Lines: TStringList;
   //s: AnsiString;

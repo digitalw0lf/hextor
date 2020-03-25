@@ -33,8 +33,8 @@ object MainForm: TMainForm
     ExplicitHeight = 590
   end
   object HintImage: TImage
-    Left = 144
-    Top = 211
+    Left = 31
+    Top = 163
     Width = 16
     Height = 16
     AutoSize = True
@@ -163,7 +163,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 551
-      ActivePage = PgSearchResult
+      ActivePage = PgCompare
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -185,7 +185,7 @@ object MainForm: TMainForm
             ExplicitHeight = 523
             ColWidths = (
               64
-              343)
+              347)
             RowHeights = (
               21
               21)
@@ -393,7 +393,7 @@ object MainForm: TMainForm
                   item
                     Position = 1
                     Text = 'Hex'
-                    Width = 230
+                    Width = 234
                   end
                   item
                     Position = 2
@@ -464,12 +464,79 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 389
-        Height = 35
+        Width = 259
+        Height = 17
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
       end
+    end
+  end
+  object SelectRangeFormPanel: TPanel
+    Left = -193
+    Top = 384
+    Width = 256
+    Height = 161
+    TabOrder = 3
+    Visible = False
+    object LblSelRangeStart: TLabel
+      Left = 24
+      Top = 27
+      Width = 61
+      Height = 13
+      Caption = 'Range start:'
+    end
+    object LblSelRangeEnd: TLabel
+      Left = 24
+      Top = 67
+      Width = 56
+      Height = 13
+      Caption = 'Range end:'
+    end
+    object ImageProxy1: TImageProxy
+      Left = 224
+      Top = 48
+      Width = 16
+      Height = 16
+      Image = HintImage
+      ImageIndex = 0
+      HintFmt = 
+        'Use $ or 0x for hex value, + or - to select relative to current ' +
+        'selection start/end'
+    end
+    object EditSelRangeStart: TEdit
+      Left = 104
+      Top = 24
+      Width = 105
+      Height = 21
+      TabOrder = 0
+    end
+    object EditSelRangeEnd: TEdit
+      Left = 104
+      Top = 64
+      Width = 105
+      Height = 21
+      TabOrder = 1
+    end
+    object BtnSelRangeOk: TButton
+      Left = 40
+      Top = 120
+      Width = 75
+      Height = 25
+      Caption = 'Select'
+      Default = True
+      ModalResult = 1
+      TabOrder = 2
+    end
+    object BtnSelRangeCancel: TButton
+      Left = 144
+      Top = 120
+      Width = 75
+      Height = 25
+      Cancel = True
+      Caption = 'Cancel'
+      ModalResult = 2
+      TabOrder = 3
     end
   end
   object MainMenu1: TMainMenu
@@ -548,8 +615,14 @@ object MainForm: TMainForm
       object MIPaste: TMenuItem
         Action = ActionPaste
       end
+      object MIPasteAs: TMenuItem
+        Action = ActionPasteAs
+      end
       object MISelectAll: TMenuItem
         Action = ActionSelectAll
+      end
+      object MISelectRange: TMenuItem
+        Action = ActionSelectRange
       end
       object N2: TMenuItem
         Caption = '-'
@@ -725,6 +798,11 @@ object MainForm: TMainForm
       ShortCut = 16470
       OnExecute = ActionPasteExecute
     end
+    object ActionPasteAs: TAction
+      Category = 'Edit'
+      Caption = 'Paste as...'
+      OnExecute = ActionPasteExecute
+    end
     object ActionSelectAll: TAction
       Category = 'Edit'
       Caption = 'Select all'
@@ -823,6 +901,11 @@ object MainForm: TMainForm
       Caption = 'Insert bytes / Fill selection'
       OnExecute = ActionFillBytesExecute
     end
+    object ActionSelectRange: TAction
+      Category = 'Edit'
+      Caption = 'Select Range...'
+      OnExecute = ActionSelectRangeExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -833,7 +916,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F004001040210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F0040011C0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -1389,5 +1472,13 @@ object MainForm: TMainForm
     Interval = 100
     Left = 48
     Top = 296
+  end
+  object EditorTabMenu: TPopupMenu
+    Left = 144
+    Top = 200
+    object MICloseEditorTab: TMenuItem
+      Caption = 'Close'
+      OnClick = MICloseEditorTabClick
+    end
   end
 end

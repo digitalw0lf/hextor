@@ -4,6 +4,7 @@ interface
 
 uses
   System.Classes, System.Types, System.SysUtils, Generics.Collections,
+  System.Variants,
 
   uUtil;
 
@@ -177,7 +178,10 @@ end;
 
 procedure Variant2Float(const V: Variant; var Data; Size: Integer);
 begin
-  Single(Data) := V;
+  if VarIsStr(V) then
+    Single(Data) := S2R(V)  // Handle both . and , as decimal separator
+  else
+    Single(Data) := V;
 end;
 
 // double
@@ -189,7 +193,10 @@ end;
 
 procedure Variant2Double(const V: Variant; var Data; Size: Integer);
 begin
-  Double(Data) := V;
+  if VarIsStr(V) then
+    Double(Data) := S2R(V)  // Handle both . and , as decimal separator
+  else
+    Double(Data) := V;
 end;
 
 // Ansi
@@ -307,13 +314,13 @@ var
   i: Integer;
 begin
   RegisterInterpretor(['int8'], Int2Variant, Variant2Int, 1);
-  RegisterInterpretor(['uint8', 'char'], UInt2Variant, Variant2UInt, 1);
+  RegisterInterpretor(['uint8', 'char', 'byte'], UInt2Variant, Variant2UInt, 1);
   RegisterInterpretor(['int16'], Int2Variant, Variant2Int, 2);
-  RegisterInterpretor(['uint16'], UInt2Variant, Variant2UInt, 2);
+  RegisterInterpretor(['uint16', 'word'], UInt2Variant, Variant2UInt, 2);
   RegisterInterpretor(['int32', 'int'], Int2Variant, Variant2Int, 4);
-  RegisterInterpretor(['uint32'], UInt2Variant, Variant2UInt, 4);
+  RegisterInterpretor(['uint32', 'uint', 'dword', 'cardinal'], UInt2Variant, Variant2UInt, 4);
   RegisterInterpretor(['int64'], Int2Variant, Variant2Int, 8);
-  RegisterInterpretor(['uint64'], UInt2Variant, Variant2UInt, 8);
+  RegisterInterpretor(['uint64', 'qword'], UInt2Variant, Variant2UInt, 8);
 
   // int8_t etc.
   for i:=0 to Count-1 do
@@ -321,7 +328,7 @@ begin
 
   RegisterInterpretor(['bin'], Bin2Variant, Variant2Bin, 1, 8);
 
-  RegisterInterpretor(['float'], Float2Variant, Variant2Float, 4);
+  RegisterInterpretor(['float', 'single'], Float2Variant, Variant2Float, 4);
   RegisterInterpretor(['double'], Double2Variant, Variant2Double, 8);
 
   RegisterInterpretor(['ansi'], Ansi2Variant, Variant2Ansi, 1, MAX_STR_VALUE_LENGTH{, True});

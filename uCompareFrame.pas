@@ -45,6 +45,7 @@ type
     function ScrToPos(Y: Integer): TFilePointer;
     function PosToScr(P: TFilePointer): Integer;
     procedure UpdateInfo();
+    procedure DrawDiffBarInternal();
     procedure CloseComparsion;
     procedure EditorVisRangeChanged(Sender: TEditorForm);
     procedure EditorByteColsChanged(Sender: TEditorForm);
@@ -143,26 +144,40 @@ begin
 end;
 
 procedure TCompareFrame.DiffBarPaint(Sender: TObject);
-// Draw Diff map
+var
+  RAll, R: TRect;
+begin
+  if MaxSize = 0 then Exit;
+
+  if (DiffBar.Width <> ScrBmp.Width) or (DiffBar.Height <> ScrBmp.Height) then
+  begin
+    ScrBmp.SetSize(DiffBar.Width, DiffBar.Height);
+    DrawDiffBarInternal();
+  end;
+
+  DiffBar.Canvas.Draw(0, 0, ScrBmp);
+
+  // Editor view frame
+  RAll := Rect(0, 0, ScrBmp.Width, ScrBmp.Height);
+  R.Left := 0;
+  R.Right := RAll.Right - 1;
+  R.Top := PosToScr(Editors[0].FirstVisibleAddr);
+  R.Bottom := PosToScr(Editors[0].FirstVisibleAddr + Editors[0].VisibleBytesCount) - 1;
+  DiffBar.Canvas.Pen.Color := clBlack;
+  DrawEditorViewFrame(DiffBar.Canvas, R);
+end;
+
+procedure TCompareFrame.DrawDiffBarInternal;
+// Draw Diff map to internal buffer
 const
   ClrUnknown = clDkGray;
   ClrEqual   = clMoneyGreen;
   ClrDiff    = clRed;
 var
-  i: Integer;
+  i, PrevY: Integer;
   RAll, R: TRect;
-
-//  function ScrCoord(P: TFilePointer): Integer;
-//  begin
-//    Result := Round(RAll.Top + RAll.Height*(P / MaxSize));
-//  end;
-//
 begin
-  if MaxSize = 0 then Exit;
-
-  if (DiffBar.Width <> ScrBmp.Width) or (DiffBar.Height <> ScrBmp.Height) then
-    ScrBmp.SetSize(DiffBar.Width, DiffBar.Height);
-
+  StartTimeMeasure();
   RAll := Rect(0, 0, ScrBmp.Width, ScrBmp.Height);
   with ScrBmp.Canvas do
   begin
@@ -177,26 +192,19 @@ begin
 
     // Differences
     Brush.Color := ClrDiff;
+    PrevY := -1;
     for i:=0 to Diffs.Count-1 do
     begin
       R := RAll;
       R.Top := PosToScr(Diffs[i].Start);
       R.Bottom := PosToScr(Diffs[i].AEnd);
       if R.Bottom = R.Top then Inc(R.Bottom);
-
+      if R.Bottom = PrevY then Continue;  // Do not paint single row multiple times
+      PrevY := R.Bottom;
       FillRect(R);
     end;
-
-    // Editor view frame
-    R.Left := 0;
-    R.Right := RAll.Right - 1;
-    R.Top := PosToScr(Editors[0].FirstVisibleAddr);
-    R.Bottom := PosToScr(Editors[0].FirstVisibleAddr + Editors[0].VisibleBytesCount) - 1;
-    Pen.Color := clBlack;
-    DrawEditorViewFrame(ScrBmp.Canvas, R);
   end;
-
-  DiffBar.Canvas.Draw(0, 0, ScrBmp);
+  EndTimeMeasure('DrawDiffBarInternal', True);
 end;
 
 procedure TCompareFrame.EditorByteColsChanged(Sender: TEditorForm);
@@ -312,8 +320,8 @@ begin
     Editors[i] := nil;
   end;
   MaxSize := 0;
-  Diffs.Clear;
-  Refresh;
+  Diffs.Clear();
+  Refresh();
   MainForm.ActiveEditor.WindowState := wsMaximized;
 end;
 
@@ -324,7 +332,7 @@ end;
 
 procedure TCompareFrame.StartCompare(Editor1, Editor2: TEditorForm);
 const
-  BlockSize = 1*MByte;
+  BlockSize = 10*MByte;
 var
   P: TFilePointer;
   Size1, Size2, MinSize: TFilePointer;
@@ -411,7 +419,9 @@ end;
 procedure TCompareFrame.UpdateInfo;
 begin
   LblDiffsCount.Caption := 'Diffs: ' + IntToStr(Diffs.Count);
-  DiffBarPaint(nil);
+  DrawDiffBarInternal();
+  DiffBar.Refresh();
+//  DiffBarPaint(nil);
   if Editors[0]<>nil then
     Editors[0].UpdatePanes();
   if Editors[1]<>nil then

@@ -4,7 +4,7 @@ interface
 
 uses
   System.SysUtils, System.Classes, Winapi.Windows, Generics.Collections,
-  System.Math, Winapi.ActiveX, MSScriptControl_TLB, Variants,
+  System.Math, Winapi.ActiveX, MSScriptControl_TLB, Variants, ComObj,
 
   uHextorTypes, uValueInterpretors, uLogFile, uUtil, uCallbackList;
 
@@ -1304,15 +1304,34 @@ procedure TDSInterpretor.PrepareScriptEnv(CurField: TDSField);
 // Innermost have higher precedence.
 var
   DS: TDSField;
+  Ok: Boolean;
+  TryCounter: Integer;
 begin
-  ScriptControl.Reset();
-  DS := CurField;
-  while DS <> nil do
-  begin
-    if DS is TDSCompoundField then
-      ScriptControl.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
-    DS := DS.Parent;
-  end;
+  Ok := False;
+  TryCounter := 0;
+  repeat
+    try
+      ScriptControl.Reset();
+      DS := CurField;
+      while DS <> nil do
+      begin
+        if DS is TDSCompoundField then
+          ScriptControl.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
+        DS := DS.Parent;
+      end;
+      Ok := True;
+    except
+      on E: EOleException do
+      begin
+        WriteLogF('Struct_Intepret', AnsiString('TDSInterpretor.PrepareScriptEnv:E: ' + E.Message));
+        if TryCounter <= 3 then
+          Sleep(50)
+        else
+          raise;
+      end;
+    end;
+    Inc(TryCounter);
+  until Ok;
 end;
 
 procedure TDSInterpretor.ReadData(var Data: TBytes; Size: Integer);

@@ -371,17 +371,36 @@ begin
 end;
 
 function TStructFrame.DSValueAsJsonObject(DS: TDSField): ISuperObject;
+
+  function IsChar(AField: TDSField): Boolean;
+  begin
+    Result := (AField is TDSSimpleField) and
+              ((TDSSimpleField(AField).DataType = 'ansi') or (TDSSimpleField(AField).DataType = 'unicode'));
+  end;
+
 var
   i: Integer;
   Intr: TValueInterpretor;
   x: Variant;
+  s: string;
 begin
   Result := nil;
   if DS is TDSArray then
   begin
-    Result := SA([]);
-    for i:=0 to (DS as TDSArray).Fields.Count-1 do
-      Result.AsArray.Add(DSValueAsJsonObject((DS as TDSArray).Fields[i]));
+    if IsChar((DS as TDSArray).ElementType) then
+    // Special case - show array of chars as string
+    begin
+      s := '';
+      for i:=0 to (DS as TDSArray).Fields.Count-1 do
+        s := s + (DS as TDSArray).Fields[i].ToString();
+      Result := TSuperObject.Create(s);
+    end
+    else
+    begin
+      Result := SA([]);
+      for i:=0 to (DS as TDSArray).Fields.Count-1 do
+        Result.AsArray.Add(DSValueAsJsonObject((DS as TDSArray).Fields[i]));
+    end;
   end
   else
   if DS is TDSCompoundField then

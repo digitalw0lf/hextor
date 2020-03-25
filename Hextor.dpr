@@ -31,7 +31,8 @@ uses
   uFillBytesForm in 'uFillBytesForm.pas' {FillBytesForm},
   Vcl.Themes,
   Vcl.Styles,
-  uSearchResultsFrame in 'uSearchResultsFrame.pas' {SearchResultsFrame: TFrame};
+  uSearchResultsFrame in 'uSearchResultsFrame.pas' {SearchResultsFrame: TFrame},
+  uPasteAsForm in 'uPasteAsForm.pas' {PasteAsForm};
 
 {$R *.res}
 
@@ -47,5 +48,6 @@ begin
   Application.CreateForm(TProgressForm, ProgressForm);
   Application.CreateForm(TSetFileSizeForm, SetFileSizeForm);
   Application.CreateForm(TFillBytesForm, FillBytesForm);
+  Application.CreateForm(TPasteAsForm, PasteAsForm);
   Application.Run;
 end.
