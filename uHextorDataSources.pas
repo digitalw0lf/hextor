@@ -7,7 +7,7 @@ interface
 uses
   System.SysUtils, System.Types, System.Classes, Winapi.Windows, System.Math,
 
-  uHextorTypes, uLogFile;
+  uHextorTypes{, uLogFile};
 
 type
   TDataSourceProperty = (dspWritable, dspResizable);

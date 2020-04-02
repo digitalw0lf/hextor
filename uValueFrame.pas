@@ -7,7 +7,7 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, KControls, KGrids, Math,
   Generics.Collections, Vcl.StdCtrls, Clipbrd, System.Types, Vcl.Menus,
 
-  uHextorTypes, uUtil, uEditorForm, uValueInterpretors;
+  uHextorTypes, uEditorForm, uValueInterpretors;
 
 const
   SUndefinedValue = 'N/A';

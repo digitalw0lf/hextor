@@ -5,7 +5,7 @@ interface
 uses
   System.SysUtils,
 
-  uHextorTypes, uEditedData, uCallbackList, uUtil;
+  uHextorTypes, uEditedData, uCallbackList;
 
 type
   TSearchParams = record
@@ -16,6 +16,7 @@ type
     Replace: string;
     bRepHex: Boolean;
     bAskEachReplace: Boolean;
+    CodePage: Integer;
 
     Range: TFileRange;
 
@@ -134,12 +135,12 @@ function TDataSearcher.GetReplacement: TBytes;
 // (This may depend on last found data if using something like RegEx)
 begin
   if Params.bRepHex then
-    Result := Str2Bytes(Hex2Data(AnsiString(Params.Replace)))
+    Result := Hex2Data(Params.Replace)
   else
   if Params.bUnicode then
-    Result := Str2Bytes(Params.Replace)
+    Result := String2Data(Params.Replace, TEncoding.Unicode.CodePage)
   else
-    Result := Str2Bytes(AnsiString(Params.Replace));
+    Result := String2Data(Params.Replace, Params.CodePage);
 end;
 
 function TDataSearcher.Match(const Data: PByte; DataSize: Integer;

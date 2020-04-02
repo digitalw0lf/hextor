@@ -6,11 +6,11 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
-  System.Win.ComObj, System.TypInfo, Winapi.ActiveX,
+  System.Win.ComObj, System.TypInfo, Winapi.ActiveX, Vcl.Buttons,
+  System.ImageList, Vcl.ImgList,
 
-  uUtil, uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
-  uCallbackList, Vcl.Buttons, System.ImageList, Vcl.ImgList,
-  uDataSearcher, uUndoStack, uLogFile, uOleAutoAPIWrapper;
+  uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
+  uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper;
 
 type
   TEditorForm = class;
@@ -934,7 +934,7 @@ begin
       if DataSourceType = TFileDataSource then
         TempFileName := APath+'_temp'+IntToStr(Random(10000))
       else
-        TempFileName := TempPath + 'save'+IntToStr(Random(10000));
+        TempFileName := MainForm.TempPath + 'save'+IntToStr(Random(10000));
       Dest := TFileDataSource.Create(TempFileName);
     end
     else
@@ -1177,6 +1177,8 @@ end;
 
 procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer);
 // AEnd is after last byte of selection
+var
+  Tmp: TFilePointer;
 begin
   if AEnd=-1 then
   begin
@@ -1186,7 +1188,11 @@ begin
   else
   begin
     if AStart>AEnd then
-      Swap8Bytes(AStart, AEnd);
+    begin
+      Tmp := AStart;
+      AStart := AEnd;
+      AEnd := Tmp;
+    end;
     FSelStart := AStart;
     FSelLength := AEnd-AStart;
   end;

@@ -7,10 +7,10 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Generics.Collections,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
   Vcl.Buttons, Vcl.Menus, System.Types, Math, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, superobject, Clipbrd,
+  SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils, Vcl.ToolWin,
 
-  uUtil, uHextorTypes, uLogFile, ColoredPanel, uEditorForm, uValueInterpretors,
-  uDataStruct, VirtualTrees;
+  uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
+  uDataStruct;
 
 type
   TDSTreeNode = record
@@ -20,10 +20,6 @@ type
   PDSTreeNode = ^TDSTreeNode;
 
   TStructFrame = class(TFrame)
-    PnlButtonBar1: TPanel;
-    BtnLoadDescr: TSpeedButton;
-    BtnSaveDescr: TSpeedButton;
-    LblStructName: TLabel;
     PnlButtonBar2: TPanel;
     BtnInterpret: TButton;
     SavedDescrsMenu: TPopupMenu;
@@ -34,10 +30,18 @@ type
     SynCppSyn1: TSynCppSyn;
     DSTreeView: TVirtualStringTree;
     BtnCopyValue: TButton;
+    ToolBar1: TToolBar;
+    BtnNewDescr: TToolButton;
+    BtnLoadDescr: TToolButton;
+    BtnSaveDescr: TToolButton;
+    SaveAsMenu: TPopupMenu;
+    MISaveAs: TMenuItem;
+    LblStructName: TLabel;
+    InterpretRangeMenu: TPopupMenu;
+    MIRangeEntireFile: TMenuItem;
+    MIRangeSelection: TMenuItem;
     procedure BtnInterpretClick(Sender: TObject);
-    procedure BtnLoadDescrClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
-    procedure BtnSaveDescrClick(Sender: TObject);
     procedure PnlButtonBar2MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure PnlButtonBar2MouseMove(Sender: TObject; Shift: TShiftState; X,
@@ -63,6 +67,15 @@ type
       Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle;
       var HintText: string);
     procedure BtnCopyValueClick(Sender: TObject);
+    procedure MISaveAsClick(Sender: TObject);
+    procedure BtnLoadDescrClick(Sender: TObject);
+    procedure BtnNewDescrClick(Sender: TObject);
+    procedure InterpretRangeMenuPopup(Sender: TObject);
+    procedure MIRangeEntireFileClick(Sender: TObject);
+  private const
+    Unnamed_Struct = 'Unnamed';
+  public type
+    TInterpretRange = (irFile, irSelection);
   private
     { Private declarations }
     FParser: TDSParser;
@@ -72,6 +85,7 @@ type
     FEditor: TEditorForm;
     EditedNode: PVirtualNode;
     EditedDS: TDSSimpleField;
+//    FInterpretRange: TInterpretRange;
     procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
     procedure ExpandToNode(Node: PVirtualNode);
     function DSSaveFolder(): string;
@@ -79,6 +93,8 @@ type
     procedure EditorClosed(Sender: TEditorForm);
     function DSValueAsJsonObject(DS: TDSField): ISuperObject;
     function DSValueAsJson(DS: TDSField): string;
+    procedure SetInterpretRange(const Value: TInterpretRange);
+    function GetInterpretRange: TInterpretRange;
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -87,6 +103,7 @@ type
     function GetDataColors(Editor: TEditorForm; Addr: TFilePointer;
       Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
     property ShownDS: TDSField read FShownDS;
+    property InterpretRange: TInterpretRange read GetInterpretRange write SetInterpretRange;
   end;
 
 implementation
@@ -121,7 +138,7 @@ begin
   except
     // Show message and a partially parsed DS too
     on E: Exception do
-      ShowException(E, ExceptAddr);
+      Application.ShowException(E);
   end;
 
   // Show tree
@@ -173,28 +190,9 @@ begin
     DS.BufAddr, DS.BufAddr + DS.BufSize, Color_ValueHighlightBg);
 end;
 
-procedure TStructFrame.BtnLoadDescrClick(Sender: TObject);
-var
-  fl: TStringList;
-  i: Integer;
-  mi: TMenuItem;
+function TStructFrame.GetInterpretRange: TInterpretRange;
 begin
-  SavedDescrsMenu.Items.Clear();
-
-  fl := EnumFiles(DSSaveFolder(), faAnyFile, '*.ds', []);
-  try
-    for i:=0 to fl.Count-1 do
-    begin
-      mi := TMenuItem.Create(Application);
-      mi.Caption := ChangeFileExt(fl[i], '');
-      mi.OnClick := MIDummyDataStructClick;
-      SavedDescrsMenu.Items.Add(mi);
-    end;
-  finally
-    fl.Free;
-  end;
-
-  PopupFromControl(SavedDescrsMenu, BtnLoadDescr);
+  Result := AppSettings.Struct.Range;
 end;
 
 procedure TStructFrame.BtnCopyValueClick(Sender: TObject);
@@ -211,30 +209,56 @@ begin
   FEditor := MainForm.ActiveEditor;
   FEditor.OnClosed.Add(EditorClosed);
 
+  Addr := 0; Size := 0;
   with FEditor do
   begin
-    if SelStart = GetFileSize() then
-    // Cursor at end of file -> parse entire file
-    begin
-      Addr := 0;
-      Size := Data.GetSize();
-    end
-    else
-    if SelLength > 0 then
-    // Non-empty selection -> parse it
-    begin
-      Addr := SelStart;
-      Size := SelLength;
-    end
-    else
-    // Parce from cursor until end of file
-    begin
-      Addr := SelStart;
-      Size := Data.GetSize() - Addr;
+    case InterpretRange of
+      irFile:
+        begin
+          // Parse entire file
+          Addr := 0;
+          Size := Data.GetSize();
+        end;
+      irSelection:
+        begin
+          Addr := SelStart;
+          if SelLength > 0 then
+            // Non-empty selection -> parse it
+            Size := SelLength
+          else
+            // Parce from cursor until end of file
+            Size := Data.GetSize() - Addr;
+        end;
     end;
   end;
 
   Analyze(Addr, Size, DSDescrEdit.Text);
+end;
+
+procedure TStructFrame.BtnLoadDescrClick(Sender: TObject);
+var
+  fl: TStringDynArray;
+  i: Integer;
+  mi: TMenuItem;
+begin
+  SavedDescrsMenu.Items.Clear();
+
+  fl := TDirectory.GetFiles(DSSaveFolder(), '*.ds');
+  for i:=0 to Length(fl)-1 do
+  begin
+    mi := TMenuItem.Create(Application);
+    mi.Caption := ChangeFileExt(ExtractFileName(fl[i]), '');
+    mi.OnClick := MIDummyDataStructClick;
+    SavedDescrsMenu.Items.Add(mi);
+  end;
+
+  PopupFromControl(SavedDescrsMenu, BtnLoadDescr);
+end;
+
+procedure TStructFrame.BtnNewDescrClick(Sender: TObject);
+begin
+  DSDescrEdit.Clear();
+  LblStructName.Caption := '    ' + Unnamed_Struct;
 end;
 
 constructor TStructFrame.Create(AOwner: TComponent);
@@ -491,7 +515,45 @@ var
 begin
   fn := (Sender as TMenuItem).Caption;
   DSDescrEdit.Lines.LoadFromFile(DSSaveFolder + fn + '.ds');
-  LblStructName.Caption := fn;
+  LblStructName.Caption := '    ' + fn;
+end;
+
+procedure TStructFrame.MIRangeEntireFileClick(Sender: TObject);
+begin
+  InterpretRange := TInterpretRange((Sender as TMenuItem).Tag);
+end;
+
+procedure TStructFrame.MISaveAsClick(Sender: TObject);
+// Save structure description
+var
+  fn: string;
+begin
+  ForceDirectories(DSSaveFolder());
+//  fn := TPath.Combine(DSSaveFolder(), LblStructName.Caption + '.ds');
+  fn := Trim(LblStructName.Caption);
+
+  // If "Save as" pressed or file name still not specified - show "Save as" dialog.
+  // Files can be saved only to special folder
+  if (Sender = MISaveAs) or (fn = Unnamed_Struct) then
+  begin
+    if (fn = Unnamed_Struct) then
+      fn := 'Struct1';
+    SaveDialog1.InitialDir := DSSaveFolder();
+    SaveDialog1.FileName := fn{ + '.ds'};
+
+    if not SaveDialog1.Execute() then Exit;
+    fn := SaveDialog1.FileName;
+    if not SameFileName(ExtractFilePath(fn), DSSaveFolder()) then
+      raise EInvalidUserInput.Create('Cannot save structure description outside of default folder');
+  end
+  else
+    fn := TPath.Combine(DSSaveFolder(), fn + '.ds');
+
+//  ForceDirectories(ExtractFilePath(fn));
+  DSDescrEdit.Lines.SaveToFile(fn);
+  DSDescrEdit.MarkModifiedLinesAsSaved();
+  // '    ' is added so vertical line, added by toolbar, does not overlaps caption
+  LblStructName.Caption := '    ' + ChangeFileExt(ExtractFileName(fn), '');
 end;
 
 procedure TStructFrame.PnlButtonBar2MouseDown(Sender: TObject;
@@ -524,6 +586,20 @@ begin
 //  Node := DSTreeView.FocusedNode;
   if Node = nil then Exit(nil);
   Result := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
+end;
+
+procedure TStructFrame.InterpretRangeMenuPopup(Sender: TObject);
+begin
+  MIRangeEntireFile.Checked := (InterpretRange = irFile);
+  MIRangeSelection.Checked := (InterpretRange = irSelection);
+end;
+
+procedure TStructFrame.SetInterpretRange(const Value: TInterpretRange);
+begin
+  if AppSettings.Struct.Range <> Value then
+  begin
+    AppSettings.Struct.Range := Value;
+  end;
 end;
 
 procedure TStructFrame.ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
@@ -568,24 +644,6 @@ begin
       ShowStructTree(Fields[i], Node);
     end;
   end;
-end;
-
-procedure TStructFrame.BtnSaveDescrClick(Sender: TObject);
-var
-  fn: string;
-begin
-  ForceDirectories(DSSaveFolder());
-  fn := LblStructName.Caption;
-  SaveDialog1.InitialDir := DSSaveFolder();
-  SaveDialog1.FileName := fn + '.ds';
-
-  if not SaveDialog1.Execute() then Exit;
-  fn := SaveDialog1.FileName;
-
-  ForceDirectories(ExtractFilePath(fn));
-  DSDescrEdit.Lines.SaveToFile(fn);
-  DSDescrEdit.MarkModifiedLinesAsSaved();
-  LblStructName.Caption := ChangeFileExt(ExtractFileName(fn), '');
 end;
 
 end.

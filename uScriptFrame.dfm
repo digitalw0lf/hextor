@@ -89,6 +89,7 @@ object ScriptFrame: TScriptFrame
       Font.Name = 'Courier New'
       Font.Style = []
       ParentFont = False
+      ReadOnly = True
       ScrollBars = ssBoth
       TabOrder = 0
       Zoom = 100

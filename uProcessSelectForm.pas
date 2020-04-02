@@ -6,9 +6,9 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, TlHelp32, Generics.Collections,
-  StrUtils,
+  StrUtils, Vcl.Buttons
 
-  uDebugUtils, Vcl.Buttons;
+  {,uDebugUtils} ;
 
 type
   TSelectionFrameForm = class(TForm)

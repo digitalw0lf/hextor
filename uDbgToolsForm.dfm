@@ -11,13 +11,7 @@ object DbgToolsForm: TDbgToolsForm
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
-  inline ProfilerFrame1: TProfilerFrame
-    Left = 0
-    Top = 0
-    Width = 94
-    Height = 205
-    TabOrder = 0
-  end
 end

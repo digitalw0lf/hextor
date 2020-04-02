@@ -5,9 +5,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Vcl.ComCtrls,
+  Vcl.StdCtrls, Vcl.ComCtrls, System.ImageList, Vcl.ImgList,
 
-  uUtil, System.ImageList, Vcl.ImgList;
+  uHextorTypes;
 
 type
   TDiskSelectForm = class(TForm)

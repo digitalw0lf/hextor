@@ -6,7 +6,7 @@ uses
   System.Classes, System.Types, System.SysUtils, Generics.Collections,
   System.Variants,
 
-  uUtil;
+  uHextorTypes;
 
 const
   MAX_STR_VALUE_LENGTH = 256;
@@ -96,20 +96,25 @@ end;
 procedure Variant2Bin(const V: Variant; var Data; Size: Integer);
 var
   i: Integer;
-  S, s1: string;
-  P: PChar;
+  S{, s1}: string;
+//  P: PChar;
+  Arr: TArray<string>;
 begin
   S := V;
   if S = '' then raise EConvertError.Create('Empty string');
-  P := @S[Low(S)];
-  i := 0;
-  while P^ <> #0 do
-  begin
-    if i >= Size then raise EConvertError.Create('Too many values');
-    s1 := GetNextWord(P);
-    TByteArray(Data)[i] := BinToInt(s1);
-    Inc(i);
-  end;
+//  P := @S[Low(S)];
+//  i := 0;
+//  while P^ <> #0 do
+//  begin
+//    if i >= Size then raise EConvertError.Create('Too many values');
+//    s1 := GetNextWord(P);
+//    TByteArray(Data)[i] := BinToInt(s1);
+//    Inc(i);
+//  end;
+  Arr := S.Split([' '], ExcludeEmpty);
+  if Length(Arr) <> Size then raise EConvertError.CreateFmt('Expected %d values', [Size]);
+  for i:=0 to Length(Arr)-1 do
+    TByteArray(Data)[i] := BinToInt(Arr[i]);
 end;
 
 // intX
@@ -203,7 +208,7 @@ end;
 
 function Ansi2Variant(const Data; Size: Integer): Variant;
 begin
-  Result := MakeStr(Data, Size);
+  Result := Data2String(MakeBytes(Data, Size), TEncoding.ANSI.CodePage); //MakeStr(Data, Size);
 end;
 
 procedure Variant2Ansi(const V: Variant; var Data; Size: Integer);

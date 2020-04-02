@@ -6,7 +6,7 @@ uses
   System.Types, System.SysUtils, Generics.Collections, Math, Vcl.Forms,
   Generics.Defaults,
 
-  uHextorTypes, uHextorDataSources, uUtil, uCallbackList, uLogFile, uSkipList,
+  uHextorTypes, uHextorDataSources, uCallbackList, {uLogFile,} uSkipList,
   uOleAutoAPIWrapper;
 
 type
@@ -222,7 +222,7 @@ var
 begin
   Result := '';
   for Part in Parts do
-    Result := Result + 'sb'[Ord(Part.PartType)] + ' ' + IntToStr(Part.Addr)+' '+IntToStr(Part.Size)+' '+RemUnprintable(string(MakeStr(Copy(Part.Data, 0, 50))))+#13#10;
+    Result := Result + 'sb'[Ord(Part.PartType)] + ' ' + IntToStr(Part.Addr)+' '+IntToStr(Part.Size)+' '+RemUnprintable(Data2String(Copy(Part.Data, 0, 50)))+#13#10;
 end;
 
 procedure TEditedData.GetOverlappingParts(Addr,

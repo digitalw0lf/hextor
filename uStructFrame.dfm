@@ -3,117 +3,37 @@ object StructFrame: TStructFrame
   Top = 0
   Width = 297
   Height = 629
+  DoubleBuffered = True
+  ParentDoubleBuffered = False
   TabOrder = 0
   OnResize = FrameResize
-  object PnlButtonBar1: TPanel
-    Left = 0
-    Top = 0
-    Width = 297
-    Height = 29
-    Align = alTop
-    BevelOuter = bvNone
-    TabOrder = 0
-    object BtnLoadDescr: TSpeedButton
-      Left = 4
-      Top = 4
-      Width = 24
-      Height = 22
-      Glyph.Data = {
-        36030000424D3603000000000000360000002800000010000000100000000100
-        1800000000000003000000000000000000000000000000000000A449A3F1F8FC
-        D8EBF5BDDDEF9FCDE785BFE053A1CBC7D6DDEDF2F4A449A3A449A3A449A3A449
-        A3A449A3A449A3A449A3A449A34CABD743ACD844B1DB48B9DF4BBFE32C8FC335
-        8CB3388FB6389ECD379DCD369CCC45A3CF8DC6E1A449A3A449A3A449A33CA6D5
-        6AD8EF64D5EE5FD2EC5ACFEB3396C74EA7C052AAC360CAE363CBE367CDE466C8
-        E245A3CFA449A3A449A3A449A338A6D673DDF16CD9F066D6EE61D3ED3398C84A
-        A6BF4CA8C257C5E05AC7E160C9E2D9B66C379CCCA449A3A449A3A449A33AA9D8
-        7CE2F475DEF26EDBF068D7EF359ACA4CA7C04DA8C355C4E054C4E05AC7E1E1C4
-        76389DCDA449A3A449A3A449A33BACDA84E7F67EE3F477DFF271DCF1379DCC52
-        AAC152ABC45BC7E159C6E15BC7E1EEEFEF399FCEA449A3A449A3A449A33DB0DC
-        8DEBF887E8F680E4F579E1F33AA1CE5AAEC45AAFC692DAEAAFE2EE90D9E9EEEF
-        EF3BA0CFA449A3A449A3A449A33FB2DE95F0FA8FECF889E9F782E5F53EA5D064
-        B2C690C9D7B7E6F0AF6839B5E5EFEEEFEF3CA2D0A449A3A449A3A449A340B5DF
-        9CF4FC97F1FA91EEF98BEAF741A9D297CBD7B4D9E2AF6839AF6839BBE8F1A3E1
-        EE3EA4D1A449A3A449A3A449A343B8E1A3F7FD9EF5FC99F2FB93EFFA7BC3DFB8
-        DBE2B97439B97439B97439B974399E9F8E88ACB5A449A3A449A3A449A345BBE2
-        A8FAFFA4F8FEA0F6FD9BF3FBA2D5E7D99839D99839D99839D99839D99839D998
-        39D99839ECCB9CA449A3A449A354C3E7A9FBFFA9FAFFA5F9FEA1F6FD7FC9E1C1
-        DFE4F7BC39F7BC39F7BC39DDD18893B291F7BC39F7BC39F7BC39A449A35BC5E7
-        A9FBFFA9FBFFA9FBFFA7F9FE4EB7DAADD6DDC4E1E6FBC837FBC837D7F5F846AC
-        D7A449A3A449A3FBC837A449A35CC6E7A9FBFFA9FBFF9DF3FC83E2F44FB9DB94
-        CCD5CAEFF3DEF9FADAB533DDF7F948AED8A449A3A449A3F5ECCBA449A35FC8E8
-        8DE6F57EDAF07EDAF095E3F496D4DEC4F7FAC8FBFDD7FAFBE2F9FACAF2F858B5
-        DBA449A3A449A3A449A3A449A379D0EB69C9E95FC3E65EC1E55CC0E45ABEE358
-        BCE155BAE054B8DF51B6DD5CB9DE9AD2E9A449A3A449A3A449A3}
-      OnClick = BtnLoadDescrClick
-    end
-    object BtnSaveDescr: TSpeedButton
-      Left = 34
-      Top = 4
-      Width = 24
-      Height = 22
-      Glyph.Data = {
-        36030000424D3603000000000000360000002800000010000000100000000100
-        18000000000000030000000000000000000000000000000000004CB1224CB122
-        4CB1224CB1224CB1224CB1224CB1224CB1224CB1224CB1224CB1224CB1224CB1
-        224CB1224CB1224CB1224CB122B99FABBA698EA6667E9D9B9A9692918B83818A
-        868585828182807F878585726E6E874B689E5B7C8A62744CB1224CB122D175A0
-        CB6C98C75A83C5C3C2AF7992B04A7B9A9594979493898685858281706A689643
-        6DB45F89905A734CB1224CB122CE7AA1C76D96C75A83DDDBDBBD8BA2B34E7DB0
-        ABAAAFADAC9C999892908E726D6B95426CB05D84925D754CB1224CB122CF7DA3
-        C9719AC75A83F4F2F2CC9BB1B75281D7D3D2E2E2E2C4C2C2B4B2B285807F9842
-        6CB05B85945F774CB1224CB122D081A5CA759CC16792C193A9B889A1A56686C4
-        9DB0C6A6B7BB99A9B391A19C688094446CAD58819660794CB1224CB122D384AA
-        C47699C27D9DB97092B96D8EB97092B66689B46287B36186B15F83B16183B264
-        86B6568397617A4CB1224CB122D283A7C98FA8B0768EDDC6CBFBFCFCFAFAFBF9
-        FAFAF8F9F8F7F8F8F6F7F8DDC6CBBE8898C26691985F794CB1224CB122D387A9
-        CB96AEB0768EFDFDFCFBFCFCFBFBFBFAFAFAF9FAFAF7F8F9F6F8F8FCFDFBBE88
-        98C66B959A617C4CB1224CB122D58CADCC9AB1B0768EEEEAE5EEEAE5EEEAE5EE
-        EAE5EEEAE5EEEAE5EEEAE5EEEAE5BE8898C96F989D657F4CB1224CB122D790B0
-        CE9CB4B0768EFDFCFCFDFEFEFCFDFDFBFCFCFBFBFBF9FAFAF8F9FAFDFCFBBE88
-        98CD729CA067824CB1224CB122D794B4D09FB5B0768EEEEAE5EEEAE5EEEAE5EE
-        EAE5EEEAE5EEEAE5EEEAE5EEEAE5BE8898D0769FA26B854CB1224CB122D99CB8
-        CDCDCDB0768EFDFDFCFDFEFEFDFEFEFDFDFDFCFDFDFAFCFCFAFAFBFDFDF9BE88
-        98CDCDCDA9768E4CB1224CB122BD9AAA9B6781B0768EF9F8F7F7F5F3F5F4EFF3
-        F1ECF2F1EAF2F1E9EEEAE4EEEAE4BE88989B6781A688964CB1224CB122E5B7CE
-        D887ADD887ADD887ADD887ADD887ADD887ADD887ADD887ADD887ADD887ADD887
-        ADD887ADB1879A4CB1224CB1224CB1224CB1224CB1224CB1224CB1224CB1224C
-        B1224CB1224CB1224CB1224CB1224CB1224CB1224CB1224CB122}
-      OnClick = BtnSaveDescrClick
-    end
-    object LblStructName: TLabel
-      Left = 72
-      Top = 8
-      Width = 35
-      Height = 13
-      Caption = 'Struct1'
-    end
-  end
   object PnlButtonBar2: TPanel
     Left = 0
-    Top = 257
+    Top = 254
     Width = 297
     Height = 41
     Cursor = crVSplit
     Align = alTop
     BevelOuter = bvNone
-    TabOrder = 1
+    TabOrder = 0
     OnMouseDown = PnlButtonBar2MouseDown
     OnMouseMove = PnlButtonBar2MouseMove
     OnMouseUp = PnlButtonBar2MouseUp
     object BtnInterpret: TButton
       Left = 8
       Top = 8
-      Width = 81
+      Width = 98
       Height = 25
       Caption = 'Interpret'
+      DropDownMenu = InterpretRangeMenu
       ImageIndex = 8
       Images = MainForm.ImageList16
+      Style = bsSplitButton
       TabOrder = 0
       OnClick = BtnInterpretClick
     end
     object BtnCopyValue: TButton
-      Left = 112
+      Left = 128
       Top = 8
       Width = 81
       Height = 25
@@ -127,7 +47,7 @@ object StructFrame: TStructFrame
   end
   object DSDescrEdit: TSynEdit
     Left = 0
-    Top = 29
+    Top = 26
     Width = 297
     Height = 228
     Align = alTop
@@ -136,7 +56,7 @@ object StructFrame: TStructFrame
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
-    TabOrder = 3
+    TabOrder = 2
     CodeFolding.GutterShapeSize = 11
     CodeFolding.CollapsedLineColor = clGrayText
     CodeFolding.FolderBarLinesColor = clGrayText
@@ -163,16 +83,16 @@ object StructFrame: TStructFrame
   end
   object DSTreeView: TVirtualStringTree
     Left = 0
-    Top = 298
+    Top = 295
     Width = 297
-    Height = 331
+    Height = 334
     Align = alClient
     Header.AutoSizeIndex = 0
     Header.MainColumn = -1
     HintMode = hmHint
     ParentShowHint = False
     ShowHint = True
-    TabOrder = 4
+    TabOrder = 3
     OnBeforeItemErase = DSTreeViewBeforeItemErase
     OnChange = DSTreeViewChange
     OnEnter = DSTreeViewEnter
@@ -188,11 +108,64 @@ object StructFrame: TStructFrame
     Top = 304
     Width = 121
     Height = 21
-    TabOrder = 2
+    TabOrder = 1
     Text = 'EditFieldValue'
     Visible = False
     OnExit = EditFieldValueExit
     OnKeyDown = EditFieldValueKeyDown
+  end
+  object ToolBar1: TToolBar
+    Left = 0
+    Top = 0
+    Width = 297
+    Height = 26
+    AutoSize = True
+    ButtonHeight = 26
+    ButtonWidth = 26
+    Caption = 'ToolBar1'
+    Images = MainForm.ImageList16
+    TabOrder = 4
+    object BtnNewDescr: TToolButton
+      Left = 0
+      Top = 0
+      Hint = 'New structure description'
+      Caption = 'BtnNewDescr'
+      ImageIndex = 0
+      ParentShowHint = False
+      ShowHint = True
+      OnClick = BtnNewDescrClick
+    end
+    object BtnLoadDescr: TToolButton
+      Left = 26
+      Top = 0
+      Hint = 'Open structure description'
+      Caption = 'BtnLoadDescr'
+      ImageIndex = 1
+      ParentShowHint = False
+      ShowHint = True
+      OnClick = BtnLoadDescrClick
+    end
+    object BtnSaveDescr: TToolButton
+      Left = 52
+      Top = 0
+      Hint = 'Save structure description'
+      Caption = 'BtnSaveDescr'
+      DropdownMenu = SaveAsMenu
+      ImageIndex = 2
+      ParentShowHint = False
+      ShowHint = True
+      Style = tbsDropDown
+      OnClick = MISaveAsClick
+    end
+    object LblStructName: TLabel
+      Left = 93
+      Top = 0
+      Width = 57
+      Height = 26
+      Caption = '    Unnamed'
+      Transparent = True
+      Layout = tlCenter
+    end
   end
   object SavedDescrsMenu: TPopupMenu
     AutoHotkeys = maManual
@@ -207,9 +180,9 @@ object StructFrame: TStructFrame
     DefaultExt = 'ds'
     Filter = 'All files|*|DataStruct (*.ds)|*.ds'
     FilterIndex = 2
-    Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
-    Left = 144
-    Top = 104
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
+    Left = 40
+    Top = 168
   end
   object SynCppSyn1: TSynCppSyn
     Options.AutoDetectEnabled = False
@@ -218,5 +191,30 @@ object StructFrame: TStructFrame
     CommentAttri.Foreground = clGreen
     Left = 224
     Top = 104
+  end
+  object SaveAsMenu: TPopupMenu
+    Left = 128
+    Top = 104
+    object MISaveAs: TMenuItem
+      Caption = 'Save as...'
+      OnClick = MISaveAsClick
+    end
+  end
+  object InterpretRangeMenu: TPopupMenu
+    OnPopup = InterpretRangeMenuPopup
+    Left = 48
+    Top = 336
+    object MIRangeEntireFile: TMenuItem
+      Caption = 'Entire file'
+      Checked = True
+      RadioItem = True
+      OnClick = MIRangeEntireFileClick
+    end
+    object MIRangeSelection: TMenuItem
+      Tag = 1
+      Caption = 'Selection'
+      RadioItem = True
+      OnClick = MIRangeEntireFileClick
+    end
   end
 end

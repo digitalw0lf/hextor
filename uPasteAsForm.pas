@@ -7,7 +7,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Clipbrd,
   Vcl.ExtCtrls, System.Math,
 
-  uUtil, uValueInterpretors;
+  uHextorTypes, uValueInterpretors;
 
 type
   TPasteAsForm = class(TForm)
@@ -101,65 +101,81 @@ begin
   UpdatePreview();
 end;
 
-function TPasteAsForm.TextToData(const Text: string): TBytes;
-// Convert text to data using current settings from window
+function GetNextWord(var P: PChar; Delim: TSysCharSet): string;
+var
+  i:integer;
+begin
+  if P = nil then Exit('');
+  while CharInSet(P^, Delim) do Inc(P);
+  Delim := Delim + [#0];
+  i:=0;
+  while not CharInSet(P[i], Delim) do inc(i);
+  SetLength(Result,i);
+  Move(P[0], Result[Low(Result)], i*SizeOf(Char));
+  P:=@P[i];
+  while (P^<>#0) and (CharInSet(P^, Delim)) do inc(P);
+end;
+
+function ParseArrayText(const Text: string; const ElemType: string): TBytes;
+// Parse text with delimited values to binary buffer
+// Values may be larger then one byte (determined by ElemType)
+// Any char that cannot be part of a number is treated as delimiter
+// Examples:
+// "0 10 20 30", ElemType = "byte"
+// "0x010a, 0x020b", ElemType = "word"
+// "0.1;-2.33", ElemType = "float"
 var
   ms: TMemoryStream;
-  P: PAnsiChar;
-  AText, S: AnsiString;
-  Delim: TCharSet;
+  P: PChar;
+  Delim: TSysCharSet;
+  S: string;
   Interp: TValueInterpretor;
   Buf: TBytes;
+begin
+  Result := nil;
+  P := @Text[Low(Text)];
+  Delim := [#0..#255] - ['0'..'9', 'a'..'z', 'A'..'Z', '$', '-', '.'];
+
+  Interp := ValueInterpretors.FindInterpretor(ElemType);
+  if Interp = nil then Exit;
+  SetLength(Buf, Interp.MinSize);
+
+  ms := TMemoryStream.Create();
+  try
+    while P^ <> #0 do
+    begin
+      S := GetNextWord(P, Delim);
+      Interp.FromVariant(S, Buf[0], Length(Buf));
+      ms.Write(Buf, Length(Buf));
+    end;
+
+    Result := MakeBytes(ms.Memory^, ms.Size);
+  finally
+    ms.Free;
+  end;
+end;
+
+function TPasteAsForm.TextToData(const Text: string): TBytes;
+// Convert text to data using current settings from window
 begin
   Result := nil;
 
   if RBText.Checked then
   begin
     // TODO: Choose encodings
-    Result := Str2Bytes(AnsiString(Text));
+    Result := String2Data(Text, TEncoding.ANSI.CodePage);
   end
   else
 
   if RBHex.Checked then
   begin
-    Result := HexToData(AnsiString(Text));
+    Result := Hex2Data(Text);
   end
   else
 
   if RBValueArray.Checked then
   begin
-    AText := AnsiString(Text);
-    P := @AText[Low(AText)];
-    Delim := [#0..#255] - ['0'..'9', 'a'..'z', 'A'..'Z', '$', '-', '.'];
-
-//    if RBElemByte.Checked then Interp := ValueInterpretors.FindInterpretor('byte')
-//    else
-//    if RBElemWord.Checked then Interp := ValueInterpretors.FindInterpretor('word')
-//    else
-//    if RBElemDWord.Checked then Interp := ValueInterpretors.FindInterpretor('dword')
-//    else
-//    if RBElemFloat.Checked then Interp := ValueInterpretors.FindInterpretor('float')
-//    else
-//    if RBElemDouble.Checked then Interp := ValueInterpretors.FindInterpretor('double')
-//    else
-//      Exit;
-    Interp := ValueInterpretors.FindInterpretor(CBElemType.Text);
-    if Interp = nil then Exit;
-    SetLength(Buf, Interp.MinSize);
-
-    ms := TMemoryStream.Create();
-    try
-      while P^ <> #0 do
-      begin
-        S := GetNextWord(P, Delim);
-        Interp.FromVariant(string(S), Buf[0], Length(Buf));
-        ms.Write(Buf, Length(Buf));
-      end;
-
-      Result := MakeBytes(ms.Memory^, ms.Size);
-    finally
-      ms.Free;
-    end;
+    Result := ParseArrayText(Text, CBElemType.Text);
   end;
 end;
 

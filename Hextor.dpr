@@ -6,7 +6,7 @@ uses
   uEditorPane in 'uEditorPane.pas',
   uHextorTypes in 'uHextorTypes.pas',
   uHextorDataSources in 'uHextorDataSources.pas',
-  uOleAutoAPIWrapper in 'd:\Work\Branches\AutomationPluginAPI\Units\uOleAutoAPIWrapper.pas',
+  uOleAutoAPIWrapper in 'uOleAutoAPIWrapper.pas',
   uMainForm in 'uMainForm.pas' {MainForm},
   uFindReplaceForm in 'uFindReplaceForm.pas' {FindReplaceForm},
   uDiskSelectForm in 'uDiskSelectForm.pas' {DiskSelectForm},
@@ -20,7 +20,6 @@ uses
   uCallbackList in 'uCallbackList.pas',
   uScriptFrame in 'uScriptFrame.pas' {ScriptFrame: TFrame},
   uDbgToolsForm in 'uDbgToolsForm.pas' {DbgToolsForm},
-  uProfilerFrame in 'D:\Work\Trunk\Units\Components\uProfilerFrame.pas' {ProfilerFrame: TFrame},
   uDataSearcher in 'uDataSearcher.pas',
   uValueInterpretors in 'uValueInterpretors.pas',
   uUndoStack in 'uUndoStack.pas',
@@ -32,7 +31,9 @@ uses
   Vcl.Themes,
   Vcl.Styles,
   uSearchResultsFrame in 'uSearchResultsFrame.pas' {SearchResultsFrame: TFrame},
-  uPasteAsForm in 'uPasteAsForm.pas' {PasteAsForm};
+  uPasteAsForm in 'uPasteAsForm.pas' {PasteAsForm},
+  uHextorGUI in 'uHextorGUI.pas',
+  uAboutForm in 'uAboutForm.pas' {AboutForm};
 
 {$R *.res}
 
@@ -49,5 +50,6 @@ begin
   Application.CreateForm(TSetFileSizeForm, SetFileSizeForm);
   Application.CreateForm(TFillBytesForm, FillBytesForm);
   Application.CreateForm(TPasteAsForm, PasteAsForm);
+  Application.CreateForm(TAboutForm, AboutForm);
   Application.Run;
 end.

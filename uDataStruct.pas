@@ -6,7 +6,7 @@ uses
   System.SysUtils, System.Classes, Winapi.Windows, Generics.Collections,
   System.Math, Winapi.ActiveX, MSScriptControl_TLB, Variants, ComObj,
 
-  uHextorTypes, uValueInterpretors, uLogFile, uUtil, uCallbackList;
+  uHextorTypes, uValueInterpretors, {uLogFile,} uCallbackList;
 
 const
   // Synthetic "case" label for "default" branch
@@ -521,6 +521,13 @@ begin
 
   S := PeekLexem();
 
+  if S = ';' then
+  // Empty statement
+  begin
+    ReadLexem();
+    Exit;
+  end;
+
   while S = '#' do
   // Parser directive
   begin
@@ -592,7 +599,7 @@ begin
       //Result.Fields.Add(AInstance);
       Result := Result + [AInstance];
 
-      WriteLogF('Struct', AnsiString(AInstance.ClassName+' '+AInstance.Name));
+//      WriteLogF('Struct', AnsiString(AInstance.ClassName+' '+AInstance.Name));
 
       if S = ',' then  // Next name
       begin
@@ -628,14 +635,14 @@ begin
 
   while (Ptr < BufEnd) do
   begin
+    if PeekLexem() = '}' then Break;
     Fields := ReadStatement();
-    if Fields = nil then Break;
+//    if Fields = nil then Break;
     for i:=0 to Length(Fields)-1 do
     begin
       Fields[i].Parent := Result;
       Result.Fields.Add(Fields[i]);
     end;
-    if PeekLexem() = '}' then Break;
   end;
   LastStatementFields := nil;  // "#valid" works only inside same struct
 end;
@@ -707,7 +714,7 @@ var
 begin
   Result := nil;
   S := ReadLexem;
-  if S = '' then Exit;
+  if (S = '') or (S = ';') then Exit;
   if S = '{' then
   begin
     Result := ReadStruct();
@@ -1197,7 +1204,7 @@ begin
     on E: Exception do
     begin
       if not E.Message.StartsWith('Line #') then
-        E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ':' + #13#10 + E.Message;
+        E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ', Addr ' + IntToStr(DS.BufAddr) + ':' + #13#10 + E.Message;
       raise;
     end;
   end;
@@ -1214,9 +1221,9 @@ begin
   FStartAddr := Addr;
   FMaxSize := MaxSize;
   FCurAddr := Addr;
-  EndOfData := False;
+  EndOfData := (MaxSize = 0);
   FieldsProcessed := 0;
-  WriteLogF('Struct_Intepret', 'Start');
+//  WriteLogF('Struct_Intepret', 'Start');
   try
     InternalInterpret(DS);
   finally
@@ -1323,7 +1330,7 @@ begin
     except
       on E: EOleException do
       begin
-        WriteLogF('Struct_Intepret', AnsiString('TDSInterpretor.PrepareScriptEnv:E: ' + E.Message));
+//        WriteLogF('Struct_Intepret', AnsiString('TDSInterpretor.PrepareScriptEnv:E: ' + E.Message));
         if TryCounter <= 3 then
           Sleep(50)
         else

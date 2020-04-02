@@ -10,7 +10,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
   System.UITypes,
 
-  uHextorTypes, uMainForm, uEditorForm, uEditedData, uUtil, uCallbackList,
+  uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
   uDataSearcher;
 
 type
@@ -239,6 +239,8 @@ begin
     Params.bRepHex := CBReplaceHex.Checked;
     Params.bAskEachReplace := CBAskReplace.Checked;
 
+    Params.CodePage := TargetEditor.TextEncoding;
+
     if Params.bFindInSel then
     begin
       Params.Range.Start := TargetEditor.SelStart;
@@ -248,12 +250,12 @@ begin
       Params.Range := EntireFile;
 
     if Params.bHex then
-      Params.Needle := Str2Bytes(Hex2Data(Params.Text, True))
+      Params.Needle := Hex2Data(Params.Text)
     else
     if Params.bUnicode then
-      Params.Needle := Str2Bytes(Params.Text)
+      Params.Needle := String2Data(Params.Text, TEncoding.Unicode.CodePage)
     else
-      Params.Needle := Str2Bytes(AnsiString(Params.Text));
+      Params.Needle := String2Data(Params.Text, TargetEditor.TextEncoding);
 
     if Length(Params.Needle) = 0 then
       raise EInvalidUserInput.Create('Specify search string');

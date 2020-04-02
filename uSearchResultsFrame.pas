@@ -7,7 +7,7 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls,
   VirtualTrees, Math, System.UITypes,
 
-  uHextorTypes, uEditorForm, uUtil;
+  uHextorTypes, uEditorForm;
 
 type
   TSearchResultsFrame = class(TFrame)
@@ -47,6 +47,7 @@ implementation
 {$R *.dfm}
 
 procedure TSearchResultsFrame.AddListItem(const ARange: TFileRange);
+// Add ARange to list of search results
 var
   Node: PVirtualNode;
   RNode: PResultTreeNode;
@@ -60,12 +61,12 @@ begin
   DispRange.Start := Max(ARange.Start - 5, 0);
   DispRange.AEnd := Min(ARange.AEnd + 5, FEditor.Data.GetSize());
   AData := FEditor.Data.Get(DispRange.Start, Min(DispRange.Size, 100));
-  RNode.DisplayHex[0] := string(Data2Hex(Copy(AData, 0, ARange.Start-DispRange.Start)));
-  RNode.DisplayHex[1] := string(Data2Hex(Copy(AData, ARange.Start-DispRange.Start, ARange.Size)));
-  RNode.DisplayHex[2] := string(Data2Hex(Copy(AData, ARange.AEnd-DispRange.Start, MaxInt)));
-  RNode.DisplayText[0] := RemUnprintable(string(MakeStr(Copy(AData, 0, ARange.Start-DispRange.Start))));
-  RNode.DisplayText[1] := RemUnprintable(string(MakeStr(Copy(AData, ARange.Start-DispRange.Start, ARange.Size))));
-  RNode.DisplayText[2] := RemUnprintable(string(MakeStr(Copy(AData, ARange.AEnd-DispRange.Start, MaxInt))));
+  RNode.DisplayHex[0] := Data2Hex(Copy(AData, 0, ARange.Start-DispRange.Start));
+  RNode.DisplayHex[1] := Data2Hex(Copy(AData, ARange.Start-DispRange.Start, ARange.Size));
+  RNode.DisplayHex[2] := Data2Hex(Copy(AData, ARange.AEnd-DispRange.Start, MaxInt));
+  RNode.DisplayText[0] := RemUnprintable(Data2String(Copy(AData, 0, ARange.Start-DispRange.Start), FEditor.TextEncoding));
+  RNode.DisplayText[1] := RemUnprintable(Data2String(Copy(AData, ARange.Start-DispRange.Start, ARange.Size), FEditor.TextEncoding));
+  RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(AData, ARange.AEnd-DispRange.Start, MaxInt), FEditor.TextEncoding));
 end;
 
 procedure TSearchResultsFrame.BeginUpdateList(AEditor: TEditorForm; const ASearchText: string);

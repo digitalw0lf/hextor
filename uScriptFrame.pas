@@ -6,8 +6,9 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Buttons,
   Vcl.StdCtrls, Vcl.OleCtrls, MSScriptControl_TLB, Vcl.ComCtrls,
+  System.Diagnostics, SynEdit,
 
-  uUtil, SynEdit;
+  uHextorTypes;
 
 type
   TScriptFrame = class(TFrame)
@@ -45,18 +46,29 @@ procedure TScriptFrame.BtnRunClick(Sender: TObject);
 var
   AText: string;
   Res: OleVariant;
+//  t: Int64;
+  Timer: TStopwatch;
 begin
   AText := ScriptEdit.Text;
 
   AppSettings.Script.Text := AText;
   MainForm.SaveSettings();
 
+  //t := GetNanosec();
+  Timer := TStopwatch.StartNew();
+
   PrepareScriptEnv();
 
   Res := ScriptControl1.Eval(AText);  // <--
 
-  MemoOutput.Lines.Add(Res);
-  ShowMemoCaret(MemoOutput, True);
+  //t := GetNanosec() - t;
+  Timer.Stop();
+
+  MemoOutput.Lines.Add('Result: ' + string(Res) + ', duration: ' + R2S(Timer.Elapsed.TotalMilliseconds*1000, 0) + ' mks');
+  //ShowMemoCaret(MemoOutput, True);
+//  MemoOutput.SelStart := MemoOutput.GetTextLen;
+//  MemoOutput.Perform(EM_SCROLLCARET, 0, 0);
+  SendMessage(MemoOutput.Handle, WM_VSCROLL, SB_BOTTOM, 0);
 end;
 
 constructor TScriptFrame.Create(AOwner: TComponent);

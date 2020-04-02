@@ -75,7 +75,8 @@
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
-        <DCC_UnitSearchPath>D:\DWF\Delphi\Lib\Jcl\jcl\source\windows-;d:\DWF\Delphi\Test\Annotation;.\PluginSrc\PluginTest;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>D:\DWF\Delphi\Lib\Jcl\jcl\source\windows-;.\PluginSrc\PluginTest;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_Define>nUSE_DWF_UTILS;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;DataSnapServerMidas;DBXDb2Driver;DBXInterBaseDriver;ZComponent;vclactnband;ZCore;vclFireDAC;svnui;tethering;FireDACADSDriver;DBXMSSQLDriver;GLScene_RT;DatasnapConnectorsFreePascal;FireDACMSSQLDriver;vcltouch;vcldb;bindcompfmx;svn;Intraweb;DBXOracleDriver;dwflib;inetdb;FmxTeeUI;emsedge;fmx;fmxdae;vclib;FireDACDBXDriver;dbexpress;IndyCore;vclx;ZParseSql;dsnap;DataSnapCommon;DataSnapConnectors;VCLRESTComponents;JclDeveloperTools;vclie;bindengine;DBXMySQLDriver;FireDACOracleDriver;FireDACMySQLDriver;DBXFirebirdDriver;FireDACCommonODBC;DataSnapClient;bindcompdbx;IndyIPCommon;vcl;DBXSybaseASEDriver;IndyIPServer;IndySystem;FireDACDb2Driver;dsnapcon;FireDACMSAccDriver;fmxFireDAC;FireDACInfxDriver;vclimg;ZDbc;TeeDB;Jcl;KControls_RXE6;emshosting;ImportedActiveX;FireDACPgDriver;ibmonitor;FireDACASADriver;DBXOdbcDriver;FireDACTDataDriver;FMXTee;DbxCommonDriver;ibxpress;Tee;DataSnapServer;xmlrtl;DataSnapNativeClient;fmxobj;vclwinx;ibxbindings;rtl;FireDACDSDriver;DbxClientDriver;dclFFMSource250;DBXSybaseASADriver;CustomIPTransport;vcldsnap;bindcomp;appanalytics;ZPlain;DBXInformixDriver;IndyIPClient;bindcompvcl;TeeUI;dbxcds;VclSmp;adortl;FireDACODBCDriver;JclVcl;DataSnapIndy10ServerTransport;dsnapxml;DataSnapProviderClient;dbrtl;inetdbxpress;FireDACMongoDBDriver;IndyProtocols;JclContainers;fmxase;$(DCC_UsePackage)</DCC_UsePackage>
@@ -127,6 +128,7 @@
         <AppEnableHighDPI>true</AppEnableHighDPI>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
+        <Icon_MainIcon>Data\WolfTraceIcon.ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -141,7 +143,7 @@
         <DCCReference Include="uEditorPane.pas"/>
         <DCCReference Include="uHextorTypes.pas"/>
         <DCCReference Include="uHextorDataSources.pas"/>
-        <DCCReference Include="d:\Work\Branches\AutomationPluginAPI\Units\uOleAutoAPIWrapper.pas"/>
+        <DCCReference Include="uOleAutoAPIWrapper.pas"/>
         <DCCReference Include="uMainForm.pas">
             <Form>MainForm</Form>
         </DCCReference>
@@ -181,10 +183,6 @@
         <DCCReference Include="uDbgToolsForm.pas">
             <Form>DbgToolsForm</Form>
         </DCCReference>
-        <DCCReference Include="D:\Work\Trunk\Units\Components\uProfilerFrame.pas">
-            <Form>ProfilerFrame</Form>
-            <DesignClass>TFrame</DesignClass>
-        </DCCReference>
         <DCCReference Include="uDataSearcher.pas"/>
         <DCCReference Include="uValueInterpretors.pas"/>
         <DCCReference Include="uUndoStack.pas"/>
@@ -204,11 +202,14 @@
         </DCCReference>
         <DCCReference Include="uSearchResultsFrame.pas">
             <Form>SearchResultsFrame</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="uPasteAsForm.pas">
             <Form>PasteAsForm</Form>
+        </DCCReference>
+        <DCCReference Include="uHextorGUI.pas"/>
+        <DCCReference Include="uAboutForm.pas">
+            <Form>AboutForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>

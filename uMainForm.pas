@@ -15,12 +15,12 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
-  System.StrUtils, MSScriptControl_TLB,
+  System.StrUtils, MSScriptControl_TLB, System.IOUtils,
 
-  uUtil, uLargeStr, uEditorPane, uLogFile, superobject,
+  uEditorPane, {uLogFile,} superobject,
   uHextorTypes, uHextorDataSources, uEditorForm,
-  uValueFrame, uStructFrame, uCRC, uCompareFrame, uScriptFrame,
-  uBitmapFrame, uCallbackList, ColoredPanel, uOleAutoAPIWrapper,
+  uValueFrame, uStructFrame, flcHash, uCompareFrame, uScriptFrame,
+  uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
   uSearchResultsFrame;
 
 const
@@ -43,6 +43,9 @@ type
     ByteColumns: Integer;  // -1 - auto
     ActiveRightPage: Integer;
     RightPanelWidth: Integer;
+    Struct: record
+      Range: TStructFrame.TInterpretRange;
+    end;
     Script: record
       Text: string;
     end;
@@ -61,15 +64,15 @@ type
 
   TMainForm = class(TForm)
     MainMenu1: TMainMenu;
-    File1: TMenuItem;
-    Edit1: TMenuItem;
+    MIFile: TMenuItem;
+    MIEdit: TMenuItem;
     New1: TMenuItem;
     Open1: TMenuItem;
     Save1: TMenuItem;
     Saveas1: TMenuItem;
     ToolBar1: TToolBar;
     OpenDialog1: TOpenDialog;
-    est1: TMenuItem;
+    MIDebug: TMenuItem;
     ToolButton1: TToolButton;
     ToolButton2: TToolButton;
     ToolButton3: TToolButton;
@@ -129,7 +132,7 @@ type
     ValueFrame: TValueFrame;
     StructFrame: TStructFrame;
     AfterEventTimer: TTimer;
-    Tools1: TMenuItem;
+    MITools: TMenuItem;
     CRC321: TMenuItem;
     estchangespeed1: TMenuItem;
     MsgPanel: TPanel;
@@ -165,7 +168,7 @@ type
     Loadplugin1: TMenuItem;
     PgSearchResult: TTabSheet;
     SearchResultsFrame: TSearchResultsFrame;
-    View1: TMenuItem;
+    MIView: TMenuItem;
     MIEncodingMenu: TMenuItem;
     ANSI1: TMenuItem;
     ASCII1: TMenuItem;
@@ -177,12 +180,16 @@ type
     EditSelRangeEnd: TEdit;
     BtnSelRangeOk: TButton;
     BtnSelRangeCancel: TButton;
-    ImageProxy1: TImageProxy;
+    ImageProxy1: THintedImageProxy;
     MISelectRange: TMenuItem;
     EditorTabMenu: TPopupMenu;
     MICloseEditorTab: TMenuItem;
     ActionPasteAs: TAction;
     MIPasteAs: TMenuItem;
+    ActionDebugMode: TAction;
+    MIHelp: TMenuItem;
+    ActionAboutBox: TAction;
+    AboutHextor1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -236,6 +243,8 @@ type
     procedure MIEncodingMenuClick(Sender: TObject);
     procedure ActionSelectRangeExecute(Sender: TObject);
     procedure MICloseEditorTabClick(Sender: TObject);
+    procedure ActionDebugModeExecute(Sender: TObject);
+    procedure ActionAboutBoxExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -271,6 +280,7 @@ type
   public
     { Public declarations }
     SettingsFolder, SettingsFile: string;
+    TempPath: string;
 //    HextorOle: TCoHextor;
     APIEnv: TAPIEnvironment;
     Utils: THextorUtils;
@@ -315,11 +325,18 @@ implementation
 {$R *.dfm}
 
 uses
+  System.SysConst,
+
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
-  uPasteAsForm;
+  uPasteAsForm, uAboutForm;
 
 { TMainForm }
+
+procedure TMainForm.ActionAboutBoxExecute(Sender: TObject);
+begin
+  AboutForm.ShowModal();
+end;
 
 procedure TMainForm.ActionBitsEditorExecute(Sender: TObject);
 var
@@ -366,14 +383,20 @@ begin
       if Application.MessageBox(PChar('Try to copy '+IntToStr(SelLength div MByte)+' megabytes to system clipboard?'), PChar('Copy'), MB_YESNO) <> IDYES then Exit;
     Buf := GetEditedData(SelStart, SelLength);
     if ActiveControl=PaneHex then
-      s := string(Data2Hex(Buf, True))
+      s := Data2Hex(Buf, True)
     else
-      s := string(MakeStr(Buf));
+      s := Data2String(Buf, TextEncoding);
     Clipboard.AsText := s;
 
     if (Sender = ActionCut) and (InsertMode) then
       DeleteSelected();
   end;
+end;
+
+procedure TMainForm.ActionDebugModeExecute(Sender: TObject);
+begin
+  // Show Debug menu
+  MIDebug.Visible := not MIDebug.Visible;
 end;
 
 procedure TMainForm.ActionExitExecute(Sender: TObject);
@@ -424,11 +447,11 @@ begin
       Size := SelLength;
     end;
 
-    StartTimeMeasure();
+//    StartTimeMeasure();
     if FillBytesForm.RBPattern.Checked then
     // Pattern
     begin
-      Pattern := HexToData(AnsiString(FillBytesForm.EditPattern.Text));
+      Pattern := Hex2Data(FillBytesForm.EditPattern.Text);
       SetLength(AData, Size);
       if Length(Pattern) = 0 then
         raise EInvalidUserInput.Create('Specify hex pattern');
@@ -442,7 +465,7 @@ begin
     if FillBytesForm.RBExpression.Checked then
     // JavaScript expression
     begin
-      Pattern := HexToData(AnsiString(FillBytesForm.EditPattern.Text));
+      Pattern := Hex2Data(FillBytesForm.EditPattern.Text);
       Expression := FillBytesForm.EditExpression.Text;
       if Insert then
       begin
@@ -489,7 +512,7 @@ begin
         AData[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
     end
     else Exit;
-    EndTimeMeasure('Fill', True);
+//    EndTimeMeasure('Fill', True);
 
     UndoStack.BeginAction('', IfThen(Insert, 'Insert bytes', 'Fill selection'));
     try
@@ -620,9 +643,9 @@ begin
     begin
       s := Clipboard.AsText;
       if ActiveControl=PaneHex then
-        Buf := HexToData(AnsiString(s))
+        Buf := Hex2Data(s)
       else
-        Buf := Str2Bytes(AnsiString(s));
+        Buf := String2Data(s, TextEncoding);
     end;
     if Length(Buf)=0 then Exit;
 
@@ -700,6 +723,8 @@ var
   SameFile: Boolean;
   AData: TBytes;
   fn: string;
+  fs: TFileStream;
+  E: EInOutError;
 begin
   with ActiveEditor do
   begin
@@ -723,7 +748,19 @@ begin
 
     if SameFile then CloseCurrentFile(False);
 
-    SaveEntireFile(fn, AData);
+    if not System.SysUtils.ForceDirectories(ExtractFilePath(fn)) then
+    begin
+      E := EInOutError.CreateRes(@SCannotCreateDir);
+      E.ErrorCode := 3;
+      raise E;
+    end;
+
+    fs := TFileStream.Create(fn, fmCreate);
+    try
+      fs.WriteBuffer(AData, Length(AData));
+    finally
+      fs.Free;
+    end;
 
     if SameFile then
       OpenFile(THextorDataSourceType(DataSource.ClassType), fn);
@@ -965,7 +1002,7 @@ begin
     AData := GetEditedData(SelStart, SelLength);
   end;
 
-  crc := CalcCRC32(@AData[0], Length(AData));
+  crc := CalcCRC32(AData[0], Length(AData));
 
   s := IntToHex(crc, 8);
   InputQuery('CRC32', 'CRC32:', s);
@@ -998,7 +1035,7 @@ begin
   if not InputQuery('Create test file', 'Create test file of size:', s) then Exit;
   Size := Str2FileSize(s);
 
-  fs := TFileStream.Create(ExePath + 'TestFile_'+s.Replace(' ','_')+'.dat', fmCreate);
+  fs := TFileStream.Create(ExtractFilePath(Application.ExeName) + 'TestFile_'+s.Replace(' ','_')+'.dat', fmCreate);
   try
     SetLength(Block, BlockSize);
     for i:=0 to BlockSize div 4-1 do
@@ -1041,15 +1078,18 @@ var
   ws: string;
   i: Integer;
 begin
-  bWriteLogFile := True;
+//  bWriteLogFile := True;
 //  bThreadedLogWrite := False;
+
+  TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
+
   AppSettings := THextorSettings.Create();
 
   // Get path to settings folder (AppData\Hextor)
   SetLength(ws, MAX_PATH);
   i:=SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @ws[Low(ws)]);
-  if i=0 then  SettingsFolder := AddSlash(PChar(ws)) + 'Hextor\'
-         else  SettingsFolder := ExePath + 'Settings\';
+  if i=0 then  SettingsFolder := IncludeTrailingPathDelimiter(PChar(ws)) + 'Hextor\'
+         else  SettingsFolder := ExtractFilePath(Application.ExeName) + 'Settings\';
   SettingsFile := SettingsFolder + 'Settings.json';
 
   InitDefaultSettings();
@@ -1076,8 +1116,6 @@ begin
        (ActionList1.Actions[i].Category = 'Navigation') then
       ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
   ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
-
-  FmtHint := tFmtHintWindow.Create(Self);
 
   Utils := THextorUtils.Create();
 
@@ -1191,7 +1229,7 @@ var
   //app: IHextorApp;
   app: OleVariant;
 begin
-  hLib := LoadLibrary(PChar(ExePath + 'Plugins\PluginTest.dll'));
+  hLib := LoadLibrary(PChar(ExtractFilePath(Application.ExeName) + 'Plugins\PluginTest.dll'));
   pInit := GetProcAddress(hLib, 'init');
   app := APIEnv.GetAPIWrapper(MainForm);//as IHextorApp;
   pInit(app);
@@ -1443,10 +1481,10 @@ procedure TMainForm.Something1Click(Sender: TObject);
 var
   i: Integer;
 begin
-  StartTimeMeasure();
+//  StartTimeMeasure();
   for i:=0 to 999 do
     ActiveEditor;
-  EndTimeMeasure('ActiveEditor', True);
+//  EndTimeMeasure('ActiveEditor', True);
 end;
 
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;
@@ -1489,7 +1527,7 @@ var
   i: Integer;
   b: TBytes;
 begin
-  b := Str2Bytes(AnsiString('#SPEEDTEST'));
+  b := String2Data(AnsiString('#SPEEDTEST'));
 
   with ActiveEditor do
   begin
@@ -1497,9 +1535,9 @@ begin
     try
       for i:=1 to WriteCount do
       begin
-        StartTimeMeasure();
+//        StartTimeMeasure();
         ChangeBytes(Random(GetFileSize() - Length(b)), b);
-        EndTimeMeasure('change', True, 'Timing');
+//        EndTimeMeasure('change', True, 'Timing');
         ShowProgress(Sender, i, WriteCount);
       end;
     finally

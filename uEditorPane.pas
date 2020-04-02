@@ -6,7 +6,7 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Controls, Vcl.ExtCtrls,
   Vcl.Graphics, System.Types, Winapi.Messages, Math,
 
-  uLogFile, uUtil;
+  uHextorTypes {, uLogFile};
 
 type
   TEditorPane = class(TPanel)

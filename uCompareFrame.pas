@@ -5,9 +5,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Math,
-  Generics.Collections, System.Types, Vcl.StdCtrls,
+  Generics.Collections, System.Types, Vcl.StdCtrls, Vcl.Buttons,
 
-  uHextorTypes, uEditorForm, uEditedData, uLogFile, ColoredPanel, Vcl.Buttons;
+  uHextorTypes, uEditorForm, uEditedData, uHextorGUI{, uLogFile};
 
 type
   TCompareFrame = class(TFrame)
@@ -177,7 +177,7 @@ var
   i, PrevY: Integer;
   RAll, R: TRect;
 begin
-  StartTimeMeasure();
+//  StartTimeMeasure();
   RAll := Rect(0, 0, ScrBmp.Width, ScrBmp.Height);
   with ScrBmp.Canvas do
   begin
@@ -204,7 +204,7 @@ begin
       FillRect(R);
     end;
   end;
-  EndTimeMeasure('DrawDiffBarInternal', True);
+//  EndTimeMeasure('DrawDiffBarInternal', True);
 end;
 
 procedure TCompareFrame.EditorByteColsChanged(Sender: TEditorForm);

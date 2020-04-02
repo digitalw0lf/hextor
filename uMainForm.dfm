@@ -22,9 +22,9 @@ object MainForm: TMainForm
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 604
-    Top = 47
+    Top = 51
     Width = 4
-    Height = 592
+    Height = 588
     Align = alRight
     AutoSnap = False
     ResizeStyle = rsUpdate
@@ -73,9 +73,10 @@ object MainForm: TMainForm
     Left = 0
     Top = 0
     Width = 1028
-    Height = 22
+    Height = 26
     AutoSize = True
-    ButtonWidth = 24
+    ButtonHeight = 26
+    ButtonWidth = 26
     Caption = 'ToolBar1'
     Images = ImageList16
     ParentShowHint = False
@@ -87,19 +88,19 @@ object MainForm: TMainForm
       Action = ActionNew
     end
     object ToolButton2: TToolButton
-      Left = 24
+      Left = 26
       Top = 0
       Action = ActionOpen
       DropdownMenu = RecentFilesMenu
       Style = tbsDropDown
     end
     object ToolButton3: TToolButton
-      Left = 63
+      Left = 67
       Top = 0
       Action = ActionSave
     end
     object ToolButton4: TToolButton
-      Left = 87
+      Left = 93
       Top = 0
       Width = 8
       Caption = 'ToolButton4'
@@ -107,8 +108,8 @@ object MainForm: TMainForm
       Style = tbsSeparator
     end
     object EditByteCols: TComboBox
-      Left = 95
-      Top = 0
+      Left = 101
+      Top = 2
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -125,7 +126,7 @@ object MainForm: TMainForm
         '32')
     end
     object ToolButton5: TToolButton
-      Left = 169
+      Left = 175
       Top = 0
       Width = 8
       Caption = 'ToolButton5'
@@ -135,7 +136,7 @@ object MainForm: TMainForm
   end
   object MDITabs: TTabControl
     Left = 0
-    Top = 22
+    Top = 26
     Width = 1028
     Height = 25
     Align = alTop
@@ -149,9 +150,9 @@ object MainForm: TMainForm
   end
   object RightPanel: TPanel
     Left = 608
-    Top = 47
+    Top = 51
     Width = 420
-    Height = 592
+    Height = 588
     Align = alRight
     BevelOuter = bvNone
     DoubleBuffered = True
@@ -162,8 +163,8 @@ object MainForm: TMainForm
       Left = 0
       Top = 0
       Width = 420
-      Height = 551
-      ActivePage = PgCompare
+      Height = 547
+      ActivePage = PgStruct
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -173,16 +174,16 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 523
+          Height = 519
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 523
+          ExplicitHeight = 519
           inherited ValuesGrid: TKGrid
             Width = 412
-            Height = 523
+            Height = 519
             ExplicitWidth = 412
-            ExplicitHeight = 523
+            ExplicitHeight = 519
             ColWidths = (
               64
               347)
@@ -199,20 +200,18 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 523
+          Height = 519
           Align = alClient
+          DoubleBuffered = True
+          ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 523
-          inherited PnlButtonBar1: TPanel
-            Width = 412
-            ExplicitWidth = 412
-          end
+          ExplicitHeight = 519
           inherited PnlButtonBar2: TPanel
-            Top = 245
+            Top = 242
             Width = 412
-            TabOrder = 2
-            ExplicitTop = 245
+            TabOrder = 1
+            ExplicitTop = 242
             ExplicitWidth = 412
             inherited BtnInterpret: TButton
               Images = nil
@@ -224,21 +223,33 @@ object MainForm: TMainForm
           inherited DSDescrEdit: TSynEdit
             Width = 412
             Height = 216
-            TabOrder = 1
+            TabOrder = 0
             ExplicitWidth = 412
             ExplicitHeight = 216
           end
           inherited DSTreeView: TVirtualStringTree
-            Top = 286
+            Top = 283
             Width = 412
-            Height = 237
-            TabOrder = 3
-            ExplicitTop = 286
+            Height = 236
+            TabOrder = 2
+            ExplicitTop = 283
             ExplicitWidth = 412
-            ExplicitHeight = 237
+            ExplicitHeight = 236
           end
           inherited EditFieldValue: TEdit
-            TabOrder = 4
+            TabOrder = 3
+          end
+          inherited ToolBar1: TToolBar
+            Width = 412
+            Images = nil
+            ExplicitWidth = 412
+            inherited BtnSaveDescr: TToolButton
+              ExplicitWidth = 26
+            end
+            inherited LblStructName: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
           end
         end
       end
@@ -250,16 +261,16 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 523
+          Height = 519
           Align = alClient
           DoubleBuffered = True
           ParentBackground = False
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 523
+          ExplicitHeight = 519
           inherited DiffBar: TPaintBox
-            Height = 523
+            Height = 519
             ExplicitHeight = 523
           end
           inherited BtnRecompare: TButton
@@ -274,13 +285,13 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 523
+          Height = 519
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 523
+          ExplicitHeight = 519
           inherited Splitter1: TSplitter
-            Top = 387
+            Top = 383
             Width = 412
             ExplicitTop = 387
             ExplicitWidth = 412
@@ -295,9 +306,9 @@ object MainForm: TMainForm
               010007004A00530063007200690070007400}
           end
           inherited OutputPanel: TPanel
-            Top = 391
+            Top = 387
             Width = 412
-            ExplicitTop = 391
+            ExplicitTop = 387
             ExplicitWidth = 412
             inherited MemoOutput: TRichEdit
               Width = 412
@@ -314,9 +325,9 @@ object MainForm: TMainForm
           end
           inherited ScriptEdit: TSynEdit
             Width = 412
-            Height = 354
+            Height = 350
             ExplicitWidth = 412
-            ExplicitHeight = 354
+            ExplicitHeight = 350
           end
         end
       end
@@ -327,22 +338,22 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 523
+          Height = 519
           Align = alClient
           DoubleBuffered = False
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 523
+          ExplicitHeight = 519
           inherited MainPaintBox: TPaintBox
             Width = 314
-            Height = 474
+            Height = 470
             ExplicitWidth = 299
             ExplicitHeight = 474
           end
           inherited LeftPanel: TPanel
-            Height = 474
-            ExplicitHeight = 474
+            Height = 470
+            ExplicitHeight = 470
           end
           inherited TopPanel: TPanel
             Width = 412
@@ -350,9 +361,9 @@ object MainForm: TMainForm
           end
           inherited VertScrollBar: TScrollBar
             Left = 395
-            Height = 474
+            Height = 470
             ExplicitLeft = 395
-            ExplicitHeight = 474
+            ExplicitHeight = 470
           end
         end
       end
@@ -363,27 +374,27 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 523
+          Height = 519
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 523
+          ExplicitHeight = 519
           inherited PageControl: TPageControl
             Width = 412
-            Height = 523
+            Height = 519
             ExplicitWidth = 412
-            ExplicitHeight = 523
+            ExplicitHeight = 519
             inherited TabSheet1: TTabSheet
               ExplicitLeft = 4
               ExplicitTop = 24
               ExplicitWidth = 404
-              ExplicitHeight = 495
+              ExplicitHeight = 491
               inherited ResultsList: TVirtualStringTree
                 Width = 404
-                Height = 476
+                Height = 472
                 TabOrder = 1
                 ExplicitWidth = 404
-                ExplicitHeight = 476
+                ExplicitHeight = 472
                 Columns = <
                   item
                     Position = 0
@@ -402,9 +413,9 @@ object MainForm: TMainForm
                   end>
               end
               inherited StatusBar1: TStatusBar
-                Top = 476
+                Top = 472
                 Width = 404
-                ExplicitTop = 476
+                ExplicitTop = 472
                 ExplicitWidth = 404
               end
             end
@@ -414,7 +425,7 @@ object MainForm: TMainForm
     end
     object MsgPanel: TPanel
       Left = 0
-      Top = 551
+      Top = 547
       Width = 420
       Height = 41
       Align = alBottom
@@ -493,7 +504,7 @@ object MainForm: TMainForm
       Height = 13
       Caption = 'Range end:'
     end
-    object ImageProxy1: TImageProxy
+    object ImageProxy1: THintedImageProxy
       Left = 224
       Top = 48
       Width = 16
@@ -543,7 +554,7 @@ object MainForm: TMainForm
     Images = ImageList16
     Left = 144
     Top = 72
-    object File1: TMenuItem
+    object MIFile: TMenuItem
       Caption = 'File'
       object New1: TMenuItem
         Action = ActionNew
@@ -592,7 +603,7 @@ object MainForm: TMainForm
         Action = ActionExit
       end
     end
-    object Edit1: TMenuItem
+    object MIEdit: TMenuItem
       Caption = 'Edit'
       object MIUndo: TMenuItem
         Action = ActionUndo
@@ -649,7 +660,7 @@ object MainForm: TMainForm
         Action = ActionFillBytes
       end
     end
-    object View1: TMenuItem
+    object MIView: TMenuItem
       Caption = 'View'
       object MIEncodingMenu: TMenuItem
         Caption = 'Text encoding'
@@ -667,7 +678,7 @@ object MainForm: TMainForm
         end
       end
     end
-    object Tools1: TMenuItem
+    object MITools: TMenuItem
       Caption = 'Tools'
       object CRC321: TMenuItem
         Caption = 'CRC32'
@@ -677,8 +688,9 @@ object MainForm: TMainForm
         Action = ActionCompare
       end
     end
-    object est1: TMenuItem
-      Caption = 'Test'
+    object MIDebug: TMenuItem
+      Caption = 'Debug'
+      Visible = False
       object DbgToolsForm1: TMenuItem
         Caption = 'DbgToolsForm'
         OnClick = DbgToolsForm1Click
@@ -706,6 +718,12 @@ object MainForm: TMainForm
       object Loadplugin1: TMenuItem
         Caption = 'Load plugin'
         OnClick = Loadplugin1Click
+      end
+    end
+    object MIHelp: TMenuItem
+      Caption = 'Help'
+      object AboutHextor1: TMenuItem
+        Action = ActionAboutBox
       end
     end
   end
@@ -906,6 +924,18 @@ object MainForm: TMainForm
       Caption = 'Select Range...'
       OnExecute = ActionSelectRangeExecute
     end
+    object ActionDebugMode: TAction
+      Category = 'Tools'
+      Caption = 'Switch Debug Mode'
+      ShortCut = 24644
+      Visible = False
+      OnExecute = ActionDebugModeExecute
+    end
+    object ActionAboutBox: TAction
+      Category = 'Help'
+      Caption = 'About Hextor'
+      OnExecute = ActionAboutBoxExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -916,7 +946,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01010F0040011C0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01010F0040013C0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000004000000001002000000000000040
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

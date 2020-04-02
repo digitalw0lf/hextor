@@ -38,7 +38,7 @@ object SetFileSizeForm: TSetFileSizeForm
     Caption = 'Fill with value:'
     Enabled = False
   end
-  object ImageProxy1: TImageProxy
+  object ImageProxy1: THintedImageProxy
     Left = 231
     Top = 58
     Width = 16
