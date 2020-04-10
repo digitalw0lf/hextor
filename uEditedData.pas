@@ -222,7 +222,7 @@ var
 begin
   Result := '';
   for Part in Parts do
-    Result := Result + 'sb'[Ord(Part.PartType)] + ' ' + IntToStr(Part.Addr)+' '+IntToStr(Part.Size)+' '+RemUnprintable(Data2String(Copy(Part.Data, 0, 50)))+#13#10;
+    Result := Result + 'sb'[Ord(Part.PartType)] + ' ' + IntToStr(Part.Addr)+' '+IntToStr(Part.Size)+' '+RemUnprintable(Data2String(Copy(Part.Data, 0, 50)))+sLineBreak;
 end;
 
 procedure TEditedData.GetOverlappingParts(Addr,

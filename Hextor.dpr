@@ -33,7 +33,8 @@ uses
   uSearchResultsFrame in 'uSearchResultsFrame.pas' {SearchResultsFrame: TFrame},
   uPasteAsForm in 'uPasteAsForm.pas' {PasteAsForm},
   uHextorGUI in 'uHextorGUI.pas',
-  uAboutForm in 'uAboutForm.pas' {AboutForm};
+  uAboutForm in 'uAboutForm.pas' {AboutForm},
+  uHashFrame in 'uHashFrame.pas' {HashFrame: TFrame};
 
 {$R *.res}
 

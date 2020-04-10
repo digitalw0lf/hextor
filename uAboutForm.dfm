@@ -3,7 +3,7 @@ object AboutForm: TAboutForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'About'
-  ClientHeight = 177
+  ClientHeight = 191
   ClientWidth = 426
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -160,7 +160,7 @@ object AboutForm: TAboutForm
   end
   object LblBuildDate: TLabel
     Left = 96
-    Top = 91
+    Top = 113
     Width = 102
     Height = 16
     Caption = 'Build: 2020-00-00'
@@ -171,9 +171,45 @@ object AboutForm: TAboutForm
     Font.Style = []
     ParentFont = False
   end
+  object LblUrl: TLabel
+    Left = 96
+    Top = 91
+    Width = 58
+    Height = 16
+    Cursor = crHandPoint
+    Hint = 'https://hextor.net'
+    Caption = 'hextor.net'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = [fsUnderline]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    OnClick = LblUrlClick
+  end
+  object Label4: TLabel
+    Left = 232
+    Top = 91
+    Width = 91
+    Height = 16
+    Cursor = crHandPoint
+    Hint = 'mailto:info@hextor.net'
+    Caption = 'info@hextor.net'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = [fsUnderline]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    OnClick = LblUrlClick
+  end
   object Button1: TButton
     Left = 312
-    Top = 128
+    Top = 144
     Width = 75
     Height = 25
     Cancel = True

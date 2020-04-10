@@ -145,7 +145,7 @@ begin
 
         TargetEditor.EndUpdatePanes();  // Redraw editor when showing confirmation
         try
-          Res := MessageDlg('Replace this Occurrence?'+#13#10+'"'+Searcher.Params.Text+'"  ->  "'+Searcher.Params.Replace+'"',
+          Res := MessageDlg('Replace this Occurrence?'+sLineBreak+'"'+Searcher.Params.Text+'"  ->  "'+Searcher.Params.Replace+'"',
                             mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel, TMsgDlgBtn.mbYesToAll], 0);
         finally
           TargetEditor.BeginUpdatePanes();

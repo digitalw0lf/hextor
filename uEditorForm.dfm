@@ -116,6 +116,7 @@ object EditorForm: TEditorForm
     OnMouseUp = PaneHexMouseUp
     Text = ''
     ShowCaret = True
+    HorzScrollPos = 0
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneHexKeyPress
     OnMouseWheel = PaneHexMouseWheel
@@ -138,6 +139,7 @@ object EditorForm: TEditorForm
     TabOrder = 1
     Text = ''
     ShowCaret = False
+    HorzScrollPos = 0
     OnMouseWheel = PaneHexMouseWheel
   end
   object PaneText: TEditorPane
@@ -164,6 +166,7 @@ object EditorForm: TEditorForm
     OnMouseUp = PaneHexMouseUp
     Text = ''
     ShowCaret = True
+    HorzScrollPos = 0
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneTextKeyPress
     OnMouseWheel = PaneHexMouseWheel
@@ -285,7 +288,7 @@ object EditorForm: TEditorForm
     Left = 878
     Top = 304
     Bitmap = {
-      494C010102000800740033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010102000800840033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000CC0000001A0000000100200000000000E052
       000000000000000000000000000000000000B9B9B90082828200858585008585
       8500858585008585850085858500858585008585850085858500858585008585

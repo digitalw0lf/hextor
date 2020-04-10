@@ -117,6 +117,8 @@ type
     procedure SetHorzScrollPos(Value: Integer);
     procedure BreakCurrentTypingAction();
     procedure SetTextEncoding(const Value: Integer);
+    function GetSelectedRange: TFileRange;
+    procedure SetSelectedRange(const Value: TFileRange);
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
@@ -156,6 +158,7 @@ type
     property SelStart: TFilePointer read FSelStart;
     [API]
     property SelLength: TFilePointer read FSelLength;
+    property SelectedRange: TFileRange read GetSelectedRange write SetSelectedRange;
     [API]
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
@@ -267,7 +270,7 @@ begin
   Result := mrNo;
   if HasUnsavedChanges then
   begin
-    Result := Application.MessageBox(PChar('Save changes to '#13#10+DataSource.Path+'?'), 'Closing', MB_YESNOCANCEL);
+    Result := Application.MessageBox(PChar('Save changes to '+sLineBreak+DataSource.Path+'?'), 'Closing', MB_YESNOCANCEL);
     case Result of
       mrYes: MainForm.ActionSaveExecute(nil);
     end;
@@ -723,6 +726,12 @@ begin
   Result := GetEditedData(Addr, Size);
 end;
 
+function TEditorForm.GetSelectedRange: TFileRange;
+begin
+  Result.Start := SelStart;
+  Result.AEnd := SelStart + SelLength;
+end;
+
 //function TEditorForm.GetTypeInfo(Index, LocaleID: Integer;
 //  out TypeInfo): HResult;
 //begin
@@ -1173,6 +1182,11 @@ begin
     FInsertMode := Value;
     UpdatePanesCarets();
   end;
+end;
+
+procedure TEditorForm.SetSelectedRange(const Value: TFileRange);
+begin
+  SetSelection(Value.Start, Value.AEnd);
 end;
 
 procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer);

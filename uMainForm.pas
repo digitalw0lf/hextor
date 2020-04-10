@@ -19,9 +19,9 @@ uses
 
   uEditorPane, {uLogFile,} superobject,
   uHextorTypes, uHextorDataSources, uEditorForm,
-  uValueFrame, uStructFrame, flcHash, uCompareFrame, uScriptFrame,
+  uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame;
+  uSearchResultsFrame, uHashFrame;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -133,7 +133,6 @@ type
     StructFrame: TStructFrame;
     AfterEventTimer: TTimer;
     MITools: TMenuItem;
-    CRC321: TMenuItem;
     estchangespeed1: TMenuItem;
     MsgPanel: TPanel;
     Image1: TImage;
@@ -190,6 +189,15 @@ type
     MIHelp: TMenuItem;
     ActionAboutBox: TAction;
     AboutHextor1: TMenuItem;
+    PgHash: TTabSheet;
+    HashFrame1: THashFrame;
+    ToolButton6: TToolButton;
+    ToolButton7: TToolButton;
+    ToolButton8: TToolButton;
+    ToolButton9: TToolButton;
+    ToolButton10: TToolButton;
+    ToolButton11: TToolButton;
+    ToolButton12: TToolButton;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -222,7 +230,6 @@ type
       Shift: TShiftState; X, Y: Integer);
     procedure RecentFilesMenuPopup(Sender: TObject);
     procedure AfterEventTimerTimer(Sender: TObject);
-    procedure CRC321Click(Sender: TObject);
     procedure estchangespeed1Click(Sender: TObject);
     procedure ActionCompareExecute(Sender: TObject);
     procedure EditByteColsKeyDown(Sender: TObject; var Key: Word;
@@ -927,8 +934,10 @@ begin
 
       ActionUndo.Enabled := UndoStack.CanUndo(S);
       ActionUndo.Caption := 'Undo ' + S;
+      ActionUndo.Hint := ActionUndo.Caption;
       ActionRedo.Enabled := UndoStack.CanRedo(S);
       ActionRedo.Caption := 'Redo ' + S;
+      ActionRedo.Hint := ActionRedo.Caption;
 
       ActionCopy.Enabled := {(FocusInEditor) and} (SelLength > 0);
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
@@ -989,23 +998,6 @@ begin
 
     FreeAndNil(DataSource);
   end;
-end;
-
-procedure TMainForm.CRC321Click(Sender: TObject);
-var
-  AData: TBytes;
-  crc: Cardinal;
-  s: string;
-begin
-  with ActiveEditor do
-  begin
-    AData := GetEditedData(SelStart, SelLength);
-  end;
-
-  crc := CalcCRC32(AData[0], Length(AData));
-
-  s := IntToHex(crc, 8);
-  InputQuery('CRC32', 'CRC32:', s);
 end;
 
 function TMainForm.CreateNewEditor: TEditorForm;
@@ -1557,8 +1549,8 @@ begin
     for i:=0 to Actions.Count-1 do
     begin
       if i = CurPointer then
-        s := s + '<-- pointer' + #13#10;
-      s := s + Actions[i].Code + ' ' + Actions[i].Caption+' ('+IntToStr(Actions[i].Changes.Count)+' changes) '+#13#10;
+        s := s + '<-- pointer' + sLineBreak;
+      s := s + Actions[i].Code + ' ' + Actions[i].Caption+' ('+IntToStr(Actions[i].Changes.Count)+' changes) '+sLineBreak;
     end;
   Application.MessageBox(PChar(s),'');
 end;

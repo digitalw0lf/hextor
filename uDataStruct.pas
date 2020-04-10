@@ -299,7 +299,7 @@ begin
   except
     on E: Exception do
     begin
-      E.Message := 'Line #' + IntToStr(CurLineNum) + ':' + #13#10 + E.Message;
+      E.Message := 'Line #' + IntToStr(CurLineNum) + ':' + sLineBreak + E.Message;
       raise;
     end;
   end;
@@ -1204,7 +1204,7 @@ begin
     on E: Exception do
     begin
       if not E.Message.StartsWith('Line #') then
-        E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ', Addr ' + IntToStr(DS.BufAddr) + ':' + #13#10 + E.Message;
+        E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ', Addr ' + IntToStr(DS.BufAddr) + ':' + sLineBreak + E.Message;
       raise;
     end;
   end;
