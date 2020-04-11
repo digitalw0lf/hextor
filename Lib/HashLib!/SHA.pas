@@ -1,6 +1,6 @@
 unit SHA;
 {(C) Coban (alex@ritlabs.com)}
-{$DEFINE USE_ASM} //Remove this line to use pascal instead of assembler
+//{$DEFINE USE_ASM} //Remove this line to use pascal instead of assembler
 
 {$WARN BOUNDS_ERROR OFF}
 

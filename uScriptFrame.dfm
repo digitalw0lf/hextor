@@ -60,15 +60,6 @@ object ScriptFrame: TScriptFrame
       OnClick = BtnRunClick
     end
   end
-  object ScriptControl1: TScriptControl
-    Left = 56
-    Top = 144
-    Width = 0
-    Height = 0
-    ControlData = {
-      2143341208000000ED030000ED030000D2F1594E010000002200000010270000
-      010007004A00530063007200690070007400}
-  end
   object OutputPanel: TPanel
     Left = 0
     Top = 512
@@ -127,7 +118,7 @@ object ScriptFrame: TScriptFrame
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
-    TabOrder = 3
+    TabOrder = 1
     CodeFolding.GutterShapeSize = 11
     CodeFolding.CollapsedLineColor = clGrayText
     CodeFolding.FolderBarLinesColor = clGrayText

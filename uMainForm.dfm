@@ -331,11 +331,6 @@ object MainForm: TMainForm
             Width = 412
             ExplicitWidth = 412
           end
-          inherited ScriptControl1: TScriptControl
-            ControlData = {
-              2143341208000000ED030000ED030000D2F1594E010000002200000010270000
-              010007004A00530063007200690070007400}
-          end
           inherited OutputPanel: TPanel
             Top = 387
             Width = 412

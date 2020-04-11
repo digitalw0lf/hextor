@@ -36,6 +36,17 @@ object FillBytesForm: TFillBytesForm
       Height = 13
       Caption = 'Count:'
     end
+    object ImageProxy1: THintedImageProxy
+      Left = 254
+      Top = 118
+      Width = 16
+      Height = 16
+      Image = MainForm.HintImage
+      ImageIndex = 0
+      HintFmt = 
+        'Available variables:<br>x - original data byte<br>p - pattern by' +
+        'te<br>i - index in selection<br>a - adress in file'
+    end
     object EditPattern: TComboBox
       Left = 16
       Top = 59

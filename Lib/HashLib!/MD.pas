@@ -101,7 +101,7 @@ var
 begin
   if BufLen > 0 then
     for i := 0 to BufLen - 1 do
-      MD2UpdateB(md, PByte(LongWord(SrcBuf) + i)^);
+      MD2UpdateB(md, PByte(UIntPtr(SrcBuf) + i)^);
 end;
 
 function MD2Final(md: PMD2CTX): String;
@@ -138,20 +138,25 @@ const
   S34 = 15;
 
 function F(x, y, z: LongWord): LongWord; assembler;
-{begin
+{$IFNDEF USE_ASM}
+begin
   Result := ((x and y) or ((not x) and (z)))
-end;}
+end;
+{$ELSE}
 asm
   and   edx,eax
   not   eax
   and   eax,ecx
   or    eax,edx
 end;
+{$ENDIF}
 
 function G(x, y, z: LongWord): LongWord; assembler;
-{begin
+{$IFNDEF USE_ASM}
+begin
   Result := (x and y) or (x and z) or (y and z);
-end;}
+end;
+{$ELSE}
 asm
   push  ecx
   and   ecx,eax
@@ -161,15 +166,19 @@ asm
   and   edx,ecx
   or    eax,edx
 end;
+{$ENDIF}
 
 function H(x, y, z: LongWord): LongWord; assembler;
-{begin
+{$IFNDEF USE_ASM}
+begin
   Result := x xor y xor z;
-end;}
+end;
+{$ELSE}
 asm
   xor eax,edx
   xor eax,ecx
 end;
+{$ENDIF}
 
 procedure FF(var a: LongWord; b, c, d, x, s: LongWord);
 begin
@@ -379,9 +388,11 @@ const
   MD5_S44 = 21;
 
 function MD5_G(x, y, z: LongWord): LongWord; assembler;
-{begin
+{$IFNDEF USE_ASM}
+begin
   Result := (x and y) or (x and z) or (y and not z);
-end;}
+end;
+{$ELSE}
 asm
   push  ecx
   and   ecx,eax
@@ -392,16 +403,20 @@ asm
   and   edx,ecx
   or    eax,edx
 end;
+{$ENDIF}
 
 function I(x, y, z: LongWord): LongWord; assembler;
-{begin
+{$IFNDEF USE_ASM}
+begin
   Result := y xor (x or (not z));
-end;}
+end;
+{$ELSE}
 asm
   not   ecx
   or    eax,ecx
   xor   eax,edx
 end;
+{$ENDIF}
 
 procedure MD5_FF(var a: LongWord; b, c, d, x, s, ac: LongWord);
 begin

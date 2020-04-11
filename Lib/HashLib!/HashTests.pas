@@ -30,8 +30,8 @@ begin
   Result := HASH_NOERROR;
   ret := False;
   case HashType of
-    HASH_CRC32: ret := SingleTest(HashType, 'checksum', '7fbeb02e');
-    HASH_CRC32B: ret := SingleTest(HashType, 'checksum', '9adf6fde');
+    HASH_CRC32: ret := SingleTest(HashType, 'checksum', '2eb0be7f');//'7fbeb02e');
+    HASH_CRC32B: ret := SingleTest(HashType, 'checksum', 'de6fdf9a');//'9adf6fde');
     HASH_ADLER32: ret := SingleTest(HashType, 'resume', '09150292');
     HASH_MD2:
     begin

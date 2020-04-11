@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  Vcl.Samples.Spin, Vcl.ComCtrls;
+  Vcl.Samples.Spin, Vcl.ComCtrls, uHextorGUI;
 
 type
   TFillBytesForm = class(TForm)
@@ -21,6 +21,7 @@ type
     EditCount: TEdit;
     RBExpression: TRadioButton;
     EditExpression: TComboBox;
+    ImageProxy1: THintedImageProxy;
     procedure TabControl1Change(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure TabControl1Changing(Sender: TObject; var AllowChange: Boolean);
@@ -35,6 +36,9 @@ var
   FillBytesForm: TFillBytesForm;
 
 implementation
+
+uses
+  uMainForm;
 
 {$R *.dfm}
 

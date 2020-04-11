@@ -14,7 +14,7 @@ type
   TScriptFrame = class(TFrame)
     ToolPanel: TPanel;
     BtnRun: TSpeedButton;
-    ScriptControl1: TScriptControl;
+//    ScriptControl1: TScriptControl;
     Timer1: TTimer;
     Splitter1: TSplitter;
     OutputPanel: TPanel;
@@ -26,6 +26,7 @@ type
     procedure BtnClearOutputClick(Sender: TObject);
   private
     { Private declarations }
+    ScriptControl1: TScriptControl;
     procedure PrepareScriptEnv();
   public
     { Public declarations }
@@ -74,6 +75,8 @@ end;
 constructor TScriptFrame.Create(AOwner: TComponent);
 begin
   inherited;
+  ScriptControl1 := TScriptControl.Create(Self);
+  ScriptControl1.Language := 'JScript';
 end;
 
 destructor TScriptFrame.Destroy;
