@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uEditorForm;
 
 interface
@@ -7,7 +15,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
   System.Win.ComObj, System.TypInfo, Winapi.ActiveX, Vcl.Buttons,
-  System.ImageList, Vcl.ImgList,
+  System.ImageList, Vcl.ImgList, System.IOUtils,
 
   uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
   uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper;
@@ -135,7 +143,7 @@ type
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
-    procedure SaveFile(DataSourceType: THextorDataSourceType; const APath: string);
+    procedure SaveFile(DataSourceType: THextorDataSourceType; APath: string);
     procedure NewFileOpened(ResetCaret: Boolean);
     function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
     function GetOrigFileSize(): TFilePointer;
@@ -180,6 +188,8 @@ type
     procedure CalculateByteColumns();
     function GetSelectedOrAfterCaret(DefaultSize, MaxSize: Integer; var Addr: TFilePointer; NothingIfMore: Boolean = False): TBytes;
     property TextEncoding: Integer read FTextEncoding write SetTextEncoding;
+    [API]
+    procedure InsertDataFromFile(const FileName: string; Addr: TFilePointer; Overwrite: Boolean);
   end;
 
 procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
@@ -767,6 +777,18 @@ begin
   HorzScrollPos := HorzScrollBar.Position;
 end;
 
+procedure TEditorForm.InsertDataFromFile(const FileName: string; Addr: TFilePointer;
+  Overwrite: Boolean);
+var
+  Buf: TBytes;
+begin
+  Buf := TFile.ReadAllBytes(FileName);
+  if Overwrite then
+    Data.Change(Addr, Length(Buf), @Buf[0])
+  else
+    Data.Insert(Addr, Length(Buf), @Buf[0]);
+end;
+
 //function TEditorForm.Invoke(DispID: Integer; const IID: TGUID;
 //  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
 //  ArgErr: Pointer): HResult;
@@ -910,7 +932,7 @@ begin
   TopVisibleRow := TFilePointer(VertScrollBar.Position) * FLinesPerScrollBarTick;
 end;
 
-procedure TEditorForm.SaveFile(DataSourceType: THextorDataSourceType; const APath: string);
+procedure TEditorForm.SaveFile(DataSourceType: THextorDataSourceType; APath: string);
 var
   Dest: THextorDataSource;
   InplaceSaving, UseTempFile: Boolean;

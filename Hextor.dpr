@@ -34,7 +34,8 @@ uses
   uPasteAsForm in 'uPasteAsForm.pas' {PasteAsForm},
   uHextorGUI in 'uHextorGUI.pas',
   uAboutForm in 'uAboutForm.pas' {AboutForm},
-  uHashFrame in 'uHashFrame.pas' {HashFrame: TFrame};
+  uHashFrame in 'uHashFrame.pas' {HashFrame: TFrame},
+  uModifyWithExpressionForm in 'uModifyWithExpressionForm.pas' {ModifyWithExpressionForm};
 
 {$R *.res}
 
@@ -52,5 +53,6 @@ begin
   Application.CreateForm(TFillBytesForm, FillBytesForm);
   Application.CreateForm(TPasteAsForm, PasteAsForm);
   Application.CreateForm(TAboutForm, AboutForm);
+  Application.CreateForm(TModifyWithExpressionForm, ModifyWithExpressionForm);
   Application.Run;
 end.

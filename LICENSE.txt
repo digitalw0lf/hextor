@@ -1,0 +1,14 @@
+   Hextor - Hexadecimal editor and binary data analyzing toolkit
+     Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF)
+
+Hextor is a Freeware Source-Available software.
+
+1. You are granted a right to use Hextor free of charge for both personal and commercial purposes.
+
+2. You can access Hextor's source code solely for review purposes.
+
+3. You can make copies of Hextor and make it available to third parties, provided that original package is unmodified and contains all original licensing/contact information.
+
+4. You can not use Hextor's source code to create other software without prior permission from author (Grigoriy Mylnikov <info@hextor.net>)
+
+5. The software is provided without any warranty. Author is not liable for any damage arising out of the use of this software.

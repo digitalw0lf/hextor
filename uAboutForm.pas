@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uAboutForm;
 
 interface
@@ -7,7 +15,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Imaging.pngimage, Vcl.ExtCtrls,
   Vcl.StdCtrls, Winapi.ShellAPI,
 
-  uHextorTypes;
+  uHextorTypes, uHextorGUI;
 
 type
   TAboutForm = class(TForm)
@@ -19,8 +27,11 @@ type
     LblBuildDate: TLabel;
     LblUrl: TLabel;
     Label4: TLabel;
+    LicenseMemo: TMemo;
+    LblLicense: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure LblUrlClick(Sender: TObject);
+    procedure LblLicenseClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -40,6 +51,12 @@ var
 begin
   DateTimeToString(S, 'yyyy-mm-dd', GetAppBuildTime());
   LblBuildDate.Caption := 'Build: ' + S;
+end;
+
+procedure TAboutForm.LblLicenseClick(Sender: TObject);
+begin
+  with MakeFormWithContent(LicenseMemo, bsDialog, 'Hextor License Information') do
+    ShowModal();
 end;
 
 procedure TAboutForm.LblUrlClick(Sender: TObject);

@@ -3,7 +3,7 @@ object AboutForm: TAboutForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'About'
-  ClientHeight = 191
+  ClientHeight = 193
   ClientWidth = 426
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -147,7 +147,7 @@ object AboutForm: TAboutForm
   end
   object Label3: TLabel
     Left = 96
-    Top = 69
+    Top = 77
     Width = 313
     Height = 16
     Caption = 'Copyright '#169' 2019-2020 Grigoriy Mylnikov (DigitalWolF)'
@@ -160,7 +160,7 @@ object AboutForm: TAboutForm
   end
   object LblBuildDate: TLabel
     Left = 96
-    Top = 113
+    Top = 121
     Width = 102
     Height = 16
     Caption = 'Build: 2020-00-00'
@@ -173,7 +173,7 @@ object AboutForm: TAboutForm
   end
   object LblUrl: TLabel
     Left = 96
-    Top = 91
+    Top = 99
     Width = 58
     Height = 16
     Cursor = crHandPoint
@@ -190,8 +190,8 @@ object AboutForm: TAboutForm
     OnClick = LblUrlClick
   end
   object Label4: TLabel
-    Left = 232
-    Top = 91
+    Left = 204
+    Top = 99
     Width = 91
     Height = 16
     Cursor = crHandPoint
@@ -207,14 +207,74 @@ object AboutForm: TAboutForm
     ShowHint = True
     OnClick = LblUrlClick
   end
+  object LblLicense: TLabel
+    Left = 351
+    Top = 99
+    Width = 42
+    Height = 16
+    Cursor = crHandPoint
+    Caption = 'License'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = [fsUnderline]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    OnClick = LblLicenseClick
+  end
   object Button1: TButton
     Left = 312
-    Top = 144
+    Top = 152
     Width = 75
     Height = 25
     Cancel = True
     Caption = 'Close'
     ModalResult = 8
     TabOrder = 0
+  end
+  object LicenseMemo: TMemo
+    AlignWithMargins = True
+    Left = 96
+    Top = 183
+    Width = 430
+    Height = 330
+    Lines.Strings = (
+      '   Hextor - Hexadecimal editor and binary data analyzing toolkit'
+      '     Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF)'
+      ''
+      'Hextor is a Freeware Source-Available software.'
+      ''
+      
+        '1. You are granted a right to use Hextor free of charge for both' +
+        ' personal and '
+      'commercial purposes.'
+      ''
+      
+        '2. You can access Hextor'#39's source code solely for review purpose' +
+        's.'
+      ''
+      
+        '3. You can make copies of Hextor and make it available to third ' +
+        'parties, provided '
+      
+        'that original package is unmodified and contains all original li' +
+        'censing/contact '
+      'information.'
+      ''
+      
+        '4. You can not use Hextor'#39's source code to create other software' +
+        ' without prior '
+      'permission from author (Grigoriy Mylnikov <info@hextor.net>)'
+      ''
+      
+        '5. The software is provided without any warranty. Author is not ' +
+        'liable for any '
+      'damage arising out of the use of this software.')
+    ReadOnly = True
+    ScrollBars = ssVertical
+    TabOrder = 1
+    Visible = False
   end
 end

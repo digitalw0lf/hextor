@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uMainForm;
 
 //{$WARN IMPLICIT_STRING_CAST OFF}
@@ -159,8 +167,8 @@ type
     BitmapFrame: TBitmapFrame;
     Something1: TMenuItem;
     N6: TMenuItem;
-    Setfilesize1: TMenuItem;
-    Insertbytes1: TMenuItem;
+    MISetFileSize: TMenuItem;
+    MIInsertBytes: TMenuItem;
     HintImage: TImage;
     ActionSetFileSize: TAction;
     ActionFillBytes: TAction;
@@ -198,6 +206,11 @@ type
     ToolButton10: TToolButton;
     ToolButton11: TToolButton;
     ToolButton12: TToolButton;
+    Operations1: TMenuItem;
+    ActionModifyWithExpr: TAction;
+    MIModifyWithExpr: TMenuItem;
+    ActionSaveAll: TAction;
+    SaveAll1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -252,6 +265,8 @@ type
     procedure MICloseEditorTabClick(Sender: TObject);
     procedure ActionDebugModeExecute(Sender: TObject);
     procedure ActionAboutBoxExecute(Sender: TObject);
+    procedure ActionModifyWithExprExecute(Sender: TObject);
+    procedure ActionSaveAllExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -336,7 +351,7 @@ uses
 
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
-  uPasteAsForm, uAboutForm;
+  uPasteAsForm, uAboutForm, uModifyWithExpressionForm;
 
 { TMainForm }
 
@@ -411,128 +426,13 @@ begin
   Close();
 end;
 
-type
-  [API]
-  TFillExpressionVars = class
-  private
-    fx, fp, fi, fa: Integer;
-  public
-    property x: Integer read fx;
-    property p: Integer read fp;
-    property i: Integer read fi;
-    property a: Integer read fa;
-  end;
-
 procedure TMainForm.ActionFillBytesExecute(Sender: TObject);
 // Insert bytes / Fill selection
-var
-  Insert: Boolean;
-  Addr: TFilePointer;
-  Size: Integer;
-  AData, Pattern: TBytes;
-  Expression: string;
-  Rnd1, Rnd2: Integer;
-  i: Integer;
-  ScriptControl: TScriptControl;  // Expression evaluator
-  ScriptVars: TFillExpressionVars;
 begin
-  with ActiveEditor do
-  begin
-    FillBytesForm.FillEnabled := (SelLength > 0);
-
-    if FillBytesForm.ShowModal() <> mrOk then Exit;
-
-    Insert := (FillBytesForm.TabControl1.TabIndex = 0);
-    if Insert then
-    begin
-      Addr := CaretPos;
-      Size := StrToInt(FillBytesForm.EditCount.Text);
-    end
-    else
-    begin
-      Addr := SelStart;
-      Size := SelLength;
-    end;
-
-//    StartTimeMeasure();
-    if FillBytesForm.RBPattern.Checked then
-    // Pattern
-    begin
-      Pattern := Hex2Data(FillBytesForm.EditPattern.Text);
-      SetLength(AData, Size);
-      if Length(Pattern) = 0 then
-        raise EInvalidUserInput.Create('Specify hex pattern');
-      if Length(Pattern) = 1 then
-        FillChar(AData[0], Size, Pattern[0])
-      else
-        for i:=0 to Size-1 do
-          AData[i] := Pattern[i mod Length(Pattern)];
-    end
-    else
-    if FillBytesForm.RBExpression.Checked then
-    // JavaScript expression
-    begin
-      Pattern := Hex2Data(FillBytesForm.EditPattern.Text);
-      Expression := FillBytesForm.EditExpression.Text;
-      if Insert then
-      begin
-        SetLength(AData, Size);
-        FillChar(AData[0], Size, 0);
-      end
-      else
-        AData := Data.Get(Addr, Size);
-      ScriptControl := TScriptControl.Create(nil);
-      ScriptControl.Language := 'JScript';
-      ScriptVars := TFillExpressionVars.Create();
-      try
-        ScriptControl.AddObject('ScriptVars', APIEnv.GetAPIWrapper(ScriptVars), True);
-        ScriptControl.AddCode('function calc() { return ('+Expression+');}');
-        for i:=0 to Size-1 do
-        begin
-          ScriptVars.fx := AData[i];
-          if Length(Pattern) > 0 then
-            ScriptVars.fp := Pattern[i mod Length(Pattern)]
-          else
-            ScriptVars.fp := 0;
-          ScriptVars.fi := i;
-          ScriptVars.fa := Addr + i;
-//          AData[i] := ScriptControl.Eval(Expression);
-          AData[i] := ScriptControl.Eval('calc()');
-          if i mod 10000 = 0 then
-            ShowProgress(Sender, i+1, Size);
-        end;
-      finally
-        OperationDone(Sender);
-        APIEnv.ObjectDestroyed(ScriptVars);
-        ScriptVars.Free;
-        ScriptControl.Free;
-      end;
-    end
-    else
-    if FillBytesForm.RBRandomBytes.Checked then
-    // Random bytes
-    begin
-      SetLength(AData, Size);
-      Rnd1 := FillBytesForm.EditRandomMin.Value;
-      Rnd2 := FillBytesForm.EditRandomMax.Value;
-      for i:=0 to Size-1 do
-        AData[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
-    end
-    else Exit;
-//    EndTimeMeasure('Fill', True);
-
-    UndoStack.BeginAction('', IfThen(Insert, 'Insert bytes', 'Fill selection'));
-    try
-
-      if Insert then
-        Data.Insert(Addr, Size, @AData[0])
-      else
-        Data.Change(Addr, Size, @AData[0]);
-
-    finally
-      UndoStack.EndAction();
-    end;
-  end;
+  FillBytesForm.FEditor := ActiveEditor;
+  FillBytesForm.Range := ActiveEditor.SelectedRange;
+  FillBytesForm.FInsertPos := ActiveEditor.CaretPos;
+  FillBytesForm.ShowModal();
 end;
 
 procedure TMainForm.ActionFindExecute(Sender: TObject);
@@ -597,6 +497,14 @@ begin
       EndUpdatePanes();
     end;
   end;
+end;
+
+procedure TMainForm.ActionModifyWithExprExecute(Sender: TObject);
+// Modify data with expression
+begin
+  ModifyWithExpressionForm.FEditor := ActiveEditor;
+  ModifyWithExpressionForm.Range := ActiveEditor.SelectedRange;
+  ModifyWithExpressionForm.ShowModal();
 end;
 
 procedure TMainForm.ActionNewExecute(Sender: TObject);
@@ -694,6 +602,18 @@ begin
   begin
     if Application.MessageBox('Revert unsaved changes?', 'Revert', MB_OKCANCEL) <> IDOK then Exit;
     NewFileOpened(False);
+  end;
+end;
+
+procedure TMainForm.ActionSaveAllExecute(Sender: TObject);
+var
+  i: Integer;
+begin
+  for i:=0 to EditorCount-1 do
+  begin
+    // TODO: handle never saved editors
+    with Editors[i] do
+      SaveFile(THextorDataSourceType(DataSource.ClassType), DataSource.Path)
   end;
 end;
 
@@ -948,6 +868,7 @@ begin
 
       ActionSetFileSize.Enabled := (DataSource <> nil) and (dspResizable in DataSource.GetProperties());
       ActionFillBytes.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
+      ActionModifyWithExpr.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and (SelLength > 0);
 
       ActionBitsEditor.Enabled := (SelLength<=4);
     end;
@@ -958,7 +879,9 @@ begin
     ActionRevert.Enabled := False;
 
     for i:=0 to ActionList1.ActionCount-1 do
-      if (ActionList1.Actions[i].Category = 'Edit') or (ActionList1.Actions[i].Category = 'Navigation') then
+      if (ActionList1.Actions[i].Category = 'Edit') or
+         (ActionList1.Actions[i].Category = 'Navigation') or
+         (ActionList1.Actions[i].Category = 'Operations') then
         ActionList1.Actions[i].Enabled := False;
 
     ActionUndo.Caption := 'Undo';

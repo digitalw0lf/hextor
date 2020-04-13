@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uProcessSelectForm;
 
 interface
@@ -281,7 +289,7 @@ begin
     FrameForm.SetBounds(R.Left, R.Top, R.Width, R.Height);
     FrameForm.Visible := True;
 
-    Caption := Screen.FocusedForm.ClassName;
+//    Caption := Screen.FocusedForm.ClassName;
   end;
 end;
 

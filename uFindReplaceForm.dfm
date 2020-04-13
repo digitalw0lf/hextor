@@ -5,6 +5,8 @@ object FindReplaceForm: TFindReplaceForm
   ClientHeight = 255
   ClientWidth = 540
   Color = clBtnFace
+  Constraints.MinHeight = 294
+  Constraints.MinWidth = 400
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11

@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uCompareFrame;
 
 interface
@@ -6,14 +14,12 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Math,
   Generics.Collections, System.Types, Vcl.StdCtrls, Vcl.Buttons,
+  Generics.Defaults,
 
-  uHextorTypes, uEditorForm, uEditedData, uHextorGUI{, uLogFile};
+  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, Vcl.ComCtrls{, uLogFile};
 
 type
   TCompareFrame = class(TFrame)
-    DiffBar: TPaintBox;
-    BtnRecompare: TButton;
-    LblDiffsCount: TLabel;
     CompareSelectFormPanel: TPanel;
     Label1: TLabel;
     CBCmpEditor1: TComboBox;
@@ -21,8 +27,17 @@ type
     CBCmpEditor2: TComboBox;
     BtnCompare: TButton;
     BtnCancel: TButton;
+    PageControl1: TPageControl;
+    InitialTab: TTabSheet;
+    ComparisonTab: TTabSheet;
+    BtnStartCompare: TButton;
+    DiffBar: TPaintBox;
+    LblDiffsCount: TLabel;
+    BtnCloseComparison: TSpeedButton;
+    BtnRecompare: TButton;
     BtnAbort: TButton;
-    BtnCloseComparsion: TSpeedButton;
+    BtnPrevDiff: TSpeedButton;
+    BtnNextDiff: TSpeedButton;
     procedure DiffBarPaint(Sender: TObject);
     procedure DiffBarMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
@@ -31,7 +46,9 @@ type
     procedure BtnRecompareClick(Sender: TObject);
     procedure CBCmpEditor1Change(Sender: TObject);
     procedure BtnAbortClick(Sender: TObject);
-    procedure BtnCloseComparsionClick(Sender: TObject);
+    procedure BtnCloseComparisonClick(Sender: TObject);
+    procedure BtnStartCompareClick(Sender: TObject);
+    procedure BtnNextDiffClick(Sender: TObject);
   private type
     TDiff = TFileRange;
   private
@@ -46,7 +63,7 @@ type
     function PosToScr(P: TFilePointer): Integer;
     procedure UpdateInfo();
     procedure DrawDiffBarInternal();
-    procedure CloseComparsion;
+    procedure CloseComparison;
     procedure EditorVisRangeChanged(Sender: TEditorForm);
     procedure EditorByteColsChanged(Sender: TEditorForm);
     procedure EditorClosed(Sender: TEditorForm);
@@ -104,16 +121,26 @@ begin
     StartCompare(Editors[0], Editors[1]);
 end;
 
+procedure TCompareFrame.BtnStartCompareClick(Sender: TObject);
+begin
+  ShowCompareDialog();
+end;
+
 procedure TCompareFrame.CBCmpEditor1Change(Sender: TObject);
 begin
   BtnCompare.Enabled := (CBCmpEditor1.ItemIndex <> CBCmpEditor2.ItemIndex);
 end;
 
 constructor TCompareFrame.Create(AOwner: TComponent);
+var
+  i: Integer;
 begin
   inherited;
   ScrBmp := TBitmap.Create();
   Diffs := TList<TDiff>.Create();
+  for i:=0 to PageControl1.PageCount-1 do
+    PageControl1.Pages[i].TabVisible := False;
+  PageControl1.ActivePage := InitialTab;
 end;
 
 destructor TCompareFrame.Destroy;
@@ -221,7 +248,7 @@ end;
 
 procedure TCompareFrame.EditorClosed(Sender: TEditorForm);
 begin
-  CloseComparsion();
+  CloseComparison();
 end;
 
 procedure TCompareFrame.EditorVisRangeChanged(Sender: TEditorForm);
@@ -306,7 +333,7 @@ begin
   StartCompare(MainForm.Editors[CBCmpEditor1.ItemIndex], MainForm.Editors[CBCmpEditor2.ItemIndex]);
 end;
 
-procedure TCompareFrame.CloseComparsion;
+procedure TCompareFrame.CloseComparison;
 var
   i: Integer;
 begin
@@ -321,13 +348,43 @@ begin
   end;
   MaxSize := 0;
   Diffs.Clear();
-  Refresh();
+  //Refresh();
+  PageControl1.ActivePage := InitialTab;
   MainForm.ActiveEditor.WindowState := wsMaximized;
 end;
 
-procedure TCompareFrame.BtnCloseComparsionClick(Sender: TObject);
+procedure TCompareFrame.BtnCloseComparisonClick(Sender: TObject);
 begin
-  CloseComparsion();
+  CloseComparison();
+end;
+
+procedure TCompareFrame.BtnNextDiffClick(Sender: TObject);
+// Move caret in editors to next/prev difference
+var
+  n, CurDiff, Direction: Integer;
+  Tmp: TFileRange;
+begin
+  if Diffs.Count = 0 then Exit;
+  if MainForm.ActiveEditor = Editors[1] then
+    n := 1
+  else
+    n := 0;
+  Tmp := TFileRange.Create(Editors[n].CaretPos, Editors[n].CaretPos + 1);
+  Direction := (Sender as TControl).Tag;
+  // Find "current" difference under cursor
+  if not Diffs.BinarySearch(Tmp, CurDiff, TComparer<TFileRange>.Construct(
+    function (const Left, Right: TFileRange): Integer
+    begin
+      if Left.Intersects(Right) then Result := 0
+      else Result := CompareValue(Left.Start, Right.Start);
+    end))
+  then
+    if Direction = 1 then Dec(CurDiff);
+
+  CurDiff := BoundValue(CurDiff + Direction, 0, Diffs.Count-1);
+
+  for n:=0 to 1 do
+    Editors[n].MoveCaret(Diffs[CurDiff].Start, []);
 end;
 
 procedure TCompareFrame.StartCompare(Editor1, Editor2: TEditorForm);
@@ -342,6 +399,7 @@ var
 begin
   Editors[0] := Editor1;
   Editors[1] := Editor2;
+  PageControl1.ActivePage := ComparisonTab;
 
   // Show side-by-side
   Winapi.Windows.GetClientRect(MainForm.ClientHandle, MDIRect);
@@ -418,7 +476,7 @@ end;
 
 procedure TCompareFrame.UpdateInfo;
 begin
-  LblDiffsCount.Caption := 'Diffs: ' + IntToStr(Diffs.Count);
+  LblDiffsCount.Caption := 'Differences: ' + IntToStr(Diffs.Count);
   DrawDiffBarInternal();
   DiffBar.Refresh();
 //  DiffBarPaint(nil);
