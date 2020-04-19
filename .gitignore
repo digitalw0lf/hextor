@@ -15,3 +15,7 @@
 /HextorControlsPkg.res
 /Hextor_project.tvsconfig
 /Lib/HashLib!/*.dcu
+/Build
+/ControlsPkg/HextorControlsPkg.res
+/PluginSrc/PluginTest/PluginTest.res
+/Source/Hextor.res
