@@ -44,6 +44,7 @@ object FindReplaceForm: TFindReplaceForm
       Top = 16
       Width = 430
       Height = 21
+      AutoComplete = False
       Anchors = [akLeft, akTop, akRight]
       TabOrder = 0
     end
@@ -162,6 +163,7 @@ object FindReplaceForm: TFindReplaceForm
       Top = 16
       Width = 430
       Height = 21
+      AutoComplete = False
       Anchors = [akLeft, akTop, akRight]
       TabOrder = 0
     end

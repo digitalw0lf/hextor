@@ -57,6 +57,7 @@ var
   Res: OleVariant;
 //  t: Int64;
   Timer: TStopwatch;
+  i: Integer;
 begin
   AText := ScriptEdit.Text;
 
@@ -68,7 +69,22 @@ begin
 
   PrepareScriptEnv();
 
-  Res := ScriptControl1.Eval(AText);  // <--
+  for i:=0 to MainForm.EditorCount-1 do
+  begin
+    MainForm.Editors[i].UndoStack.BeginAction('Script_'+IntToStr(Random(1000000)), 'Scripted change');
+    MainForm.Editors[i].BeginUpdatePanes();
+  end;
+  try
+
+    Res := ScriptControl1.Eval(AText);  // <--
+
+  finally
+    for i:=0 to MainForm.EditorCount-1 do
+    begin
+      MainForm.Editors[i].EndUpdatePanes();
+      MainForm.Editors[i].UndoStack.EndAction();
+    end;
+  end;
 
   //t := GetNanosec() - t;
   Timer.Stop();

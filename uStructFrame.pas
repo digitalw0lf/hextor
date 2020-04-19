@@ -18,7 +18,7 @@ uses
   SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils, Vcl.ToolWin,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
-  uDataStruct;
+  uDataStruct, uEditedData;
 
 type
   TDSTreeNode = record
@@ -48,6 +48,8 @@ type
     InterpretRangeMenu: TPopupMenu;
     MIRangeEntireFile: TMenuItem;
     MIRangeSelection: TMenuItem;
+    DSFieldPopupMenu: TPopupMenu;
+    MISelectInEditor: TMenuItem;
     procedure BtnInterpretClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
     procedure PnlButtonBar2MouseDown(Sender: TObject; Button: TMouseButton;
@@ -80,6 +82,7 @@ type
     procedure BtnNewDescrClick(Sender: TObject);
     procedure InterpretRangeMenuPopup(Sender: TObject);
     procedure MIRangeEntireFileClick(Sender: TObject);
+    procedure MISelectInEditorClick(Sender: TObject);
   private const
     Unnamed_Struct = 'Unnamed';
   public type
@@ -94,6 +97,7 @@ type
     EditedNode: PVirtualNode;
     EditedDS: TDSSimpleField;
 //    FInterpretRange: TInterpretRange;
+    function DSNodeText(DS: TDSField): string;
     procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
     procedure ExpandToNode(Node: PVirtualNode);
     function DSSaveFolder(): string;
@@ -103,6 +107,7 @@ type
     function DSValueAsJson(DS: TDSField): string;
     procedure SetInterpretRange(const Value: TInterpretRange);
     function GetInterpretRange: TInterpretRange;
+    procedure FieldInterpreted(Sender: TObject; DS: TDSField);
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -181,7 +186,6 @@ end;
 function TStructFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
   Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
 var
-//  Node: TTreeNode;
   Node: PVirtualNode;
   DS: TDSField;
 begin
@@ -190,7 +194,6 @@ begin
   if Editor <> FEditor then Exit;
 
   Node := DSTreeView.FocusedNode;
-//  Node := DSTreeView.Selected;
   if Node = nil then Exit;
   DS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
 
@@ -277,6 +280,7 @@ begin
   FInterpretor := TDSInterpretor.Create();
   FInterpretor.OnProgress.Add(MainForm.ShowProgress);
   FInterpretor.OnOperationDone.Add(MainForm.OperationDone);
+  FInterpretor.OnFieldInterpreted.Add(FieldInterpreted);
 
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
 end;
@@ -287,6 +291,25 @@ begin
   FParser.Free;
   FInterpretor.Free;
   inherited;
+end;
+
+function TStructFrame.DSNodeText(DS: TDSField): string;
+// Text for treeview node of this DS field
+begin
+  // Don't create separate nodes for nameless fields - e.g. conditional statements
+  if DS.Name = '' then
+    Exit('');
+
+  // Field name
+  Result := DS.Name;
+
+  // For array: show length
+  if DS is TDSArray then
+  with TDSArray(DS) do
+    Result := Result + '[' + IntToStr(Fields.Count) + ']';
+
+  // Show value
+  Result := Result + ': ' + DS.ToString();
 end;
 
 function TStructFrame.DSSaveFolder: string;
@@ -415,6 +438,7 @@ var
   Intr: TValueInterpretor;
   x: Variant;
   s: string;
+  Field: TDSField;
 begin
   Result := nil;
   if DS is TDSArray then
@@ -438,9 +462,11 @@ begin
   if DS is TDSCompoundField then
   begin
     Result := SO();
-    for i:=0 to (DS as TDSCompoundField).Fields.Count-1 do
-      (Result as TSuperObject).O[(DS as TDSCompoundField).Fields[i].Name] :=
-        DSValueAsJsonObject((DS as TDSCompoundField).Fields[i]);
+    for i:=0 to (DS as TDSCompoundField).NamedFieldsCount-1 do
+    begin
+      Field := (DS as TDSCompoundField).NamedFields[i];
+      (Result as TSuperObject).O[Field.Name] := DSValueAsJsonObject(Field);
+    end;
   end
   else
   if DS is TDSSimpleField then
@@ -469,12 +495,16 @@ begin
     DS := EditedDS;
     if DS <> nil then
     begin
-      DS.SetFromString(EditFieldValue.Text);
-      FEditor.Data.Change(DS.BufAddr, DS.BufSize, @DS.Data[0]);
-      //EditedNode.Text := DS.Name + ': ' + DS.ToString();
-      PDSTreeNode(DSTreeView.GetNodeData(EditedNode)).Caption := DS.Name + ': ' + DS.ToString();
-      DSTreeView.InvalidateNode(EditedNode);
+      FEditor.UndoStack.BeginAction('', 'Change '+DS.FullName());
+      try
+
+        DS.SetFromVariant(EditFieldValue.Text, Self);  // <--
+
+      finally
+        FEditor.UndoStack.EndAction();
+      end;
     end;
+    EditFieldValue.Modified := False;
   end;
   // Hide editor
   EditFieldValue.Hide();
@@ -510,6 +540,21 @@ begin
     DSTreeView.Expanded[Node] := True;
     Node := Node.Parent;
   end;
+end;
+
+procedure TStructFrame.FieldInterpreted(Sender: TObject; DS: TDSField);
+// Called on new DS field initialization
+var
+  AFromData: TEditedData;
+begin
+  AFromData := FEditor.Data;  // Capture for closure
+  // On any DS field change (from GUI or from scripts)
+  DS.OnChanged.Add(procedure(DS: TDSField; Changer: TObject)
+    begin
+      // Update bytes in edited file
+      if DS is TDSSimpleField then
+        AFromData.Change(DS.BufAddr, DS.BufSize, @TDSSimpleField(DS).Data[0]);
+    end);
 end;
 
 procedure TStructFrame.FrameResize(Sender: TObject);
@@ -562,6 +607,17 @@ begin
   DSDescrEdit.MarkModifiedLinesAsSaved();
   // '    ' is added so vertical line, added by toolbar, does not overlaps caption
   LblStructName.Caption := '    ' + ChangeFileExt(ExtractFileName(fn), '');
+end;
+
+procedure TStructFrame.MISelectInEditorClick(Sender: TObject);
+var
+  Node: PVirtualNode;
+  DS: TDSField;
+begin
+  Node := DSTreeView.FocusedNode;
+  if Node = nil then Exit;
+  DS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
+  FEditor.SetSelection(DS.BufAddr, DS.BufAddr + DS.BufSize, True);
 end;
 
 procedure TStructFrame.PnlButtonBar2MouseDown(Sender: TObject;
@@ -617,19 +673,11 @@ var
   Node: PVirtualNode;
   S: string;
   i: Integer;
+  RootDS: TDSField;
 begin
   MainForm.ShowProgress(Self, DS.BufAddr - ShownDS.BufAddr, ShownDS.BufSize, 'Showing tree');
 
-  // Field name
-  S := DS.Name;
-
-  // For array: show length
-  if DS is TDSArray then
-  with TDSArray(DS) do
-    S := S + '[' + IntToStr(Fields.Count) + ']';
-
-  // Show value
-  S := S + ': ' + DS.ToString();
+  S := DSNodeText(DS);
 
   if (S <> ''){ or (ParentNode = nil)} then
   begin
@@ -637,8 +685,15 @@ begin
     PDSTreeNode(Node.GetData).Caption := S;
     PDSTreeNode(Node.GetData).DSField := DS;
 
-//    Node := DSTreeView.Items.AddChild(ParentNode, S);
-//    Node.Data := DS;
+    // Update node text when field changes
+    RootDS := ShownDS;  // Capture for closure
+    DS.OnChanged.Add(procedure (DS: TDSField; Changer: TObject)
+      begin
+        if RootDS <> ShownDS then
+          Exit;  // Do not try to update text if another DS is already shown in tree
+        PDSTreeNode(Node.GetData).Caption := DSNodeText(DS);
+        DSTreeView.InvalidateNode(Node);
+      end);
   end
   else  // Don't create separate nodes for nameless fields - e.g. conditional statements
     Node := ParentNode;

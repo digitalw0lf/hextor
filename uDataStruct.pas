@@ -29,18 +29,23 @@ type
   // Base class for all elements
   TDSField = class
   public
-//    Kind: TDSFieldKind;
     Name: string;
     Parent: TDSCompoundField;
-    BufAddr: TFilePointer;
-    BufSize: Integer;
+    BufAddr: TFilePointer;  // Address and size in original data buffer
+    BufSize: TFilePointer;
     DescrLineNum: Integer;  // Line number in structure description text
+    // When field is modified e.g. in SetFromVariant(), only it's internal 
+    // Data buffer if changed. Original file data should be updated in 
+    // OnChanged event
+    OnChanged: TCallbackListP2<{DS:}TDSField, {Changer:}TObject>;
     constructor Create(); virtual;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); virtual;
     function Duplicate(): TDSField;
     function ToQuotedString(): string; virtual;
     function FullName(): string;
+  private
+    procedure DoChanged(Changer: TObject);
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -60,7 +65,7 @@ type
     function ValueAsVariant(): Variant;
     function ToString(): string; override;
     function ToQuotedString(): string; override;
-    procedure SetFromString(const S: string); virtual;
+    procedure SetFromVariant(const V: Variant; AChanger: TObject = nil); virtual;
     function GetInterpretor(RaiseException: Boolean = True): TValueInterpretor;
   end;
 
@@ -69,6 +74,9 @@ type
   private
     FComWrapper: TDSComWrapper;
     FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
+    function GetNamedFieldsCount: Integer;
+    function GetNamedFields(Index: Integer): TDSField;
+    function GetNamedFieldsInternal(var Index: Integer): TDSField;
   public
     Fields: TObjectList<TDSField>;
     constructor Create(); override;
@@ -76,6 +84,8 @@ type
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
     function GetComWrapper(): TDSComWrapper;
+    property NamedFieldsCount: Integer read GetNamedFieldsCount;  // See comment in GetNamedFields()
+    property NamedFields[Index: Integer]: TDSField read GetNamedFields;
   end;
 
   TDSArray = class (TDSCompoundField)
@@ -182,6 +192,7 @@ type
     OnGetMoreData: TOnDSInterpretorGetData;
     OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
     OnOperationDone: TCallbackListP1<{Sender:}TObject>;
+    OnFieldInterpreted: TCallbackListP2<{Sender:}TObject, {DS:}TDSField>;  // Called after each field populated with data from source
     procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
     constructor Create();
     destructor Destroy(); override;
@@ -767,12 +778,13 @@ begin
     raise EDSParserError.Create('Unknown type name: ' + DataType);
 end;
 
-procedure TDSSimpleField.SetFromString(const S: string);
+procedure TDSSimpleField.SetFromVariant(const V: Variant; AChanger: TObject = nil);
 var
   Intr: TValueInterpretor;
 begin
   Intr := GetInterpretor();
-  Intr.FromVariant(S, Data[0], Length(Data));
+  Intr.FromVariant(V, Data[0], Length(Data));
+  DoChanged(AChanger);
 end;
 
 function TDSSimpleField.ToQuotedString: string;
@@ -786,6 +798,7 @@ function TDSSimpleField.ToString(): string;
 var
   Intr: TValueInterpretor;
 begin
+  if Data = nil then Exit('');
   Intr := GetInterpretor(False);
   if Intr = nil then
     Result := string(Data2Hex(Data))
@@ -839,6 +852,46 @@ begin
     FComWrapper._AddRef();
   end;
   Result := FComWrapper;
+end;
+
+function TDSCompoundField.GetNamedFields(Index: Integer): TDSField;
+// In NamedFields, content of unnamed compound fields (e.g. conditional) is "flattened" into single list.
+// So, in scripts we can access fields inside unnamed conditional branch as if it was directly
+// inside parent structure
+begin
+  Result := GetNamedFieldsInternal(Index);
+end;
+
+function TDSCompoundField.GetNamedFieldsCount: Integer;
+var
+  i: Integer;
+begin
+  // TODO: Optimize
+  Result := 0;
+  for i:=0 to Fields.Count-1 do
+    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
+      Inc(Result, (Fields[i] as TDSCompoundField).NamedFieldsCount)
+    else
+      Inc(Result);
+end;
+
+function TDSCompoundField.GetNamedFieldsInternal(var Index: Integer): TDSField;
+var
+  i: Integer;
+begin
+  // TODO: Optimize
+  for i:=0 to Fields.Count-1 do
+    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
+    begin
+      Result := (Fields[i] as TDSCompoundField).GetNamedFieldsInternal(Index);
+      if Result <> nil then Exit;
+    end
+    else
+    begin
+      Dec(Index);
+      if Index < 0 then Exit(Fields[i]);
+    end;
+  Result := nil;
 end;
 
 function TDSCompoundField.ToString: string;
@@ -935,7 +988,6 @@ end;
 
 procedure TDSField.Assign(Source: TDSField);
 begin
-//  Kind := Source.Kind;
   Name := Source.Name;
   Parent := Source.Parent;
   DescrLineNum := Source.DescrLineNum;
@@ -951,6 +1003,13 @@ destructor TDSField.Destroy;
 begin
 
   inherited;
+end;
+
+procedure TDSField.DoChanged(Changer: TObject);
+begin
+  OnChanged.Call(Self, Changer);
+  if Parent <> nil then
+    Parent.DoChanged(Changer);
 end;
 
 function TDSField.Duplicate(): TDSField;
@@ -1219,6 +1278,8 @@ begin
 
   DS.BufSize := FCurAddr - DS.BufAddr;
   Inc(FieldsProcessed);
+
+  OnFieldInterpreted.Call(Self, DS);
 end;
 
 procedure TDSInterpretor.Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
@@ -1445,12 +1506,13 @@ begin
     end;
   end;
   if DSField is TDSCompoundField then
-    for i:=0 to (DSField as TDSCompoundField).Fields.Count-1 do
-      if SameText((DSField as TDSCompoundField).Fields[i].Name, AName) then
-      begin
-        PCardinal(DispIDs)^ := i;
-        Exit(S_OK);
-      end;
+    with (DSField as TDSCompoundField) do
+      for i:=0 to NamedFieldsCount-1 do
+        if SameText(NamedFields[i].Name, AName) then
+        begin
+          PCardinal(DispIDs)^ := i;
+          Exit(S_OK);
+        end;
   Result := DISP_E_UNKNOWNNAME;
 end;
 
@@ -1470,15 +1532,20 @@ function TDSComWrapper.Invoke(DispID: Integer; const IID: TGUID;
   ArgErr: Pointer): HRESULT;
 var
   Field: TDSField;
+  SimpleField: TDSSimpleField;
   LoggedName, LoggedValue: string;
+  Put: Boolean;
+  V: Variant;
 begin
   Result := DISP_E_MEMBERNOTFOUND;
   // Must be a compound field
   if not (DSField is TDSCompoundField) then
     Exit(DISP_E_MEMBERNOTFOUND);
-  // Cannot assign fields here
-  if ((Flags and (DISPATCH_METHOD or DISPATCH_PROPERTYPUT or DISPATCH_PROPERTYPUTREF)) <> 0) then
+  // No methods here
+  if ((Flags and DISPATCH_METHOD) <> 0) then
     Exit(DISP_E_MEMBERNOTFOUND);
+
+  Put := ((Flags and (DISPATCH_PROPERTYPUT or DISPATCH_PROPERTYPUTREF)) <> 0);
 
   LoggedValue := '';
   try
@@ -1487,6 +1554,8 @@ begin
     begin
       if not (DSField is TDSArray) then
         Exit(DISP_E_MEMBERNOTFOUND);
+      if Put then
+        Exit(DISP_E_BADVARTYPE);
       LoggedName := 'index';
       POleVariant(VarResult)^ := (DSField as TDSArray).FCurParsedItem;
       Exit(S_OK);
@@ -1496,6 +1565,8 @@ begin
     begin
       if not (DSField is TDSArray) then
         Exit(DISP_E_MEMBERNOTFOUND);
+      if Put then
+        Exit(DISP_E_BADVARTYPE);
       LoggedName := 'length';
       POleVariant(VarResult)^ := (DSField as TDSArray).Fields.Count;
       Exit(S_OK);
@@ -1506,23 +1577,34 @@ begin
       Exit(DISP_E_MEMBERNOTFOUND);
 
     Result := S_OK;
-    Field := (DSField as TDSCompoundField).Fields[DispID];
+    Field := (DSField as TDSCompoundField).NamedFields[DispID];
     LoggedName := Field.FullName();
 
     if Field is TDSCompoundField then
     // For compound field - return wrapper object
     begin
+      if Put then
+        Exit(DISP_E_BADVARTYPE);
       POleVariant(VarResult)^ := (Field as TDSCompoundField).GetComWrapper() as IDispatch;
       LoggedValue := Field.ToString();
     end
     else
     if Field is TDSSimpleField then
-    // For simple field - return value
+    // For simple field - return or change value
     begin
-      POleVariant(VarResult)^ := (Field as TDSSimpleField).ValueAsVariant();
+      SimpleField := TDSSimpleField(Field);
+      if Put then
+      begin
+        // Assign new value and update source data
+        V := Variant(TDispParams(Params).rgvarg[0]);
+        SimpleField.SetFromVariant(V);
+      end
+      else
+        // Return current value
+        POleVariant(VarResult)^ := (Field as TDSSimpleField).ValueAsVariant();
     end;
   finally
-    if Result = S_OK then
+    if (Result = S_OK) and (not Put) then
     begin
       if LoggedValue = '' then
         LoggedValue := string(POleVariant(VarResult)^);

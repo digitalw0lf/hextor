@@ -91,8 +91,10 @@ object StructFrame: TStructFrame
     Header.MainColumn = -1
     HintMode = hmHint
     ParentShowHint = False
+    PopupMenu = DSFieldPopupMenu
     ShowHint = True
     TabOrder = 3
+    TreeOptions.SelectionOptions = [toRightClickSelect]
     OnBeforeItemErase = DSTreeViewBeforeItemErase
     OnChange = DSTreeViewChange
     OnEnter = DSTreeViewEnter
@@ -202,8 +204,8 @@ object StructFrame: TStructFrame
   end
   object InterpretRangeMenu: TPopupMenu
     OnPopup = InterpretRangeMenuPopup
-    Left = 48
-    Top = 336
+    Left = 72
+    Top = 288
     object MIRangeEntireFile: TMenuItem
       Caption = 'Entire file'
       Checked = True
@@ -215,6 +217,14 @@ object StructFrame: TStructFrame
       Caption = 'Selection'
       RadioItem = True
       OnClick = MIRangeEntireFileClick
+    end
+  end
+  object DSFieldPopupMenu: TPopupMenu
+    Left = 72
+    Top = 408
+    object MISelectInEditor: TMenuItem
+      Caption = 'Select in editor'
+      OnClick = MISelectInEditorClick
     end
   end
 end

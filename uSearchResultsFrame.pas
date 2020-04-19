@@ -163,8 +163,7 @@ begin
   Data := PResultTreeNode(ResultsList.GetNodeData(HitInfo.HitNode));
   if Data = nil then Exit;
 
-  //FEditor.ScrollToShow(Data.Range.Start, -1, -1);
-  FEditor.SetSelection(Data.Range.Start, Data.Range.AEnd);
+  FEditor.SetSelection(Data.Range.Start, Data.Range.AEnd, True);
   FEditor.ScrollToShow(Data.Range.Start, -1, -1);
 end;
 

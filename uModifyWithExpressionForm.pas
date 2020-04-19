@@ -14,7 +14,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, MSScriptControl_TLB,
 
-  uEditedData, uHextorTypes, uEditorForm, uOleAutoAPIWrapper;
+  uEditedData, uHextorTypes, uHextorGUI, uEditorForm, uOleAutoAPIWrapper;
 
 type
   TModifyWithExpressionForm = class(TForm)
@@ -137,7 +137,9 @@ var
   ElemSize: Integer;
 begin
   Expression := EditExpression.Text;
+  AddComboBoxHistory(EditExpression, Expression);
   Pattern := Hex2Data(EditPattern.Text);
+  AddComboBoxHistory(EditPattern, EditPattern.Text);
   ElemSize := 1 shl CBElementType.ItemIndex;
 
   // Get original data

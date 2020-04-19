@@ -23,12 +23,18 @@ type
     DataParts: TEditedData.TDataPartArray;
   end;
 
+  // Saved caret/selection state
+  TSelectionState = record
+    CaretPos, SelStart, SelLength: TFilePointer;
+  end;
+
   TUndoStackAction = class
   public
     Caption: string;  // Shown in "Undo ..." menu item
     Code: string;     // Used to combine related changes
     Changes: TList<TUndoStackActionChange>;  // One "Undo" can revert several changes
-    SelStart, SelLength: TFilePointer;  // Selection before this action
+    //SelStart, SelLength: TFilePointer;  // Selection before this action
+    SelBefore, SelAfter: TSelectionState;  // Selection before/after this action
     constructor Create();
     destructor Destroy(); override;
   end;
@@ -40,12 +46,14 @@ type
     EditedData: TEditedData;
     UndoingNow: TUndoDirection;
     CurActionCode, CurActionCaption: string;
+    NestedActionsDepth: Integer;
     procedure BeforePartsReplace(Addr, OldSize, NewSize: TFilePointer);
     procedure Step(Direction: TUndoDirection);
   public
     Actions: TObjectList<TUndoStackAction>;
     CurPointer: Integer;
     OnActionCreating: TCallbackListP1<{Action:}TUndoStackAction>;
+    OnActionCreated: TCallbackListP1<{Action:}TUndoStackAction>;
     OnActionReverted: TCallbackListP2<{Action:}TUndoStackAction, {Direction:}TUndoDirection>;
     OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
     OnOperationDone: TCallbackListP1<{Sender:}TObject>;
@@ -121,10 +129,15 @@ begin
 end;
 
 procedure TUndoStack.BeginAction(const Code, Caption: string);
-// Several actions will be combined if same code
+// Several actions will be combined if same code.
+// BeginAction() calls can be nested; only topmost call defines action grouping
 begin
-  CurActionCode := Code;
-  CurActionCaption := Caption;
+  if NestedActionsDepth = 0 then
+  begin
+    CurActionCode := Code;
+    CurActionCaption := Caption;
+  end;
+  Inc(NestedActionsDepth);
 end;
 
 function TUndoStack.CanRedo(var Caption: string): Boolean;
@@ -170,8 +183,13 @@ end;
 
 procedure TUndoStack.EndAction;
 begin
-  CurActionCode := '';
-  CurActionCaption := '';
+  Assert(NestedActionsDepth > 0, 'Unmatched UndoStack.BeginAction/EndAction');
+  Dec(NestedActionsDepth);
+  if NestedActionsDepth = 0 then
+  begin
+    CurActionCode := '';
+    CurActionCaption := '';
+  end;
 end;
 
 procedure TUndoStack.Redo;

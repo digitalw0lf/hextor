@@ -100,7 +100,6 @@ type
     FFSkipSearcher: TFFSkipSearcher;
     FFSkipBackByte, FFSkipFwdByte: Byte;
     FTextEncoding: Integer;
-//    FAutoObject: TAutoObject;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
@@ -137,7 +136,6 @@ type
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     OnByteColsChanged: TCallbackListP1<TEditorForm>;
-//    property AutoObject: TAutoObject read FAutoObject implements IDispatch;
     [API]
     property Data: TEditedData read FData write FData;
     destructor Destroy(); override;
@@ -171,7 +169,7 @@ type
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     [API]
-    procedure SetSelection(AStart, AEnd: TFilePointer);
+    procedure SetSelection(AStart, AEnd: TFilePointer; MoveCaret: Boolean = False);
     procedure ScrollToShow(Addr: TFilePointer; RowsFromBorder: Integer = 0; ColsFromBorder: Integer = 0);
     procedure ScrollToCaret();
     [API]
@@ -418,7 +416,6 @@ begin
   Data.Free;
   DataSource.Free;
   FFSkipSearcher.Free;
-//  FreeAndNil(FAutoObject);
   inherited;
 end;
 
@@ -442,8 +439,7 @@ end;
 
 procedure TEditorForm.FormCreate(Sender: TObject);
 begin
-//  FAutoObject := TAutoObject.Create();
-  Data := TEditedData.Create({Self});
+  Data := TEditedData.Create();
   Data.OnDataChanged.Add(DataChanged);
   UndoStack := TUndoStack.Create(Data);
   UndoStack.OnActionCreating.Add(UndoActionCreating);
@@ -808,7 +804,7 @@ begin
     SelDragStart := NewPos;
     SelDragEnd := -1;
   end;
-  SetSelection(SelDragStart, SelDragEnd);
+  SetSelection(SelDragStart, SelDragEnd, False);
 
   CaretPos := NewPos;
   ScrollToCaret();
@@ -1208,10 +1204,10 @@ end;
 
 procedure TEditorForm.SetSelectedRange(const Value: TFileRange);
 begin
-  SetSelection(Value.Start, Value.AEnd);
+  SetSelection(Value.Start, Value.AEnd, True);
 end;
 
-procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer);
+procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer; MoveCaret: Boolean = False);
 // AEnd is after last byte of selection
 var
   Tmp: TFilePointer;
@@ -1232,8 +1228,15 @@ begin
     FSelStart := AStart;
     FSelLength := AEnd-AStart;
   end;
-  UpdatePanes();
-  SelectionChanged();
+  BeginUpdatePanes();
+  try
+    if MoveCaret then
+      CaretPos := FSelStart{ + FSelLength};
+    UpdatePanes();
+    SelectionChanged();
+  finally
+    EndUpdatePanes();
+  end;
 end;
 
 procedure TEditorForm.SetTextEncoding(const Value: Integer);
@@ -1334,8 +1337,9 @@ end;
 
 procedure TEditorForm.UndoActionCreating(Action: TUndoStackAction);
 begin
-  Action.SelStart := SelStart;
-  Action.SelLength := SelLength;
+  Action.SelBefore.CaretPos := CaretPos;
+  Action.SelBefore.SelStart := SelStart;
+  Action.SelBefore.SelLength := SelLength;
 end;
 
 procedure TEditorForm.UndoActionReverted(Action: TUndoStackAction; Direction: TUndoStack.TUndoDirection);
@@ -1345,12 +1349,12 @@ begin
   try
     if Direction = udUndo then
     begin
-      SetSelection(Action.SelStart, Action.SelStart + Action.SelLength);
-      CaretPos := Action.SelStart + Action.SelLength;
-      ScrollToCaret;
+      SetSelection(Action.SelBefore.SelStart, Action.SelBefore.SelStart + Action.SelBefore.SelLength, False);
+      CaretPos := Action.SelBefore.CaretPos;
     end
     else
-      MoveCaret(Action.SelStart + Action.SelLength, []);
+      // TODO: Save and restore selection after action (add TEditedData.OnAfterPartsReplace?)
+      MoveCaret(Action.SelBefore.SelStart + Action.SelBefore.SelLength, []);
   finally
     EndUpdatePanes();
   end;

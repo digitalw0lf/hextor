@@ -87,6 +87,7 @@ procedure PopupFromControl(Menu:tPopupMenu; Control:tControl);
 function CreateFormWithContent(Content:TWinControl; BorderStyle:TFormBorderStyle; const Caption:string=''):TForm;
 function MakeFormWithContent(Content:TWinControl; BorderStyle:TFormBorderStyle; const Caption:string=''):TForm;
 function FmtHint(): TFmtHintWindow;
+procedure AddComboBoxHistory(CB: TComboBox; Text: string; MaxCount: Integer = 20);
 
 procedure Register;
 
@@ -156,6 +157,19 @@ begin
     DefaultFmtHintWindow := tFmtHintWindow.Create(Application);
   end;
   Result := DefaultFmtHintWindow;
+end;
+
+procedure AddComboBoxHistory(CB: TComboBox; Text: string; MaxCount: Integer = 20);
+var
+  n: Integer;
+begin
+  n := CB.Items.IndexOf(Text);
+  if n >= 0 then
+    CB.Items.Move(n, 0)
+  else
+    CB.Items.Insert(0, Text);
+  while CB.Items.Count > MaxCount do
+    CB.Items.Delete(CB.Items.Count-1);
 end;
 
 { tFmtHintWindow }

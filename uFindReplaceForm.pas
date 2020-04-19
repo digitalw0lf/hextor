@@ -299,7 +299,7 @@ begin
         ACaret := Ptr + IfThen(Dir>0, Size-1, 0);
         TargetEditor.ScrollToShow(ACaret, -1, -1);
         TargetEditor.MoveCaret(ACaret, []);
-        TargetEditor.SetSelection(Ptr, Ptr + Size);
+        TargetEditor.SetSelection(Ptr, Ptr + Size, False);
       finally
         TargetEditor.EndUpdatePanes();
       end;

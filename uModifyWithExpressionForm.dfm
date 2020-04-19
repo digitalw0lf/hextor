@@ -70,6 +70,7 @@ object ModifyWithExpressionForm: TModifyWithExpressionForm
     Top = 88
     Width = 289
     Height = 23
+    AutoComplete = False
     Font.Charset = RUSSIAN_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -78,6 +79,7 @@ object ModifyWithExpressionForm: TModifyWithExpressionForm
     ParentFont = False
     TabOrder = 1
     Text = 'x+1'
+    OnChange = CBElementTypeChange
     Items.Strings = (
       '~x      // Invert bits'
       'x+1'
@@ -90,6 +92,7 @@ object ModifyWithExpressionForm: TModifyWithExpressionForm
     Top = 152
     Width = 289
     Height = 23
+    AutoComplete = False
     Font.Charset = RUSSIAN_CHARSET
     Font.Color = clWindowText
     Font.Height = -13

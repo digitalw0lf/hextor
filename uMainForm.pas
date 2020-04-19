@@ -697,10 +697,7 @@ end;
 procedure TMainForm.ActionSelectAllExecute(Sender: TObject);
 begin
   with ActiveEditor do
-  begin
     SetSelection(0, GetFileSize());
-    UpdatePanes();
-  end;
 end;
 
 procedure TMainForm.ActionSelectRangeExecute(Sender: TObject);
@@ -721,13 +718,7 @@ begin
     Range.Start := StrToInt64Relative(EditSelRangeStart.Text, Range.Start);
     Range.AEnd := StrToInt64Relative(EditSelRangeEnd.Text, Range.AEnd);
 
-    BeginUpdatePanes();
-    try
-      CaretPos := Range.Start;
-      SetSelection(Range.Start, Range.AEnd);
-    finally
-      EndUpdatePanes();
-    end;
+    SetSelection(Range.Start, Range.AEnd, True);
   end;
 end;
 
