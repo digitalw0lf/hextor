@@ -314,7 +314,7 @@ end;
 
 function TStructFrame.DSSaveFolder: string;
 begin
-  Result := MainForm.SettingsFolder + 'DataStruct\';
+  Result := IncludeTrailingPathDelimiter( TPath.Combine(MainForm.SettingsFolder, 'DataStruct') );
 end;
 
 procedure TStructFrame.DSTreeViewBeforeItemErase(Sender: TBaseVirtualTree;
@@ -567,7 +567,7 @@ var
   fn: string;
 begin
   fn := (Sender as TMenuItem).Caption;
-  DSDescrEdit.Lines.LoadFromFile(DSSaveFolder + fn + '.ds');
+  DSDescrEdit.Lines.LoadFromFile(TPath.Combine(DSSaveFolder, fn + '.ds'));
   LblStructName.Caption := '    ' + fn;
 end;
 

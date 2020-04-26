@@ -109,7 +109,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -224,7 +224,7 @@ object MainForm: TMainForm
             ExplicitHeight = 519
             ColWidths = (
               64
-              347)
+              343)
             RowHeights = (
               21
               21)
@@ -281,13 +281,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblStructName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
         end
       end
@@ -455,7 +448,7 @@ object MainForm: TMainForm
                   item
                     Position = 1
                     Text = 'Hex'
-                    Width = 234
+                    Width = 230
                   end
                   item
                     Position = 2
@@ -503,6 +496,10 @@ object MainForm: TMainForm
             ExplicitTop = 324
             ExplicitWidth = 412
             ExplicitHeight = 195
+            inherited StaticText1: TStaticText
+              Width = 406
+              ExplicitWidth = 406
+            end
             inherited ResultListView: TListView
               Width = 412
               Height = 172
@@ -567,8 +564,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 259
-        Height = 17
+        Width = 389
+        Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -715,8 +712,12 @@ object MainForm: TMainForm
       object MICopy: TMenuItem
         Action = ActionCopy
       end
-      object MICopyAs: TMenuItem
-        Action = ActionCopyAs
+      object MICopyAsMenu: TMenuItem
+        Caption = 'Copy as'
+        object MICopyAsArray: TMenuItem
+          Action = ActionCopyAsArray
+          Caption = 'Array (delimited text)'
+        end
       end
       object MIPaste: TMenuItem
         Action = ActionPaste
@@ -730,9 +731,9 @@ object MainForm: TMainForm
       object MISelectRange: TMenuItem
         Action = ActionSelectRange
       end
-      object N2: TMenuItem
-        Caption = '-'
-      end
+    end
+    object MISearchMenu: TMenuItem
+      Caption = 'Search'
       object MIFindReplace: TMenuItem
         Action = ActionFind
       end
@@ -744,9 +745,6 @@ object MainForm: TMainForm
       end
       object GoToaddress1: TMenuItem
         Action = ActionGoToAddr
-      end
-      object N6: TMenuItem
-        Caption = '-'
       end
     end
     object MIView: TMenuItem
@@ -904,10 +902,11 @@ object MainForm: TMainForm
       ShortCut = 16451
       OnExecute = ActionCopyExecute
     end
-    object ActionCopyAs: TAction
+    object ActionCopyAsArray: TAction
       Category = 'Edit'
-      Caption = 'Copy as...'
+      Caption = 'Copy as array'
       Hint = 'Copy as...'
+      OnExecute = ActionCopyAsArrayExecute
     end
     object ActionPaste: TAction
       Category = 'Edit'
@@ -933,7 +932,7 @@ object MainForm: TMainForm
       OnExecute = ActionSelectAllExecute
     end
     object ActionGoToStart: TAction
-      Category = 'Navigation'
+      Category = 'Search'
       Caption = 'Go to start of file'
       Hint = 'Go to start of file'
       SecondaryShortCuts.Strings = (
@@ -942,7 +941,7 @@ object MainForm: TMainForm
       OnExecute = ActionGoToStartExecute
     end
     object ActionGoToEnd: TAction
-      Category = 'Navigation'
+      Category = 'Search'
       Caption = 'Go to end of file'
       Hint = 'Go to end of file'
       SecondaryShortCuts.Strings = (
@@ -965,7 +964,7 @@ object MainForm: TMainForm
       OnExecute = ActionRevertExecute
     end
     object ActionFind: TAction
-      Category = 'Edit'
+      Category = 'Search'
       Caption = 'Find/Replace...'
       Hint = 'Find/Replace text or data'
       ImageIndex = 3
@@ -973,21 +972,21 @@ object MainForm: TMainForm
       OnExecute = ActionFindExecute
     end
     object ActionFindNext: TAction
-      Category = 'Edit'
+      Category = 'Search'
       Caption = 'Find Next'
       Hint = 'Find next occurrence'
       ShortCut = 114
       OnExecute = ActionFindNextExecute
     end
     object ActionFindPrev: TAction
-      Category = 'Edit'
+      Category = 'Search'
       Caption = 'Find Previous'
       Hint = 'Find previous occurrence'
       ShortCut = 8306
       OnExecute = ActionFindPrevExecute
     end
     object ActionGoToAddr: TAction
-      Category = 'Navigation'
+      Category = 'Search'
       Caption = 'Go To address...'
       Hint = 'Go To address...'
       ShortCut = 16455
@@ -1082,7 +1081,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C0101110040017C0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C0101110040018C0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000005000000001002000000000000050
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

@@ -1,0 +1,10 @@
+{
+ Name: "Without separators",
+ Header: "",
+ Separator: "",
+ LineSeparator: "\r\n",
+ Footer: "",
+ TypeNames: [],
+ NotationPrefix: [
+  "","","",""],
+}

@@ -1,0 +1,10 @@
+{
+ Name: "Comma-separated",
+ Header: "",
+ Separator: ",",
+ LineSeparator: ",\r\n",
+ Footer: "",
+ TypeNames: [],
+ NotationPrefix: [
+  "","","",""],
+}

@@ -1,0 +1,21 @@
+{
+ Name: "Assembler array",
+ Header: "data %type%  ",
+ Separator: ", ",
+ LineSeparator: "\r\n  %type% ",
+ Footer: "\r\n",
+ TypeNames: [
+  ["int8","DB"],
+  ["uint8","DB"],
+  ["int16","WD"],
+  ["uint16","WD"],
+  ["int32","DD"],
+  ["uint32","DD"],
+  ["int64","DQ"],
+  ["uint64","DQ"],
+ ],
+ NotationPrefix: [
+  "","","","0","'","'"],
+ NotationSuffix: [
+  "b","o","","h","'","'"],
+}

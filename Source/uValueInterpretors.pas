@@ -51,12 +51,16 @@ type
     destructor Destroy(); override;
   end;
 
+function IntToBin(X: Int64; Digits: Integer): string;
+function BinToInt(const S: string): Int64;
+function IntToOct(X: UInt64): string;
+
 var
   ValueInterpretors: TValueInterpretors = nil;
 
 implementation
 
-function IntToBin(X: Integer; Digits: Integer): string;
+function IntToBin(X: Int64; Digits: Integer): string;
 // int to '110110101'
 var
   i: Integer;
@@ -72,7 +76,7 @@ begin
   end;
 end;
 
-function BinToInt(const S: string): Integer;
+function BinToInt(const S: string): Int64;
 // '110110101' to int
 var
   i: Integer;
@@ -83,6 +87,21 @@ begin
     Result := Result shl 1;
     if S[i] <> '0' then
       Result := Result or 1;
+  end;
+end;
+
+function IntToOct(X: UInt64): string;
+// Int to octal (without prefixes)
+var
+  d: Integer;
+begin
+  if X = 0 then Exit('0');
+  Result := '';
+  while X > 0 do
+  begin
+    d := X mod 8;
+    Result := Char(Ord('0')+d) + Result;
+    X := X div 8;
   end;
 end;
 

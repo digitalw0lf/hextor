@@ -94,10 +94,10 @@ type
     ActionCut: TAction;
     ActionCopy: TAction;
     ActionPaste: TAction;
-    ActionCopyAs: TAction;
+    ActionCopyAsArray: TAction;
     MICut: TMenuItem;
     MICopy: TMenuItem;
-    MICopyAs: TMenuItem;
+    MICopyAsArray: TMenuItem;
     MIPaste: TMenuItem;
     ActionSelectAll: TAction;
     MISelectAll: TMenuItem;
@@ -106,7 +106,6 @@ type
     ImageList16: TImageList;
     ActionRevert: TAction;
     Revert1: TMenuItem;
-    N2: TMenuItem;
     ActionFind: TAction;
     MIFindReplace: TMenuItem;
     ActionFindNext: TAction;
@@ -166,7 +165,6 @@ type
     PgBitmap: TTabSheet;
     BitmapFrame: TBitmapFrame;
     Something1: TMenuItem;
-    N6: TMenuItem;
     MISetFileSize: TMenuItem;
     MIInsertBytes: TMenuItem;
     HintImage: TImage;
@@ -211,6 +209,8 @@ type
     MIModifyWithExpr: TMenuItem;
     ActionSaveAll: TAction;
     SaveAll1: TMenuItem;
+    MISearchMenu: TMenuItem;
+    MICopyAsMenu: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -267,6 +267,7 @@ type
     procedure ActionAboutBoxExecute(Sender: TObject);
     procedure ActionModifyWithExprExecute(Sender: TObject);
     procedure ActionSaveAllExecute(Sender: TObject);
+    procedure ActionCopyAsArrayExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -351,7 +352,7 @@ uses
 
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
-  uPasteAsForm, uAboutForm, uModifyWithExpressionForm;
+  uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm;
 
 { TMainForm }
 
@@ -392,6 +393,15 @@ procedure TMainForm.ActionCompareExecute(Sender: TObject);
 begin
   ShowToolFrame(CompareFrame);
   CompareFrame.ShowCompareDialog();
+end;
+
+procedure TMainForm.ActionCopyAsArrayExecute(Sender: TObject);
+begin
+  with ActiveEditor do
+  begin
+    CopyAsForm.Data := Data.Get(SelStart, SelLength);
+    CopyAsForm.ShowModal();
+  end;
 end;
 
 procedure TMainForm.ActionCopyExecute(Sender: TObject);
@@ -840,7 +850,9 @@ begin
       ActionRevert.Enabled := (HasUnsavedChanges);
 
       for i:=0 to ActionList1.ActionCount-1 do
-        if (ActionList1.Actions[i].Category = 'Edit') or (ActionList1.Actions[i].Category = 'Navigation') then
+        if (ActionList1.Actions[i].Category = 'Edit') or
+           (ActionList1.Actions[i].Category = 'Search') or
+           (ActionList1.Actions[i].Category = 'Operations') then
           ActionList1.Actions[i].Enabled := True;
 
       ActionUndo.Enabled := UndoStack.CanUndo(S);
@@ -851,6 +863,7 @@ begin
       ActionRedo.Hint := ActionRedo.Caption;
 
       ActionCopy.Enabled := {(FocusInEditor) and} (SelLength > 0);
+      ActionCopyAsArray.Enabled := ActionCopy.Enabled;
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
       ActionPaste.Enabled := Clipboard.HasFormat(CF_UNICODETEXT) and (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
       ActionPasteAs.Enabled := ActionPaste.Enabled;
@@ -871,7 +884,7 @@ begin
 
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or
-         (ActionList1.Actions[i].Category = 'Navigation') or
+         (ActionList1.Actions[i].Category = 'Search') or
          (ActionList1.Actions[i].Category = 'Operations') then
         ActionList1.Actions[i].Enabled := False;
 
@@ -1019,7 +1032,7 @@ begin
   EditorActionShortcuts := TDictionary<TContainedAction, TShortCutSet>.Create();
   for i:=0 to ActionList1.ActionCount-1 do
     if (ActionList1.Actions[i].Category = 'Edit') or
-       (ActionList1.Actions[i].Category = 'Navigation') then
+       (ActionList1.Actions[i].Category = 'Search') then
       ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
   ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
 
@@ -1385,12 +1398,10 @@ end;
 
 procedure TMainForm.Something1Click(Sender: TObject);
 var
-  i: Integer;
+  s: string;
 begin
-//  StartTimeMeasure();
-  for i:=0 to 999 do
-    ActiveEditor;
-//  EndTimeMeasure('ActiveEditor', True);
+  s := {IntToStr(Low(Int64) + 1) + ' ' +} IntToStr(Low(Int64));
+  Application.MessageBox(PChar(s), '', MB_OK);
 end;
 
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;

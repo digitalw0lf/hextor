@@ -1,0 +1,23 @@
+{
+ Name: "Delphi array",
+ Header: "  data: array[0..%count-1%] of %type% = (\r\n    ",
+ Separator: ", ",
+ LineSeparator: ",\r\n    ",
+ Footer: "\r\n  );\r\n",
+ TypeNames: [
+  ["int8","ShortInt"],
+  ["uint8","Byte"],
+  ["int16","SmallInt"],
+  ["uint16","Word"],
+  ["int32","Integer"],
+  ["uint32","Cardinal"],
+  ["int64","Int64"],
+  ["uint64","UInt64"],
+  ["ansi","AnsiChar"],
+  ["unicode","Char"],
+ ],
+ NotationPrefix: [
+  "0b","0o","","$","'","'"],
+ NotationSuffix: [
+  "","","","","'","'"],
+}

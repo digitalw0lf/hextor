@@ -1,0 +1,15 @@
+{
+ Name: "C/C++ array",
+ Header: "%type% data[%count%] = {\r\n  ",
+ Separator: ", ",
+ LineSeparator: ",\r\n  ",
+ Footer: "\r\n};\r\n",
+ TypeNames: [
+  ["ansi","char"],
+  ["unicode","wchar"],
+ ],
+ NotationPrefix: [
+  "0b","0","","0x","'","L'"],
+ NotationSuffix: [
+  "","","","","'","'"],
+}

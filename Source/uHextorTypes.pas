@@ -12,7 +12,7 @@ interface
 
 uses
   SysUtils, Winapi.Windows, Generics.Collections, Vcl.Graphics, System.Math,
-  System.SysConst;
+  System.SysConst, superobject;
 
 const
   KByte = 1024;
@@ -49,6 +49,12 @@ type
   IHextorToolFrame = interface
     ['{4AB18488-6B7D-4A9B-9892-EC91DDF81745}']
     procedure OnShown();
+  end;
+
+  // Convert structures<==>json  (helper wrapper)
+  tJsonRtti = class
+    class function ObjectToStr<T>(const obj: T; const ANotWriteEmptyField: boolean = false): string;
+    class function StrToObject<T>(const S: string): T;
   end;
 
 function Data2Hex(Data: PByteArray; Size: Integer; InsertSpaces: Boolean = False): string; overload;
@@ -474,6 +480,27 @@ end;
 procedure TFileRange.SetSize(Value: TFilePointer);
 begin
   AEnd := Start + Value;
+end;
+
+{ tJsonRtti }
+
+class function tJsonRtti.ObjectToStr<T>(const obj: T; const ANotWriteEmptyField: boolean = false): string;
+var
+  ctx: TSuperRttiContext;
+begin
+  ctx := TSuperRttiContext.Create;
+  ctx.NotWriteEmptyField := ANotWriteEmptyField;
+  Result := ctx.AsJson<T>(obj).AsJson(true, False);
+  ctx.Free;
+end;
+
+class function tJsonRtti.StrToObject<T>(const S: string): T;
+var
+  ctx: TSuperRttiContext;
+begin
+  ctx := TSuperRttiContext.Create;
+  Result := ctx.AsType<T>(SO(S));
+  ctx.Free;
 end;
 
 initialization
