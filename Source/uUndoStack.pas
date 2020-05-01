@@ -170,13 +170,13 @@ constructor TUndoStack.Create(AEditedData: TEditedData);
 begin
   inherited Create();
   EditedData := AEditedData;
-  EditedData.OnBeforePartsReplace.Add(BeforePartsReplace);
+  EditedData.OnBeforePartsReplace.Add(BeforePartsReplace, Self);
   Actions := TObjectList<TUndoStackAction>.Create(True);
 end;
 
 destructor TUndoStack.Destroy;
 begin
-  EditedData.OnBeforePartsReplace.Remove(BeforePartsReplace);
+  EditedData.OnBeforePartsReplace.Remove(Self);
   Actions.Free;
   inherited;
 end;

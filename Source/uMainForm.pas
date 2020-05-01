@@ -33,8 +33,9 @@ uses
 
 const
   Color_ChangedByte = $B0FFFF;
-  Color_SelectionBg = clHighlight;
-  Color_SelectionTx = clHighlightText;
+  Color_SelectionBg = $F5DDBF; //clHighlight;
+  Color_SelectionTx = clNone; //clHighlightText;
+  Color_SelectionFr = $D77800;
   Color_ValueHighlightBg = $FFD0A0;
   Color_DiffBg = $05CBEF;
 
@@ -933,7 +934,13 @@ begin
   Result.ByteColumnsSetting := AppSettings.ByteColumns;
   Result.OnByteColsChanged.Add(procedure (Sender: TEditorForm)
     begin
-      if Sender = GetActiveEditorNoEx() then UpdateByteColEdit();
+      if Sender = GetActiveEditorNoEx() then
+        UpdateByteColEdit();
+    end);
+  Result.OnClosed.Add(procedure(Sender: TEditorForm)
+    begin
+      if Sender = EditorForTabMenu then
+        EditorForTabMenu := nil;
     end);
   // Call ActiveEditorChanged when this editor has DataSource etc.
   DoAfterEvent(ActiveEditorChanged);
@@ -1212,10 +1219,6 @@ begin
       mbRight:
         begin
           EditorForTabMenu := Editors[n];
-          EditorForTabMenu.OnClosed.Add(procedure(Sender: TEditorForm)
-            begin
-              EditorForTabMenu := nil;
-            end);
           Pt := (Sender as TControl).ClientToScreen(Point(X,Y));
           EditorTabMenu.Popup(Pt.X, Pt.Y);
         end;
@@ -1368,6 +1371,8 @@ end;
 
 procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
 // '-' => do not change text
+var
+  Percents: Integer;
 begin
   if Text <> '-' then
     LastProgressText := Text;
@@ -1376,7 +1381,11 @@ begin
   if (GetTickCount() - LastProgressRefresh < 100) then Exit;
   LastProgressRefresh := GetTickCount();
 
-  ProgressForm.ProgressGauge.Progress := Round(Pos/Total*100);
+  if Total > 0 then
+    Percents := Round(Pos/Total*100)
+  else
+    Percents := 0;
+  ProgressForm.ProgressGauge.Progress := Percents;
   ProgressForm.ProgressTextLabel.Caption := LastProgressText;
 
   if not ProgressForm.Visible then

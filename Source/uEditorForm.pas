@@ -23,9 +23,6 @@ uses
 type
   TEditorForm = class;
 
-  // Callback that is used by tools to colorise displayed data in editor
-  TGetDataColors = function (Editor: TEditorForm; Addr: TFilePointer; Size: Integer; AData: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
-
   TFFSkipSearcher = class(TDataSearcher)
   // Searcher for skipping given byte value
   public
@@ -126,6 +123,8 @@ type
     procedure SetTextEncoding(const Value: Integer);
     function GetSelectedRange: TFileRange;
     procedure SetSelectedRange(const Value: TFileRange);
+    procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
+      AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public
@@ -136,6 +135,8 @@ type
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     OnByteColsChanged: TCallbackListP1<TEditorForm>;
+    OnGetTaggedRegions: TCallbackListP5<{Editor: }TEditorForm, {Start: }TFilePointer,
+      {AEnd: }TFilePointer, {AData: }PByteArray, {Regions: }TTaggedDataRegionList>;
     [API]
     property Data: TEditedData read FData write FData;
     destructor Destroy(); override;
@@ -446,9 +447,12 @@ begin
   UndoStack.OnActionReverted.Add(UndoActionReverted);
   UndoStack.OnProgress.Add(MainForm.ShowProgress);
   UndoStack.OnOperationDone.Add(MainForm.OperationDone);
+
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
   FFSkipSearcher.OnProgress.Add(MainForm.ShowProgress);
+  OnGetTaggedRegions.Add(EditorGetTaggedRegions);
+
   MainForm.AddEditor(Self);
 end;
 
@@ -843,21 +847,23 @@ procedure TEditorForm.PaneMouseMove(Sender: TObject; IsMouseDown: Boolean;
 var
   p: TPoint;
   ACaretPos: TFilePointer;
-  ACaretInByte: Integer;
+  Index, ACaretInByte: Integer;
   ss: TShiftState;
 begin
   BeginUpdatePanes();
   try
-    if (Sender as TEditorPane).GetCharAt(X, Y, p) then
+    if (Sender as TEditorPane).GetCharAt(X, Y, p, Index) then
     begin
       if Sender = PaneHex then
       begin
         ACaretInByte := BoundValue(p.X mod 3, 0, 1);
         p.X := p.X div 3;
+        Index := Index div 3;
       end
       else
         ACaretInByte := 0;
-      ACaretPos := FirstVisibleAddr() + (p.Y*ByteColumns + p.X);
+      //ACaretPos := FirstVisibleAddr() + (p.Y*ByteColumns + p.X);
+      ACaretPos := FirstVisibleAddr() + Index;
       ss := Shift;
       if not IsMouseDown then
         ss := ss + [ssShift];
@@ -1320,6 +1326,24 @@ begin
   BreakCurrentTypingAction();
 end;
 
+procedure TEditorForm.EditorGetTaggedRegions(Editor: TEditorForm; Start,
+  AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+var
+  Parts: TEditedData.TDataPartList;
+  i: Integer;
+begin
+  // Changed bytes
+  Parts := TEditedData.TDataPartList.Create(False);
+  try
+    Data.GetOverlappingParts(Start, AEnd - Start, Parts);
+    for i:=0 to Parts.Count-1 do
+      if (Parts[i].PartType = ptBuffer) then
+        Regions.AddRegion(Self, Parts[i].Addr, Parts[i].Addr+Parts[i].Size, clNone, Color_ChangedByte, clNone);
+  finally
+    Parts.Free;
+  end;
+end;
+
 procedure TEditorForm.EndUpdatePanes;
 begin
   if FUpdating=0 then Exit;
@@ -1520,37 +1544,28 @@ var
   cp: TPoint;
   p, FirstVis: TFilePointer;
   VisSize: Integer;
-  Parts: TEditedData.TDataPartList;
-  TxColors, BgColors: TColorArray;
-  DefBgColor, DefTxColor: TColor;
-  i: Integer;
+  TaggedRegions: TTaggedDataRegionList;
 
   procedure Update(Pane: TEditorPane; CharsPerByte: Integer);
   var
-    L, i, n: Integer;
+    i: Integer;
+    TextRegions: TEditorPane.TVisualTextRegionArray;
   begin
-    L := VisSize*CharsPerByte;
-    if Length(Pane.BgColors)<>L then
-      SetLength(Pane.BgColors, L);
-    if Length(Pane.TxColors)<>L then
-      SetLength(Pane.TxColors, L);
-//    StartTimeMeasure();
-//    if CharsPerByte = 1 then
-//    begin
-//      Move(TxColors[0], Pane.TxColors[0], L*SizeOf(TxColors[0]));
-//      Move(BgColors[0], Pane.BgColors[0], L*SizeOf(BgColors[0]));
-//    end
-//    else
-    for i:=0 to L-1 do
+    // Convert TaggedRegions on data to VisualTextRegions on pane chars
+    SetLength(TextRegions, TaggedRegions.Count);
+    for i:=0 to TaggedRegions.Count-1 do
     begin
-      n := i div CharsPerByte;
-      Pane.TxColors[i] := TxColors[n];
-      Pane.BgColors[i] := BgColors[n];
+      TextRegions[i].Range.Start := (TaggedRegions[i].Range.Start - FirstVis) * CharsPerByte;
+      TextRegions[i].Range.AEnd := (TaggedRegions[i].Range.AEnd - FirstVis) * CharsPerByte;
+      TextRegions[i].TextColor := TaggedRegions[i].TextColor;
+      TextRegions[i].BgColor := TaggedRegions[i].BgColor;
+      TextRegions[i].FrameColor := TaggedRegions[i].FrameColor;
     end;
-//    EndTimeMeasure('Update pane colors', True);
+    Pane.SetVisRegions(TextRegions);
+
     // Caret position
-    Pane.CaretPos := Point(cp.X*CharsPerByte + IfThen(CharsPerByte>1, CaretInByte, 0), cp.Y);
     Pane.InsertModeCaret := InsertMode;
+    Pane.CaretPos := Point(cp.X*CharsPerByte + IfThen(CharsPerByte>1, CaretInByte, 0), cp.Y);
   end;
 
 begin
@@ -1560,40 +1575,21 @@ begin
   p := FCaretPos - FirstVis;
   cp := Point(p mod ByteColumns, p div ByteColumns);
 
-  SetLength(TxColors, VisSize);
-  SetLength(BgColors, VisSize);
-
-  // Background colors
-  DefBgColor := PaneHex.Color;
-  DefTxColor := PaneHex.Font.Color;
-  for i:=0 to VisSize-1 do
-  begin
-    BgColors[i] := DefBgColor;
-    TxColors[i] := DefTxColor;
-  end;
-
-  // Changed bytes
-  Parts := TEditedData.TDataPartList.Create(False);
+  TaggedRegions := TTaggedDataRegionList.Create(TFileRange.Create(FirstVis, FirstVis + VisSize));
   try
-    Data.GetOverlappingParts(FirstVis, VisSize, Parts);
-    for i:=0 to Parts.Count-1 do
-      if Parts[i].PartType = ptBuffer then
-        FillRangeInColorArray(BgColors, FirstVis, Parts[i].Addr, Parts[i].Addr+Parts[i].Size, Color_ChangedByte);
+    // Collect tagged regions (Bookmarks, Structure fields etc.) from tools
+    OnGetTaggedRegions.Call(Self, FirstVis, FirstVis + VisSize, nil, TaggedRegions);
+
+    // Selection background - on top
+    if SelLength > 0 then
+      TaggedRegions.AddRegion(Self, SelStart, SelStart + SelLength, Color_SelectionTx, Color_SelectionBg, Color_SelectionFr);
+
+
+    Update(PaneHex, 3);
+    Update(PaneText, 1);
   finally
-    Parts.Free;
+    TaggedRegions.Free;
   end;
-
-  // Selection background
-  FillRangeInColorArray(TxColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionTx);
-  FillRangeInColorArray(BgColors, FirstVis, SelStart, SelStart+SelLength, Color_SelectionBg);
-
-  // Tools
-  MainForm.CompareFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
-  MainForm.StructFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
-  MainForm.ValueFrame.GetDataColors(Self, FirstVis, VisSize, nil, TxColors, BgColors);
-
-  Update(PaneHex, 3);
-  Update(PaneText, 1);
 end;
 
 procedure TEditorForm.UpdatePaneWidths;

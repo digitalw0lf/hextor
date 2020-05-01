@@ -48,13 +48,15 @@ type
     { Private declarations }
     FEditor: TEditorForm;
     FShownRange: TFileRange;
+    procedure EditorClosed(Sender: TEditorForm);
     procedure EditorSelectionChanged(Sender: TEditorForm);
+    procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
+      AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure UpdateInfo();
-    function GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
     procedure OnShown();
   end;
 
@@ -85,20 +87,23 @@ begin
   UpdateInfo();
 end;
 
-function TValueFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
-  Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
+procedure TValueFrame.EditorClosed(Sender: TEditorForm);
+begin
+  FEditor := nil;
+  SetKGridRowCount(ValuesGrid, 1);
+end;
+
+procedure TValueFrame.EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
+  AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
 var
   VRow: TValueGridRow;
 begin
-  Result := False;
   if Screen.ActiveControl <> ValuesGrid then Exit;
-  if Editor <> FEditor then Exit;
 
   VRow := ValuesGrid.Rows[ValuesGrid.Row] as TValueGridRow;
   if not VRow.Defined then Exit;
 
-  Result := FillRangeInColorArray(BgColors, Addr,
-    FShownRange.Start, FShownRange.Start+VRow.OrigDataSize, Color_ValueHighlightBg);
+  Regions.AddRegion(Self, FShownRange.Start, FShownRange.Start+VRow.OrigDataSize, clNone, Color_ValueHighlightBg, clNone);
 end;
 
 procedure TValueFrame.MICopyValueClick(Sender: TObject);
@@ -121,8 +126,18 @@ var
   VRow: TValueGridRow;
 begin
   ValuesGrid.EditorMode := False;
+
+  if Assigned(FEditor) then
+  begin
+    FEditor.OnGetTaggedRegions.Remove(Self);
+    FEditor.OnClosed.Remove(Self);
+  end;
+
   try
     FEditor := MainForm.ActiveEditor;
+
+    FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
+    FEditor.OnClosed.Add(EditorClosed, Self);
   except
     on E: ENoActiveEditor do
     begin

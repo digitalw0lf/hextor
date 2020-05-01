@@ -81,8 +81,10 @@ procedure TSearchResultsFrame.BeginUpdateList(AEditor: TEditorForm; const ASearc
 var
   S: string;
 begin
+  if Assigned(FEditor) then FEditor.OnClosed.Remove(Self);
   FEditor := AEditor;
-  FEditor.OnClosed.Add(EditorClosed);
+  FEditor.OnClosed.Add(EditorClosed, Self);
+
   S := ASearchText;
   if Length(S) > 20 then
     S := Copy(S, Low(S), 20) + '...';

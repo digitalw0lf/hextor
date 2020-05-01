@@ -103,6 +103,10 @@ type
     function DSSaveFolder(): string;
     function GetNodeDS(Node: PVirtualNode): TDSField;
     procedure EditorClosed(Sender: TEditorForm);
+    procedure AddRegionsForFields(DS{, HighlightDS}: TDSField; Start,
+      AEnd: TFilePointer; Regions: TTaggedDataRegionList);
+    procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
+      AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
     function DSValueAsJsonObject(DS: TDSField): ISuperObject;
     function DSValueAsJson(DS: TDSField): string;
     procedure SetInterpretRange(const Value: TInterpretRange);
@@ -113,8 +117,6 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure Analyze(Addr, Size: TFilePointer; const Struct: string);
-    function GetDataColors(Editor: TEditorForm; Addr: TFilePointer;
-      Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
     property ShownDS: TDSField read FShownDS;
     property InterpretRange: TInterpretRange read GetInterpretRange write SetInterpretRange;
   end;
@@ -127,6 +129,37 @@ uses
 {$R *.dfm}
 
 { TStructFrame }
+
+procedure TStructFrame.AddRegionsForFields(DS{, HighlightDS}: TDSField;
+  Start, AEnd: TFilePointer; Regions: TTaggedDataRegionList);
+// Add DS and it's childs as visible regions to Regions
+var
+  i{, c}: Integer;
+  Bg: TColor;
+begin
+  // Check within requested address range
+  if (DS.BufAddr >= AEnd) or (DS.BufAddr + DS.BufSize <= Start) then Exit;
+  // Do not add separate regions for 1-byte elements of arrays
+  if (DS is TDSSimpleField) and (DS.BufSize = 1) and
+     (DS.Parent <> nil) and (DS.Parent is TDSArray) then
+    Exit;
+
+  // Background color
+//  if DS = HighlightDS then
+//    Bg := Color_ValueHighlightBg
+//  else
+//  begin
+//    c := 255 - DS.Name.GetHashCode() and $1F;
+//    Bg := RGB(c, c, 255);
+//  end;
+  Bg := $FFF8F8;
+  // Add this DS
+  Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, $F8E0E0);
+  // Add childs
+  if DS is TDSCompoundField then
+    for i:=0 to TDSCompoundField(DS).Fields.Count-1 do
+      AddRegionsForFields(TDSCompoundField(DS).Fields[i], {HighlightDS,} Start, AEnd, Regions);
+end;
 
 procedure TStructFrame.Analyze(Addr, Size: TFilePointer; {const Data: TBytes;}
   const Struct: string);
@@ -153,6 +186,9 @@ begin
     on E: Exception do
       Application.ShowException(E);
   end;
+
+  // Redraw editor to show structure
+  FEditor.UpdatePanes();
 
   // Show tree
   DSTreeView.BeginUpdate();
@@ -183,23 +219,6 @@ begin
   BtnCopyValue.Enabled := True;
 end;
 
-function TStructFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer; Size: Integer;
-  Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
-var
-  Node: PVirtualNode;
-  DS: TDSField;
-begin
-  Result := False;
-  if Screen.ActiveControl <> DSTreeView then Exit;
-  if Editor <> FEditor then Exit;
-
-  Node := DSTreeView.FocusedNode;
-  if Node = nil then Exit;
-  DS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
-
-  Result := FillRangeInColorArray(BgColors, Addr,
-    DS.BufAddr, DS.BufAddr + DS.BufSize, Color_ValueHighlightBg);
-end;
 
 function TStructFrame.GetInterpretRange: TInterpretRange;
 begin
@@ -216,9 +235,14 @@ procedure TStructFrame.BtnInterpretClick(Sender: TObject);
 var
   Addr, Size: TFilePointer;
 begin
-  if Assigned(FEditor) then FEditor.OnClosed.Remove(EditorClosed);
+  if Assigned(FEditor) then
+  begin
+    FEditor.OnClosed.Remove(Self);
+    FEditor.OnGetTaggedRegions.Remove(Self);
+  end;
   FEditor := MainForm.ActiveEditor;
-  FEditor.OnClosed.Add(EditorClosed);
+  FEditor.OnClosed.Add(EditorClosed, Self);
+  FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
 
   Addr := 0; Size := 0;
   with FEditor do
@@ -531,6 +555,28 @@ begin
   FreeAndNil(FShownDS);
   FEditor := nil;
   BtnCopyValue.Enabled := False;
+end;
+
+procedure TStructFrame.EditorGetTaggedRegions(Editor: TEditorForm; Start,
+  AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+var
+  Node: PVirtualNode;
+  SelDS: TDSField;
+begin
+  if ShownDS = nil then Exit;
+
+  AddRegionsForFields(ShownDS, {SelDS,} Start, AEnd, Regions);
+
+  if Screen.ActiveControl = DSTreeView then
+  begin
+    Node := DSTreeView.FocusedNode;
+    if Node <> nil then
+    begin
+      SelDS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
+      Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, $FFD0D0, $E0A0A0);
+    end;
+  end;
+
 end;
 
 procedure TStructFrame.ExpandToNode(Node: PVirtualNode);

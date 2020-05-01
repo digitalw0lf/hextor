@@ -34,8 +34,9 @@ type
     BufAddr: TFilePointer;  // Address and size in original data buffer
     BufSize: TFilePointer;
     DescrLineNum: Integer;  // Line number in structure description text
-    // When field is modified e.g. in SetFromVariant(), only it's internal 
-    // Data buffer if changed. Original file data should be updated in 
+    ErrorText: string;      // Parsing error (e.g. "End of buffer" or "Value out of range")
+    // When field is modified e.g. in SetFromVariant(), only it's internal
+    // Data buffer if changed. Original file data should be updated in
     // OnChanged event
     OnChanged: TCallbackListP2<{DS:}TDSField, {Changer:}TObject>;
     constructor Create(); virtual;
@@ -59,7 +60,6 @@ type
     BigEndian: Boolean;
     ValidationStr: string;
     Data: TBytes;
-    ErrorText: string;
     constructor Create(); override;
     procedure Assign(Source: TDSField); override;
     function ValueAsVariant(): Variant;
@@ -1251,33 +1251,35 @@ begin
 
   // Real structure size is unknown, so suppose buffer size
   OnProgress.Call(Self, FCurAddr - FStartAddr, FMaxSize, IntToStr(FieldsProcessed) + ' fields processed');
-
   try
-    if DS is TDSSimpleField then
-      InterpretSimple(TDSSimpleField(DS))
-    else
-    if DS is TDSStruct then
-      InterpretStruct(TDSStruct(DS))
-    else
-    if DS is TDSArray then
-      InterpretArray(TDSArray(DS))
-    else
-    if DS is TDSConditional then
-      InterpretConditional(TDSConditional(DS))
-    else
-      raise EParserError.Create('Invalid class of field '+DS.Name);
-//    WriteLogF('Struct_Intepret', AnsiString(DS.ClassName+' '+DS.Name+' = '+DS.ToString));
-  except
-    on E: Exception do
-    begin
-      if not E.Message.StartsWith('Line #') then
-        E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ', Addr ' + IntToStr(DS.BufAddr) + ':' + sLineBreak + E.Message;
-      raise;
+    try
+      if DS is TDSSimpleField then
+        InterpretSimple(TDSSimpleField(DS))
+      else
+      if DS is TDSStruct then
+        InterpretStruct(TDSStruct(DS))
+      else
+      if DS is TDSArray then
+        InterpretArray(TDSArray(DS))
+      else
+      if DS is TDSConditional then
+        InterpretConditional(TDSConditional(DS))
+      else
+        raise EParserError.Create('Invalid class of field '+DS.Name);
+  //    WriteLogF('Struct_Intepret', AnsiString(DS.ClassName+' '+DS.Name+' = '+DS.ToString));
+    except
+      on E: Exception do
+      begin
+        if not E.Message.StartsWith('Line #') then
+          E.Message := 'Line #' + IntToStr(DS.DescrLineNum) + ', Addr ' + IntToStr(DS.BufAddr) + ':' + sLineBreak + E.Message;
+        DS.ErrorText := E.Message;
+        raise;
+      end;
     end;
+  finally
+    DS.BufSize := FCurAddr - DS.BufAddr;
+    Inc(FieldsProcessed);
   end;
-
-  DS.BufSize := FCurAddr - DS.BufAddr;
-  Inc(FieldsProcessed);
 
   OnFieldInterpreted.Call(Self, DS);
 end;

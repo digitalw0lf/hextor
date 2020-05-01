@@ -10,6 +10,9 @@ unit uCallbackList;
 
 interface
 
+uses
+  Generics.Collections;
+
 type
   // Multiple-subscriber callback mechanism
   // (inspired by signal-slot in Qt)
@@ -19,10 +22,10 @@ type
   public type
     TCallback = reference to procedure(Param1: T1);
   private
-    FList: array of TCallback;
+    FList: array of TPair<Pointer, TCallback>;
   public
-    procedure Add(Method: TCallback);
-    procedure Remove(Method: TCallback);
+    procedure Add(Method: TCallback; Id: Pointer = nil);
+    procedure Remove(Id: Pointer);
     procedure Call(Param1: T1);
   end;
 
@@ -30,10 +33,10 @@ type
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2);
   private
-    FList: array of TCallback;
+    FList: array of TPair<Pointer, TCallback>;
   public
-    procedure Add(Method: TCallback);
-    procedure Remove(Method: TCallback);
+    procedure Add(Method: TCallback; Id: Pointer = nil);
+    procedure Remove(Id: Pointer);
     procedure Call(Param1: T1; Param2: T2);
   end;
 
@@ -41,10 +44,10 @@ type
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3);
   private
-    FList: array of TCallback;
+    FList: array of TPair<Pointer, TCallback>;
   public
-    procedure Add(Method: TCallback);
-    procedure Remove(Method: TCallback);
+    procedure Add(Method: TCallback; Id: Pointer = nil);
+    procedure Remove(Id: Pointer);
     procedure Call(Param1: T1; Param2: T2; Param3: T3);
   end;
 
@@ -52,21 +55,31 @@ type
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
   private
-    FList: array of TCallback;
+    FList: array of TPair<Pointer, TCallback>;
   public
-    procedure Add(Method: TCallback);
-    procedure Remove(Method: TCallback);
+    procedure Add(Method: TCallback; Id: Pointer = nil);
+    procedure Remove(Id: Pointer);
     procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
   end;
 
+  TCallbackListP5<T1, T2, T3, T4, T5> = record
+  public type
+    TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
+  private
+    FList: array of TPair<Pointer, TCallback>;
+  public
+    procedure Add(Method: TCallback; Id: Pointer = nil);
+    procedure Remove(Id: Pointer);
+    procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
+  end;
 
 implementation
 
 { TCallbackListP1<T1> }
 
-procedure TCallbackListP1<T1>.Add(Method: TCallback);
+procedure TCallbackListP1<T1>.Add(Method: TCallback; Id: Pointer = nil);
 begin
-  FList := FList + [TCallback(Method)];
+  FList := FList + [TPair<Pointer, TCallback>.Create(Id, TCallback(Method))];
 end;
 
 procedure TCallbackListP1<T1>.Call(Param1: T1);
@@ -74,23 +87,23 @@ var
   i: Integer;
 begin
   for i:=0 to Length(FList)-1 do
-    FList[i](Param1);
+    FList[i].Value(Param1);
 end;
 
-procedure TCallbackListP1<T1>.Remove(Method: TCallback);
+procedure TCallbackListP1<T1>.Remove(Id: Pointer);
 var
   i: Integer;
 begin
   for i:=Length(FList)-1 downto 0 do
-    if TCallback(FList[i]) = TCallback(Method) then
+    if FList[i].Key = Id then
       Delete(FList, i, 1);
 end;
 
 { TCallbackListP2<T1, T2> }
 
-procedure TCallbackListP2<T1, T2>.Add(Method: TCallback);
+procedure TCallbackListP2<T1, T2>.Add(Method: TCallback; Id: Pointer = nil);
 begin
-  FList := FList + [TCallback(Method)];
+  FList := FList + [TPair<Pointer, TCallback>.Create(Id, TCallback(Method))];
 end;
 
 procedure TCallbackListP2<T1, T2>.Call(Param1: T1; Param2: T2);
@@ -98,23 +111,23 @@ var
   i: Integer;
 begin
   for i:=0 to Length(FList)-1 do
-    FList[i](Param1, Param2);
+    FList[i].Value(Param1, Param2);
 end;
 
-procedure TCallbackListP2<T1, T2>.Remove(Method: TCallback);
+procedure TCallbackListP2<T1, T2>.Remove(Id: Pointer);
 var
   i: Integer;
 begin
   for i:=Length(FList)-1 downto 0 do
-    if TCallback(FList[i]) = TCallback(Method) then
+    if FList[i].Key = Id then
       Delete(FList, i, 1);
 end;
 
 { TCallbackListP3<T1, T2, T3> }
 
-procedure TCallbackListP3<T1, T2, T3>.Add(Method: TCallback);
+procedure TCallbackListP3<T1, T2, T3>.Add(Method: TCallback; Id: Pointer = nil);
 begin
-  FList := FList + [TCallback(Method)];
+  FList := FList + [TPair<Pointer, TCallback>.Create(Id, TCallback(Method))];
 end;
 
 procedure TCallbackListP3<T1, T2, T3>.Call(Param1: T1; Param2: T2; Param3: T3);
@@ -122,23 +135,23 @@ var
   i: Integer;
 begin
   for i:=0 to Length(FList)-1 do
-    FList[i](Param1, Param2, Param3);
+    FList[i].Value(Param1, Param2, Param3);
 end;
 
-procedure TCallbackListP3<T1, T2, T3>.Remove(Method: TCallback);
+procedure TCallbackListP3<T1, T2, T3>.Remove(Id: Pointer);
 var
   i: Integer;
 begin
   for i:=Length(FList)-1 downto 0 do
-    if TCallback(FList[i]) = TCallback(Method) then
+    if FList[i].Key = Id then
       Delete(FList, i, 1);
 end;
 
-{ TCallbackListP4<T1, T2, T3> }
+{ TCallbackListP4<T1, T2, T3, T4> }
 
-procedure TCallbackListP4<T1, T2, T3, T4>.Add(Method: TCallback);
+procedure TCallbackListP4<T1, T2, T3, T4>.Add(Method: TCallback; Id: Pointer = nil);
 begin
-  FList := FList + [TCallback(Method)];
+  FList := FList + [TPair<Pointer, TCallback>.Create(Id, TCallback(Method))];
 end;
 
 procedure TCallbackListP4<T1, T2, T3, T4>.Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
@@ -146,15 +159,39 @@ var
   i: Integer;
 begin
   for i:=0 to Length(FList)-1 do
-    FList[i](Param1, Param2, Param3, Param4);
+    FList[i].Value(Param1, Param2, Param3, Param4);
 end;
 
-procedure TCallbackListP4<T1, T2, T3, T4>.Remove(Method: TCallback);
+procedure TCallbackListP4<T1, T2, T3, T4>.Remove(Id: Pointer);
 var
   i: Integer;
 begin
   for i:=Length(FList)-1 downto 0 do
-    if TCallback(FList[i]) = TCallback(Method) then
+    if FList[i].Key = Id then
+      Delete(FList, i, 1);
+end;
+
+{ TCallbackListP5<T1, T2, T3, T4, T5> }
+
+procedure TCallbackListP5<T1, T2, T3, T4, T5>.Add(Method: TCallback; Id: Pointer = nil);
+begin
+  FList := FList + [TPair<Pointer, TCallback>.Create(Id, TCallback(Method))];
+end;
+
+procedure TCallbackListP5<T1, T2, T3, T4, T5>.Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
+var
+  i: Integer;
+begin
+  for i:=0 to Length(FList)-1 do
+    FList[i].Value(Param1, Param2, Param3, Param4, Param5);
+end;
+
+procedure TCallbackListP5<T1, T2, T3, T4, T5>.Remove(Id: Pointer);
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if FList[i].Key = Id then
       Delete(FList, i, 1);
 end;
 

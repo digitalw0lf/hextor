@@ -70,15 +70,11 @@ object HashFrame: THashFrame
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 1
-    ExplicitLeft = 3
-    ExplicitTop = 384
-    ExplicitWidth = 390
-    ExplicitHeight = 161
     object StaticText1: TStaticText
       AlignWithMargins = True
       Left = 3
       Top = 3
-      Width = 7
+      Width = 408
       Height = 17
       Align = alTop
       Caption = ' '
@@ -106,10 +102,6 @@ object HashFrame: THashFrame
       PopupMenu = ResultPopupMenu
       TabOrder = 1
       ViewStyle = vsReport
-      ExplicitLeft = 1
-      ExplicitTop = 24
-      ExplicitWidth = 388
-      ExplicitHeight = 136
     end
   end
   object ResultPopupMenu: TPopupMenu

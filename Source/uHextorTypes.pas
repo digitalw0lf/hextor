@@ -29,13 +29,13 @@ type
 
   TFileRange = record
   private
-    function GetSize(): TFilePointer;
-    procedure SetSize(Value: TFilePointer);
+    function GetSize(): TFilePointer; inline;
+    procedure SetSize(Value: TFilePointer); inline;
   public
     Start, AEnd: TFilePointer;
     property Size: TFilePointer read GetSize write SetSize;
-    function Intersects(const BRange: TFileRange): Boolean; overload;
-    function Intersects(BStart, BEnd: TFilePointer): Boolean; overload;
+    function Intersects(const BRange: TFileRange): Boolean; overload; inline;
+    function Intersects(BStart, BEnd: TFilePointer): Boolean; overload; inline;
     class operator Equal(const A, B: TFileRange): Boolean; inline;
     class operator NotEqual(const A, B: TFileRange): Boolean; inline;
     constructor Create(BStart, BEnd: TFilePointer);
@@ -44,7 +44,26 @@ type
   EInvalidUserInput = class (Exception);
   ENoActiveEditor = class (EAbort);
 
-  TColorArray = array of TColor;
+  // Bookmarks, Selected range, Structure field etc. marked on data by some tool
+  TTaggedDataRegion = class
+    Owner: TObject;
+    Data: Pointer;
+    Range: TFileRange;
+//    ZOrder: Integer;
+    TextColor, BgColor, FrameColor: TColor;
+    //OnGetHint, OnPopup
+    constructor Create(AOwner: TObject; ARange: TFileRange;
+      ATextColor, ABgColor, AFrameColor: TColor);
+    function Accepted(): Boolean;
+  end;
+  TTaggedDataRegionList = class (TObjectList<TTaggedDataRegion>)
+  public
+    AcceptRange: TFileRange;
+    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor): TTaggedDataRegion;
+    constructor Create(); overload;
+    constructor Create(const AAcceptRange: TFileRange); overload;
+  end;
+
 
   IHextorToolFrame = interface
     ['{4AB18488-6B7D-4A9B-9892-EC91DDF81745}']
@@ -72,7 +91,6 @@ function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeBytes(const Buf; BufSize:integer):tBytes; overload;
 function MakeZeroBytes(Size: NativeInt): TBytes;
 procedure InvertByteOrder(var Buf; BufSize:Integer);
-function FillRangeInColorArray(var Colors: TColorArray; BaseAddr: TFilePointer; RangeStart, RangeEnd: TFilePointer; Color: TColor): Boolean;
 
 function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
 function TryS2R(s:UnicodeString; var Value:Double):Boolean;
@@ -274,21 +292,6 @@ begin
     PByteArray(@Buf)^[i]:=PByteArray(@Buf)^[BufSize-i-1];
     PByteArray(@Buf)^[BufSize-i-1]:=b;
   end;
-end;
-
-function FillRangeInColorArray(var Colors: TColorArray; BaseAddr: TFilePointer;
-  RangeStart, RangeEnd: TFilePointer; Color: TColor): Boolean;
-// Fill range in color array with given color (assuming address of Colors[0] is BaseAddr)
-var
-  i: Integer;
-begin
-  RangeStart := RangeStart - BaseAddr;
-  RangeEnd := RangeEnd - BaseAddr;
-  if (RangeStart >= Length(Colors)) or (RangeEnd <= 0) then Exit(False);
-
-  for i:=Max(0, RangeStart) to Min(Length(Colors), RangeEnd)-1 do
-    Colors[i] := Color;
-  Result := True;
 end;
 
 function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
@@ -501,6 +504,56 @@ begin
   ctx := TSuperRttiContext.Create;
   Result := ctx.AsType<T>(SO(S));
   ctx.Free;
+end;
+
+{ TTaggedDataRegion }
+
+function TTaggedDataRegion.Accepted: Boolean;
+// Dirty hack to be able to write like this:
+//
+// with Regions.Add(...) do
+// if Accepted() then
+// begin
+//   OnClick := TagClick;
+// end;
+begin
+  Result := Assigned(Self);
+end;
+
+constructor TTaggedDataRegion.Create(AOwner: TObject; ARange: TFileRange; ATextColor, ABgColor,
+  AFrameColor: TColor);
+begin
+  inherited Create();
+  Owner := AOwner;
+  Range := ARange;
+  TextColor := ATextColor;
+  BgColor := ABgColor;
+  FrameColor := AFrameColor;
+end;
+
+{ TTaggedDataRegionList }
+
+function TTaggedDataRegionList.AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer;
+  TextColor, BgColor, FrameColor: TColor): TTaggedDataRegion;
+begin
+  if (AcceptRange = EntireFile) or (AcceptRange.Intersects(RangeStart, RangeEnd)) then
+  begin
+    Result := TTaggedDataRegion.Create(Owner, TFileRange.Create(RangeStart, RangeEnd), TextColor, BgColor, FrameColor);
+    Add(Result);
+  end
+  else
+    Result := nil;
+end;
+
+constructor TTaggedDataRegionList.Create(const AAcceptRange: TFileRange);
+begin
+  inherited Create(True);
+  AcceptRange := AAcceptRange;
+end;
+
+constructor TTaggedDataRegionList.Create;
+begin
+  Create(EntireFile);
 end;
 
 initialization

@@ -73,7 +73,7 @@ type
     //THashInitProc = reference to procedure (var Context: Pointer; );
   private
     { Private declarations }
-    FEditor: TEditorForm;
+//    FEditor: TEditorForm;
     procedure ShowAlgorithmsList();
     procedure RegisterBuiltInHashes();
   public
@@ -82,7 +82,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     function GetHashObject(const AlgorithmName: string): THashAlgorithm;
-    procedure Calculate(const Algorithms: array of string; Range: TFileRange);
+    procedure Calculate(FEditor: TEditorForm; Range: TFileRange; const Algorithms: array of string);
   end;
 
 implementation
@@ -104,12 +104,13 @@ var
   i: Integer;
   Algorithms: array of string;
   Range: TFileRange;
+  FEditor: TEditorForm;
 begin
   FEditor := MainForm.ActiveEditor;
-  FEditor.OnClosed.Add(procedure(Sender: TEditorForm)
-    begin
-      FEditor := nil;
-    end);
+//  FEditor.OnClosed.Add(procedure(Sender: TEditorForm)
+//    begin
+//      FEditor := nil;
+//    end);
 
   Algorithms := [];
   for i:=0 to AlgorithmsListBox.Items.Count-1 do
@@ -121,11 +122,10 @@ begin
   else
     Range := TFileRange.Create(0, FEditor.Data.GetSize());
 
-  Calculate(Algorithms, Range);
+  Calculate(FEditor, Range, Algorithms);
 end;
 
-procedure THashFrame.Calculate(const Algorithms: array of string;
-  Range: TFileRange);
+procedure THashFrame.Calculate(FEditor: TEditorForm; Range: TFileRange; const Algorithms: array of string);
 const
   BlockSize = 1*MByte;
 var

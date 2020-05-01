@@ -63,18 +63,19 @@ type
     function PosToScr(P: TFilePointer): Integer;
     procedure UpdateInfo();
     procedure DrawDiffBarInternal();
+    procedure UnsubscribeFromEditor(Editor: TEditorForm);
     procedure CloseComparison;
     procedure EditorVisRangeChanged(Sender: TEditorForm);
     procedure EditorByteColsChanged(Sender: TEditorForm);
     procedure EditorClosed(Sender: TEditorForm);
+    procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
+      AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
   public
     { Public declarations }
     Editors: array[0..1] of TEditorForm;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure StartCompare(Editor1, Editor2: TEditorForm);
-    function GetDataColors(Editor: TEditorForm; Addr: TFilePointer;
-      Size: Integer; Data: PByteArray; var TxColors, BgColors: TColorArray): Boolean;
     function ShowCompareDialog(): TModalResult;
   end;
 
@@ -251,6 +252,16 @@ begin
   CloseComparison();
 end;
 
+procedure TCompareFrame.EditorGetTaggedRegions(Editor: TEditorForm; Start,
+  AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+// Colorize diffs in text
+var
+  i: Integer;
+begin
+  for i:=0 to Diffs.Count-1 do
+    Regions.AddRegion(Self, Diffs[i].Start, Diffs[i].AEnd, clNone, Color_DiffBg, clNone);
+end;
+
 procedure TCompareFrame.EditorVisRangeChanged(Sender: TEditorForm);
 // Sunc scroll
 var
@@ -276,20 +287,7 @@ begin
   end;
 end;
 
-function TCompareFrame.GetDataColors(Editor: TEditorForm; Addr: TFilePointer;
-  Size: Integer; Data: PByteArray; var TxColors,
-  BgColors: TColorArray): Boolean;
-// Colorize diffs in text
-var
-  i: Integer;
-begin
-  Result := False;
-  if (Editor <> Editors[0]) and (Editor <> Editors[1]) then Exit;
 
-  for i:=0 to Diffs.Count-1 do
-    Result := FillRangeInColorArray(BgColors, Addr,
-      Diffs[i].Start, Diffs[i].AEnd, Color_DiffBg) or Result;
-end;
 
 function TCompareFrame.PosToScr(P: TFilePointer): Integer;
 begin
@@ -341,9 +339,7 @@ begin
   for i:=0 to 1 do
   if Editors[i] <> nil then
   begin
-    Editors[i].OnVisibleRangeChanged.Remove(EditorVisRangeChanged);
-    Editors[i].OnByteColsChanged.Remove(EditorByteColsChanged);
-    Editors[i].OnClosed.Remove(EditorClosed);
+    UnsubscribeFromEditor(Editors[i]);
     Editors[i] := nil;
   end;
   MaxSize := 0;
@@ -397,6 +393,9 @@ var
   i, Portion: Integer;
   MDIRect: TRect;
 begin
+  for i:=0 to 1 do
+    UnsubscribeFromEditor(Editors[i]);
+
   Editors[0] := Editor1;
   Editors[1] := Editor2;
   PageControl1.ActivePage := ComparisonTab;
@@ -414,9 +413,10 @@ begin
     Editors[i].ByteColumnsSetting := -1;
     Editors[i].BringToFront();
 
-    Editors[i].OnClosed.Add(EditorClosed);
-    Editors[i].OnVisibleRangeChanged.Add(EditorVisRangeChanged);
-    Editors[i].OnByteColsChanged.Add(EditorByteColsChanged);
+    Editors[i].OnClosed.Add(EditorClosed, Self);
+    Editors[i].OnVisibleRangeChanged.Add(EditorVisRangeChanged, Self);
+    Editors[i].OnByteColsChanged.Add(EditorByteColsChanged, Self);
+    Editors[i].OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
   end;
 
   Size1 := Editors[0].Data.GetSize();
@@ -472,6 +472,16 @@ begin
     BtnRecompare.Enabled := True;
     BtnAbort.Visible := False;
   end;
+end;
+
+procedure TCompareFrame.UnsubscribeFromEditor(Editor: TEditorForm);
+// Remove our callbacks from given Editor
+begin
+  if Editor = nil then Exit;
+  Editor.OnClosed.Remove(Self);
+  Editor.OnVisibleRangeChanged.Remove(Self);
+  Editor.OnByteColsChanged.Remove(Self);
+  Editor.OnGetTaggedRegions.Remove(Self);
 end;
 
 procedure TCompareFrame.UpdateInfo;
