@@ -427,6 +427,8 @@ begin
 end;
 
 procedure TEditorForm.FormClose(Sender: TObject; var Action: TCloseAction);
+// Keep in mind this is not called when main form closes. Main form
+// directly calls OnClosed instead.
 begin
   Action := caFree;
   OnClosed.Call(Self);

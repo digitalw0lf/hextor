@@ -19,7 +19,7 @@ uses
   System.UITypes,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
-  uDataSearcher;
+  uDataSearcher, uSearchResultsTabFrame;
 
 type
   TFindReplaceForm = class(TForm)
@@ -77,19 +77,21 @@ var
   Count: Integer;
   Start, Ptr: TFilePointer;
   Size: Integer;
+  ResultsFrame: TSearchResultsTabFrame;
 begin
+  ResultsFrame := nil;
   FillParams(False, True);
   Count := 0;
   Start := Searcher.Params.Range.Start;
   if Sender = BtnFindList then
-    MainForm.SearchResultsFrame.BeginUpdateList(GetTargetEditor, Searcher.Params.Text);
+    ResultsFrame := MainForm.SearchResultsFrame.StartNewList(GetTargetEditor, Searcher.Params.Text);
   try
     while Searcher.Find(Start, 1, Ptr, Size) do
     begin
       Inc(Count);
       if Sender = BtnFindList then
       begin
-        MainForm.SearchResultsFrame.AddListItem(TFileRange.Create(Ptr, Ptr + Size));
+        ResultsFrame.AddListItem(TFileRange.Create(Ptr, Ptr + Size));
       end;
 
       Start := Ptr+Size;
@@ -98,7 +100,7 @@ begin
   finally
     MainForm.OperationDone(Searcher);
     if Sender = BtnFindList then
-      MainForm.SearchResultsFrame.EndUpdateList();
+      ResultsFrame.EndUpdateList();
   end;
   if Sender = BtnFindList then
   begin

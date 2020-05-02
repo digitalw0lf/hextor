@@ -36,7 +36,8 @@ uses
   uAboutForm in 'uAboutForm.pas' {AboutForm},
   uHashFrame in 'uHashFrame.pas' {HashFrame: TFrame},
   uModifyWithExpressionForm in 'uModifyWithExpressionForm.pas' {ModifyWithExpressionForm},
-  uCopyAsForm in 'uCopyAsForm.pas' {CopyAsForm};
+  uCopyAsForm in 'uCopyAsForm.pas' {CopyAsForm},
+  uSearchResultsTabFrame in 'uSearchResultsTabFrame.pas' {SearchResultsTabFrame: TFrame};
 
 {$R *.res}
 

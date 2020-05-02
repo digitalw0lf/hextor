@@ -15,6 +15,7 @@ object MainForm: TMainForm
   Menu = MainMenu1
   OldCreateOrder = False
   WindowState = wsMaximized
+  OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
@@ -109,7 +110,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -435,41 +436,6 @@ object MainForm: TMainForm
             Height = 519
             ExplicitWidth = 412
             ExplicitHeight = 519
-            inherited TabSheet1: TTabSheet
-              ExplicitLeft = 4
-              ExplicitTop = 24
-              ExplicitWidth = 404
-              ExplicitHeight = 491
-              inherited ResultsList: TVirtualStringTree
-                Width = 404
-                Height = 472
-                TabOrder = 1
-                ExplicitWidth = 404
-                ExplicitHeight = 472
-                Columns = <
-                  item
-                    Position = 0
-                    Text = 'Address'
-                    Width = 70
-                  end
-                  item
-                    Position = 1
-                    Text = 'Hex'
-                    Width = 234
-                  end
-                  item
-                    Position = 2
-                    Text = 'Text'
-                    Width = 100
-                  end>
-              end
-              inherited StatusBar1: TStatusBar
-                Top = 472
-                Width = 404
-                ExplicitTop = 472
-                ExplicitWidth = 404
-              end
-            end
           end
         end
       end
@@ -501,6 +467,10 @@ object MainForm: TMainForm
             Height = 195
             ExplicitWidth = 412
             ExplicitHeight = 195
+            inherited StaticText1: TStaticText
+              Width = 406
+              ExplicitWidth = 406
+            end
             inherited ResultListView: TListView
               Width = 412
               Height = 172
@@ -563,8 +533,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 259
-        Height = 17
+        Width = 389
+        Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -1080,7 +1050,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010111004001980210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010111004001A40210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000005000000001002000000000000050
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

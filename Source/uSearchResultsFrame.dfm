@@ -9,57 +9,18 @@ object SearchResultsFrame: TSearchResultsFrame
     Top = 0
     Width = 347
     Height = 547
-    ActivePage = TabSheet1
     Align = alClient
     TabOrder = 0
-    object TabSheet1: TTabSheet
-      Caption = 'TabSheet1'
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
-      object ResultsList: TVirtualStringTree
-        Left = 0
-        Top = 0
-        Width = 339
-        Height = 500
-        Align = alClient
-        Header.AutoSizeIndex = 1
-        Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
-        TabOrder = 0
-        TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toThemeAware, toUseBlendedImages]
-        TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
-        OnDrawText = ResultsListDrawText
-        OnFreeNode = ResultsListFreeNode
-        OnGetText = ResultsListGetText
-        OnNodeDblClick = ResultsListNodeDblClick
-        Columns = <
-          item
-            Position = 0
-            Text = 'Address'
-            Width = 80
-          end
-          item
-            Position = 1
-            Text = 'Hex'
-            Width = 129
-          end
-          item
-            Position = 2
-            Text = 'Text'
-            Width = 130
-          end>
-      end
-      object StatusBar1: TStatusBar
-        Left = 0
-        Top = 500
-        Width = 339
-        Height = 19
-        Panels = <
-          item
-            Width = 50
-          end>
-      end
+    OnChange = PageControlChange
+    OnChanging = PageControlChanging
+    OnMouseUp = PageControlMouseUp
+  end
+  object ResultsTabMenu: TPopupMenu
+    Left = 120
+    Top = 104
+    object MIClose: TMenuItem
+      Caption = 'Close'
+      OnClick = MICloseClick
     end
   end
 end

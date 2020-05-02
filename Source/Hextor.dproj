@@ -224,6 +224,11 @@
             <Form>CopyAsForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uSearchResultsTabFrame.pas">
+            <Form>SearchResultsTabFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>

@@ -21,8 +21,9 @@ type
   TCallbackListP1<T1> = record
   public type
     TCallback = reference to procedure(Param1: T1);
+    TCallbackPairArray = array of TPair<Pointer, TCallback>;
   private
-    FList: array of TPair<Pointer, TCallback>;
+    FList: TCallbackPairArray;
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
@@ -32,8 +33,9 @@ type
   TCallbackListP2<T1, T2> = record
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2);
+    TCallbackPairArray = array of TPair<Pointer, TCallback>;
   private
-    FList: array of TPair<Pointer, TCallback>;
+    FList: TCallbackPairArray;
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
@@ -43,8 +45,9 @@ type
   TCallbackListP3<T1, T2, T3> = record
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3);
+    TCallbackPairArray = array of TPair<Pointer, TCallback>;
   private
-    FList: array of TPair<Pointer, TCallback>;
+    FList: TCallbackPairArray;
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
@@ -54,8 +57,9 @@ type
   TCallbackListP4<T1, T2, T3, T4> = record
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
+    TCallbackPairArray = array of TPair<Pointer, TCallback>;
   private
-    FList: array of TPair<Pointer, TCallback>;
+    FList: TCallbackPairArray;
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
@@ -65,8 +69,9 @@ type
   TCallbackListP5<T1, T2, T3, T4, T5> = record
   public type
     TCallback = reference to procedure(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
+    TCallbackPairArray = array of TPair<Pointer, TCallback>;
   private
-    FList: array of TPair<Pointer, TCallback>;
+    FList: TCallbackPairArray;
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
@@ -85,9 +90,12 @@ end;
 procedure TCallbackListP1<T1>.Call(Param1: T1);
 var
   i: Integer;
+  TempList: TCallbackPairArray;
 begin
-  for i:=0 to Length(FList)-1 do
-    FList[i].Value(Param1);
+  // Copy list so Adding/Removing new callbacks inside callbacks won't break this loop.
+  TempList := Copy(FList);
+  for i:=0 to Length(TempList)-1 do
+    TempList[i].Value(Param1);
 end;
 
 procedure TCallbackListP1<T1>.Remove(Id: Pointer);
@@ -109,9 +117,12 @@ end;
 procedure TCallbackListP2<T1, T2>.Call(Param1: T1; Param2: T2);
 var
   i: Integer;
+  TempList: TCallbackPairArray;
 begin
-  for i:=0 to Length(FList)-1 do
-    FList[i].Value(Param1, Param2);
+  // Copy list so Adding/Removing new callbacks inside callbacks won't break this loop.
+  TempList := Copy(FList);
+  for i:=0 to Length(TempList)-1 do
+    TempList[i].Value(Param1, Param2);
 end;
 
 procedure TCallbackListP2<T1, T2>.Remove(Id: Pointer);
@@ -133,9 +144,12 @@ end;
 procedure TCallbackListP3<T1, T2, T3>.Call(Param1: T1; Param2: T2; Param3: T3);
 var
   i: Integer;
+  TempList: TCallbackPairArray;
 begin
-  for i:=0 to Length(FList)-1 do
-    FList[i].Value(Param1, Param2, Param3);
+  // Copy list so Adding/Removing new callbacks inside callbacks won't break this loop.
+  TempList := Copy(FList);
+  for i:=0 to Length(TempList)-1 do
+    TempList[i].Value(Param1, Param2, Param3);
 end;
 
 procedure TCallbackListP3<T1, T2, T3>.Remove(Id: Pointer);
@@ -157,9 +171,12 @@ end;
 procedure TCallbackListP4<T1, T2, T3, T4>.Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
 var
   i: Integer;
+  TempList: TCallbackPairArray;
 begin
-  for i:=0 to Length(FList)-1 do
-    FList[i].Value(Param1, Param2, Param3, Param4);
+  // Copy list so Adding/Removing new callbacks inside callbacks won't break this loop.
+  TempList := Copy(FList);
+  for i:=0 to Length(TempList)-1 do
+    TempList[i].Value(Param1, Param2, Param3, Param4);
 end;
 
 procedure TCallbackListP4<T1, T2, T3, T4>.Remove(Id: Pointer);
@@ -181,9 +198,12 @@ end;
 procedure TCallbackListP5<T1, T2, T3, T4, T5>.Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
 var
   i: Integer;
+  TempList: TCallbackPairArray;
 begin
-  for i:=0 to Length(FList)-1 do
-    FList[i].Value(Param1, Param2, Param3, Param4, Param5);
+  // Copy list so Adding/Removing new callbacks inside callbacks won't break this loop.
+  TempList := Copy(FList);
+  for i:=0 to Length(TempList)-1 do
+    TempList[i].Value(Param1, Param2, Param3, Param4, Param5);
 end;
 
 procedure TCallbackListP5<T1, T2, T3, T4, T5>.Remove(Id: Pointer);
@@ -196,3 +216,4 @@ begin
 end;
 
 end.
+

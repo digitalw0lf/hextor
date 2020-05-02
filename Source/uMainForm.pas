@@ -269,6 +269,7 @@ type
     procedure ActionModifyWithExprExecute(Sender: TObject);
     procedure ActionSaveAllExecute(Sender: TObject);
     procedure ActionCopyAsArrayExecute(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -999,6 +1000,15 @@ begin
   Application.MessageBox(PChar(IntToStr(x)), 'DoTest', MB_OK);
 end;
 
+procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
+var
+  i: Integer;
+begin
+  // MDI childs' FormClose event is not called by VCL when main form closes
+  for i:=EditorCount-1 downto 0 do
+    Editors[i].OnClosed.Call(Editors[i]);
+end;
+
 procedure TMainForm.FormCreate(Sender: TObject);
 var
   ws: string;
@@ -1349,7 +1359,7 @@ end;
 
 procedure TMainForm.SetActiveEditor(const Value: TEditorForm);
 begin
-  if Value <> nil then
+  if (Value <> nil) and (Value <> GetActiveEditorNoEx()) then
     Value.BringToFront();
 end;
 
