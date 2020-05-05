@@ -212,6 +212,13 @@ type
     SaveAll1: TMenuItem;
     MISearchMenu: TMenuItem;
     MICopyAsMenu: TMenuItem;
+    ActionClose: TAction;
+    ActionCloseAll: TAction;
+    Close1: TMenuItem;
+    CloseAll1: TMenuItem;
+    ActionFindInFiles: TAction;
+    FindReplaceinfiles1: TMenuItem;
+    N2: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -270,6 +277,9 @@ type
     procedure ActionSaveAllExecute(Sender: TObject);
     procedure ActionCopyAsArrayExecute(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure ActionCloseExecute(Sender: TObject);
+    procedure ActionCloseAllExecute(Sender: TObject);
+    procedure ActionFindInFilesExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -311,7 +321,7 @@ type
     Utils: THextorUtils;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
-    procedure OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string);
+    function OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveSettings();
     procedure CheckEnabledActions();
@@ -331,6 +341,7 @@ type
     procedure AddEditor(AEditor: TEditorForm);
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
+    function FindEditorWithSource(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;
     procedure ShowToolFrame(Frame: TFrame);
     procedure DoAfterEvent(Proc: TProc);
     [API]
@@ -391,6 +402,19 @@ begin
   end;
 end;
 
+procedure TMainForm.ActionCloseAllExecute(Sender: TObject);
+var
+  i: Integer;
+begin
+  for i:=EditorCount-1 downto 0 do
+    Editors[i].Close();
+end;
+
+procedure TMainForm.ActionCloseExecute(Sender: TObject);
+begin
+  ActiveEditor.Close();
+end;
+
 procedure TMainForm.ActionCompareExecute(Sender: TObject);
 begin
   ShowToolFrame(CompareFrame);
@@ -449,6 +473,18 @@ end;
 
 procedure TMainForm.ActionFindExecute(Sender: TObject);
 begin
+  // Show Find/Replace dialog and select "Find in current editor" mode
+  FindReplaceForm.RBInCurrentEditor.Checked := True;
+  FindReplaceForm.CPFindInFiles.Collapsed := True;
+  FindReplaceForm.Show();
+end;
+
+procedure TMainForm.ActionFindInFilesExecute(Sender: TObject);
+begin
+  // Show Find/Replace dialog and select "Find in directories" mode
+  if FindReplaceForm.RBInCurrentEditor.Checked then
+    FindReplaceForm.RBInSelectedDirectories.Checked := True;
+  FindReplaceForm.CPFindInFiles.Collapsed := False;
   FindReplaceForm.Show();
 end;
 
@@ -886,7 +922,7 @@ begin
 
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or
-         (ActionList1.Actions[i].Category = 'Search') or
+         ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) or
          (ActionList1.Actions[i].Category = 'Operations') then
         ActionList1.Actions[i].Enabled := False;
 
@@ -1000,6 +1036,19 @@ begin
   Application.MessageBox(PChar(IntToStr(x)), 'DoTest', MB_OK);
 end;
 
+function TMainForm.FindEditorWithSource(DataSourceType: THextorDataSourceType;
+  const APath: string): TEditorForm;
+// If we have requested data source (file) open in some editor, return it
+var
+  i: Integer;
+begin
+  Result := nil;
+  for i:=0 to EditorCount-1 do
+    if (Editors[i].DataSource.ClassType = DataSourceType) and
+       (SameFileName(Editors[i].DataSource.Path, APath)) then
+      Exit(Editors[i]);
+end;
+
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 var
   i: Integer;
@@ -1049,7 +1098,7 @@ begin
   EditorActionShortcuts := TDictionary<TContainedAction, TShortCutSet>.Create();
   for i:=0 to ActionList1.ActionCount-1 do
     if (ActionList1.Actions[i].Category = 'Edit') or
-       (ActionList1.Actions[i].Category = 'Search') then
+       ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) then
       ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
   ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
 
@@ -1257,7 +1306,7 @@ begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
 end;
 
-procedure TMainForm.OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string);
+function TMainForm.OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
 var
   DS: THextorDataSource;
 begin
@@ -1268,7 +1317,8 @@ begin
     DS.Free;
     raise;
   end;
-  with CreateNewEditor() do
+  Result := CreateNewEditor();
+  with Result do
   begin
     DataSource := DS;
     NewFileOpened(True);

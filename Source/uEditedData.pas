@@ -49,6 +49,7 @@ type
       Size: TFilePointer;
     end;
   private
+    FDataSource: THextorDataSource;
     FSize, FOriginalSize: TFilePointer;
     FHasMovements: Boolean;
     function SplitPart({Part: TDataPart; }Addr: TFilePointer): Boolean; //TDataPart;
@@ -56,8 +57,8 @@ type
     procedure PreparePartsForOperation(Addr, Size: TFilePointer{; var FirstPart, LastPart: TDataPart});
     procedure RecalcAddressesAfter(OldAddr, NewAddr: TFilePointer);
     procedure BoundToRange(var Addr, Size: TFilePointer);
+    procedure SetDataSource(const Value: THextorDataSource);
   public
-    DataSource: THextorDataSource;
     Resizable: Boolean;
     Parts: TDataPartSkipList;  // Treat as private except for saving to file
     // Data changed event. "Value" may be nil if fired as a result on Undo
@@ -66,6 +67,7 @@ type
     OnBeforePartsReplace: TCallbackListP3<{Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer>;
     constructor Create();
     destructor Destroy(); override;
+    property DataSource: THextorDataSource read FDataSource write SetDataSource;
     procedure ResetParts();
     procedure GetOverlappingParts(Addr, Size: TFilePointer; var FirstPart, LastPart: TDataPart; {out} AParts: TDataPartList = nil); overload;
     procedure GetOverlappingParts(Addr, Size: TFilePointer; {out} AParts: TDataPartList); overload;
@@ -411,6 +413,16 @@ begin
   end;
   FSize := FOriginalSize;
   FHasMovements := False;
+end;
+
+procedure TEditedData.SetDataSource(const Value: THextorDataSource);
+begin
+  if FDataSource <> Value then
+  begin
+    FDataSource := Value;
+    Resizable := (dspResizable in FDataSource.GetProperties());
+    ResetParts();
+  end;
 end;
 
 function TEditedData.SplitPart(Addr: TFilePointer): Boolean;

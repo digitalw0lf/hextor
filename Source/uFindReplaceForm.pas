@@ -10,21 +10,24 @@ unit uFindReplaceForm;
 
 {$WARN IMPLICIT_STRING_CAST OFF}
 {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
+{$WARN SYMBOL_PLATFORM OFF}
 
 interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
-  System.UITypes,
+  System.UITypes, System.IOUtils, System.Types, Vcl.Buttons,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
-  uDataSearcher, uSearchResultsTabFrame;
+  uDataSearcher, uSearchResultsTabFrame, uHextorDataSources;
 
 type
   TFindReplaceForm = class(TForm)
-    GBFind: TGroupBox;
-    GBReplace: TGroupBox;
+    Timer1: TTimer;
+    CategoryPanelGroup1: TCategoryPanelGroup;
+    CPFind: TCategoryPanel;
+    CPReplace: TCategoryPanel;
     Label1: TLabel;
     EditFindText: TComboBox;
     CBFindHex: TCheckBox;
@@ -32,17 +35,26 @@ type
     CBMatchCase: TCheckBox;
     BtnFindNext: TButton;
     BtnFindPrev: TButton;
+    BtnFindCount: TButton;
+    CBUnicode: TCheckBox;
+    CBFindInSelection: TCheckBox;
+    BtnFindList: TButton;
     Label2: TLabel;
     EditReplaceText: TComboBox;
     CBReplaceHex: TCheckBox;
     BtnReplaceAll: TButton;
-    BtnFindCount: TButton;
-    CBUnicode: TCheckBox;
-    CBFindInSelection: TCheckBox;
-    Timer1: TTimer;
     CBReplaceInSelection: TCheckBox;
     CBAskReplace: TCheckBox;
-    BtnFindList: TButton;
+    CPFindInFiles: TCategoryPanel;
+    RBInCurrentEditor: TRadioButton;
+    Label3: TLabel;
+    RBInAllOpenFiles: TRadioButton;
+    RBInSelectedDirectories: TRadioButton;
+    EditInDirectories: TComboBox;
+    BtnSelectDirectory: TSpeedButton;
+    Label4: TLabel;
+    EditFileNameMask: TComboBox;
+    FileOpenDialog1: TFileOpenDialog;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -52,15 +64,36 @@ type
     procedure BtnReplaceAllClick(Sender: TObject);
     procedure CBFindInSelectionClick(Sender: TObject);
     procedure CBReplaceInSelectionClick(Sender: TObject);
+    procedure CPFindExpand(Sender: TObject);
+    procedure BtnSelectDirectoryClick(Sender: TObject);
+    procedure RBInCurrentEditorClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure BtnFindListClick(Sender: TObject);
+  private type
+    TSearchAction = (saCount, saList);
+    TFineWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
+    TFindWhere = record
+      AType: TFineWhereType;
+      Directories: TArray<string>;
+      FileMask: string;
+    end;
   private
     { Private declarations }
+    FindWhere: TFindWhere;
     procedure FillParams(aReplace, aCanFindInSel: Boolean);
     function GetTargetEditor: TEditorForm;
+    function GetTargetEditorNoEx: TEditorForm;
+    procedure AutosizeForm();
+    procedure CheckEnabledControls();
+    procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; var Count: Integer; ResultsFrame: TSearchResultsTabFrame);
+    function FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame): Integer;
   public
     { Public declarations }
     Searcher: TDataSearcher;
     function FindNext(Direction: Integer): Boolean;
+    function FindAll(Action: TSearchAction): Integer;
     property TargetEditor: TEditorForm read GetTargetEditor;
+    property TargetEditorNoEx: TEditorForm read GetTargetEditorNoEx;
   end;
 
 var
@@ -72,42 +105,28 @@ implementation
 
 { TFindReplaceForm }
 
-procedure TFindReplaceForm.BtnFindCountClick(Sender: TObject);
+procedure TFindReplaceForm.AutosizeForm();
 var
-  Count: Integer;
-  Start, Ptr: TFilePointer;
-  Size: Integer;
-  ResultsFrame: TSearchResultsTabFrame;
+  i, h: Integer;
 begin
-  ResultsFrame := nil;
-  FillParams(False, True);
-  Count := 0;
-  Start := Searcher.Params.Range.Start;
-  if Sender = BtnFindList then
-    ResultsFrame := MainForm.SearchResultsFrame.StartNewList(GetTargetEditor, Searcher.Params.Text);
-  try
-    while Searcher.Find(Start, 1, Ptr, Size) do
-    begin
-      Inc(Count);
-      if Sender = BtnFindList then
-      begin
-        ResultsFrame.AddListItem(TFileRange.Create(Ptr, Ptr + Size));
-      end;
+  h := 0;
+  for i:=0 to CategoryPanelGroup1.Panels.Count-1 do
+    Inc(h, TCustomCategoryPanel(CategoryPanelGroup1.Panels[i]).Height);
+  //Constraints := TSizeConstraints.Create(
+  h := h + (Height - ClientHeight) + 2;
+  Constraints.MinHeight := h;
+  Constraints.MaxHeight := h;
+//  ClientHeight := h;
+end;
 
-      Start := Ptr+Size;
-      MainForm.ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size, 'Found '+IntToStr(Count)+' time(s)');
-    end;
-  finally
-    MainForm.OperationDone(Searcher);
-    if Sender = BtnFindList then
-      ResultsFrame.EndUpdateList();
-  end;
-  if Sender = BtnFindList then
-  begin
-    MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
-  end
-  else
-    Application.MessageBox(PChar('Search string found '+IntToStr(Count)+' times'), 'Search', MB_OK);
+procedure TFindReplaceForm.BtnFindCountClick(Sender: TObject);
+begin
+  FindAll(saCount);
+end;
+
+procedure TFindReplaceForm.BtnFindListClick(Sender: TObject);
+begin
+  FindAll(saList);
 end;
 
 procedure TFindReplaceForm.BtnFindNextClick(Sender: TObject);
@@ -127,7 +146,10 @@ var
   s: string;
 begin
   FillParams(True, True);
+  if FindWhere.AType <> fwCurrentFile then
+    raise Exception.Create('Replace in files not implemented yet');
   Count := 0;
+  Searcher.Haystack := TargetEditor.Data;
   Start := Searcher.Params.Range.Start;
   YesToAll := False;
   Cancelled := False;
@@ -183,7 +205,7 @@ begin
         if Searcher.ReplaceLastFound(NewSize) then
         begin
           LastReplaced := TFileRange.Create(Searcher.LastFound.Start, Searcher.LastFound.Start + NewSize);
-          Searcher.Params.Range.AEnd := Searcher.Params.Range.AEnd + (NewSize - Searcher.LastFound.Size);
+          Searcher.Range.AEnd := Searcher.Range.AEnd + (NewSize - Searcher.LastFound.Size);
         end;
       finally
         TargetEditor.UndoStack.EndAction();
@@ -192,7 +214,7 @@ begin
       Inc(Count);
       Start := Ptr+NewSize;
 
-      MainForm.ShowProgress(Searcher, Start - Searcher.Params.Range.Start, Searcher.Params.Range.Size, 'Replaced '+IntToStr(Count)+' time(s)');
+      MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Replaced '+IntToStr(Count)+' time(s)');
     end;
 
   finally
@@ -221,6 +243,22 @@ begin
   end;
 end;
 
+procedure TFindReplaceForm.BtnSelectDirectoryClick(Sender: TObject);
+var
+  sl: TStringList;
+begin
+  if not FileOpenDialog1.Execute then Exit;
+  sl := TStringList.Create();
+  try
+    sl.Assign(FileOpenDialog1.Files);
+    sl.Delimiter := PathSep;
+    sl.QuoteChar := '"';
+    EditInDirectories.Text := sl.DelimitedText;
+  finally
+    sl.Free;
+  end;
+end;
+
 procedure TFindReplaceForm.CBFindInSelectionClick(Sender: TObject);
 begin
   CBReplaceInSelection.Checked := CBFindInSelection.Checked;
@@ -231,12 +269,38 @@ begin
   CBFindInSelection.Checked := CBReplaceInSelection.Checked;
 end;
 
+procedure TFindReplaceForm.CheckEnabledControls;
+var
+  FindInEditor: Boolean;
+  ATargetEditor: TEditorForm;
+begin
+  ATargetEditor := TargetEditorNoEx;
+
+  RBInCurrentEditor.Enabled := (ATargetEditor <> nil);
+  RBInAllOpenFiles.Enabled := (MainForm.EditorCount > 0);
+
+  FindInEditor := (RBInCurrentEditor.Checked) and (ATargetEditor <> nil);
+  BtnFindPrev.Enabled := FindInEditor;
+  BtnFindNext.Enabled := FindInEditor;
+  CBFindInSelection.Enabled := FindInEditor and (ATargetEditor <> nil) and (ATargetEditor.SelLength > 0);
+  CBReplaceInSelection.Enabled := CBFindInSelection.Enabled;
+
+  EditInDirectories.Enabled := (RBInSelectedDirectories.Checked);
+  BtnSelectDirectory.Enabled := EditInDirectories.Enabled;
+  EditFileNameMask.Enabled := not FindInEditor;
+end;
+
+procedure TFindReplaceForm.CPFindExpand(Sender: TObject);
+begin
+  AutosizeForm();
+end;
+
 procedure TFindReplaceForm.FillParams(aReplace, aCanFindInSel: Boolean);
+var
+  sl: TStringList;
 begin
   with Searcher do
   begin
-    Haystack := GetTargetEditor.Data;
-
     Params.Text := EditFindText.Text;
     Params.bHex := CBFindHex.Checked;
     Params.bWildcards := CBWildcards.Checked;
@@ -249,7 +313,10 @@ begin
     Params.bRepHex := CBReplaceHex.Checked;
     Params.bAskEachReplace := CBAskReplace.Checked;
 
-    Params.CodePage := TargetEditor.TextEncoding;
+    if TargetEditorNoEx <> nil then
+      Params.CodePage := TargetEditorNoEx.TextEncoding
+    else
+      Params.CodePage := TEncoding.Default.CodePage;
 
     if Params.bFindInSel then
     begin
@@ -265,7 +332,7 @@ begin
     if Params.bUnicode then
       Params.Needle := String2Data(Params.Text, TEncoding.Unicode.CodePage)
     else
-      Params.Needle := String2Data(Params.Text, TargetEditor.TextEncoding);
+      Params.Needle := String2Data(Params.Text, Params.CodePage);
 
     if Length(Params.Needle) = 0 then
       raise EInvalidUserInput.Create('Specify search string');
@@ -274,6 +341,121 @@ begin
       EditFindText.Items.Insert(0, Params.Text);
     while EditFindText.Items.Count > 20 do
       EditFindText.Items.Delete(EditFindText.Items.Count-1);
+  end;
+
+  with FindWhere do
+  begin
+    if RBInCurrentEditor.Checked then  AType := fwCurrentFile
+    else
+    if RBInAllOpenFiles.Checked then  AType := fwAllOpenFiles
+    else
+    if RBInSelectedDirectories.Checked then  AType := fwSelectedDirectories;
+
+    if AType = fwSelectedDirectories then
+    begin
+      sl := TStringList.Create();
+      try
+        sl.Delimiter := PathSep;
+        sl.QuoteChar := '"';
+        sl.DelimitedText := EditInDirectories.Text;
+        Directories := sl.ToStringArray();
+      finally
+        sl.Free;
+      end;
+//      Directories := string(EditInDirectories.Text).Split([PathSep], '"');
+    end;
+
+    if AType <> fwCurrentFile then
+    begin
+      FileMask := EditFileNameMask.Text;
+      if Trim(FileMask) = '' then
+        FileMask := '*';
+    end;
+  end;
+end;
+
+function TFindReplaceForm.FindAll(Action: TSearchAction): Integer;
+var
+  ResultsFrame: TSearchResultsTabFrame;
+  ResultBoundToEditor: TEditorForm;
+  i: Integer;
+begin
+  ResultsFrame := nil;
+  FillParams(False, True);
+  Result := 0;
+  if Action = saList then
+  begin
+    if FindWhere.AType = fwCurrentFile then
+      ResultBoundToEditor := TargetEditor
+    else
+      ResultBoundToEditor := nil;
+    ResultsFrame := MainForm.SearchResultsFrame.StartNewList(ResultBoundToEditor, Searcher.Params.Text);
+  end;
+
+  try
+
+    case FindWhere.AType of
+      fwCurrentFile:
+        begin
+          FindInData(TargetEditor, TargetEditor.Data, Action, Result, ResultsFrame);
+        end;
+      fwAllOpenFiles:
+        begin
+          for i:=0 to MainForm.EditorCount-1 do
+          begin
+            FindInData(MainForm.Editors[i], MainForm.Editors[i].Data, Action, Result, ResultsFrame);
+          end;
+        end;
+      fwSelectedDirectories:
+        begin
+          Result := FindInDirectories(Action, ResultsFrame);
+        end;
+
+    end;
+
+  finally
+    if Action = saList then
+      ResultsFrame.EndUpdateList();
+  end;
+
+  if Action = saList then
+  begin
+    MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
+  end;
+  Application.MessageBox(PChar('Search string found '+IntToStr(Result)+' times'), 'Search', MB_OK);
+end;
+
+procedure TFindReplaceForm.FindInData(AEditor: TEditorForm; AData: TEditedData;
+  Action: TSearchAction; var Count: Integer; ResultsFrame: TSearchResultsTabFrame);
+var
+  ResultsGroupNode: Pointer;
+  Start, Ptr: TFilePointer;
+  NewCount, Size: Integer;
+begin
+  Searcher.Haystack := AData;
+  ResultsGroupNode := nil;
+  if Action = saList then
+  begin
+    ResultsGroupNode := ResultsFrame.AddListGroup(AEditor, Searcher.Haystack);
+  end;
+  NewCount := 0;
+  Start := Searcher.Params.Range.Start;
+  try
+    while Searcher.Find(Start, 1, Ptr, Size) do  // <--
+    begin
+      Inc(NewCount);
+      if Action = saList then
+      begin
+        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + Size));
+      end;
+      Start := Ptr+Size;
+      MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Found '+IntToStr(Count + NewCount)+' time(s)');
+    end;
+  finally
+    if NewCount = 0 then
+      ResultsFrame.DeleteListGroup(ResultsGroupNode);
+    Inc(Count, NewCount);
+    MainForm.OperationDone(Searcher);
   end;
 end;
 
@@ -321,6 +503,9 @@ procedure TFindReplaceForm.FormCreate(Sender: TObject);
 begin
   Searcher := TDataSearcher.Create();
   Searcher.OnProgress.Add(MainForm.ShowProgress);
+  CPReplace.Collapsed := True;
+  CPFindInFiles.Collapsed := True;
+  AutosizeForm();
 end;
 
 procedure TFindReplaceForm.FormDestroy(Sender: TObject);
@@ -340,21 +525,72 @@ begin
   end;
 end;
 
+procedure TFindReplaceForm.FormShow(Sender: TObject);
+begin
+  CheckEnabledControls();
+end;
+
 function TFindReplaceForm.GetTargetEditor: TEditorForm;
 begin
   Result := MainForm.ActiveEditor;
 end;
 
+function TFindReplaceForm.GetTargetEditorNoEx: TEditorForm;
+begin
+  Result := MainForm.GetActiveEditorNoEx;
+end;
+
+procedure TFindReplaceForm.RBInCurrentEditorClick(Sender: TObject);
+begin
+  CheckEnabledControls();
+end;
+
+function TFindReplaceForm.FindInDirectories(Action: TSearchAction;
+  ResultsFrame: TSearchResultsTabFrame): Integer;
+var
+  FileNames, FilesInDir: TStringDynArray;
+  i: Integer;
+  Data: TEditedData;
+  DataSource: THextorDataSource;
+begin
+  Result := 0;
+  // Collect a list of files matching requested directory/mask
+  FileNames := [];
+  for i:=0 to Length(FindWhere.Directories)-1 do
+  begin
+    FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], FindWhere.FileMask, TSearchOption.soAllDirectories);
+    FileNames := FileNames + FilesInDir;
+  end;
+
+  // Search in files
+  for i:=0 to Length(FileNames)-1 do
+  begin
+    DataSource := TFileDataSource.Create(FileNames[i]);
+    try
+      DataSource.Open(fmOpenRead);
+      Data := TEditedData.Create();
+      try
+        Data.DataSource := DataSource;
+
+        FindInData(nil, Data, Action, Result, ResultsFrame);  // <--
+
+      finally
+        Data.Free;
+      end;
+    finally
+      DataSource.Free;
+    end;
+
+
+  end;
+
+
+end;
+
 procedure TFindReplaceForm.Timer1Timer(Sender: TObject);
 begin
   if not Visible then Exit;
-  if MainForm.EditorCount = 0 then
-  begin
-    Close();
-    Exit;
-  end;
-  CBFindInSelection.Enabled := (TargetEditor.SelLength > 0);
-  CBReplaceInSelection.Enabled := CBFindInSelection.Enabled;
+  CheckEnabledControls();
 end;
 
 end.

@@ -188,7 +188,8 @@ end;
 
 procedure TValueFrame.ValuesGridClick(Sender: TObject);
 begin
-  FEditor.UpdatePanes();
+  if FEditor <> nil then
+    FEditor.UpdatePanes();
 end;
 
 procedure TValueFrame.ValuesGridEditorDataToGrid(Sender: TObject;
@@ -201,6 +202,7 @@ var
 begin
   AssignText := False;
   if not (AEditor is TEdit) then Exit;
+  if FEditor = nil then Exit;
   n := ARow - 1;
   if n >= ValueInterpretors.Count then Exit;
   s := (AEditor as TEdit).Text;
@@ -231,7 +233,8 @@ end;
 
 procedure TValueFrame.ValuesGridExit(Sender: TObject);
 begin
-  FEditor.UpdatePanes();
+  if FEditor <> nil then
+    FEditor.UpdatePanes();
 end;
 
 procedure TValueFrame.ValuesGridMouseDown(Sender: TObject; Button: TMouseButton;

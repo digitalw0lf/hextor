@@ -186,20 +186,20 @@ procedure TEditorPane.InternalPaint;
 const
   UndefAttr: TCharAttributes = (TxColor: clNone; BgColor: clNone);
 var
-  i, j, j1, CharIndex: Integer;
+  i, j, j1, CharIndex, FirstCharInLine: Integer;
   CurAttr, PrevAttr: TCharAttributes;
   FirstVis, LastVis: Integer;  // First and last visible chars of line, 0-based
   R: TRect;
   s, s1: string;
   DefaultAttr: TCharAttributes;
-  CharPos: array of TSmallPoint;  // Line and column of every char
+  CharPos: array of TPoint;  // Line and column of every char
 
   procedure DrawRegionOutline(const Region: TVisualTextRegion);
   // Draw contour around tagged range of text
   // TODO: Draw zero-length regions to support zero-length bookmarks?
   var
     n1, n2: Integer;        // Char index
-    p1, p2: TSmallPoint;    // Char row and column
+    p1, p2: TPoint;    // Char row and column
     r1, r2, r3, r4: TRect;  // Char rectangles
   begin
     if Length(CharPos) = 0 then Exit;
@@ -265,21 +265,24 @@ begin
   DefaultAttr.BgColor := Self.Color;
   SetLength(LineFirstChar, Lines.Count);
   SetLength(CharPos, TextLength);
-  CharIndex := 0;
+  FirstCharInLine := 0;
   // Draw text
   for i:=0 to Lines.Count-1 do
   begin
-    LineFirstChar[i] := CharIndex;
+    LineFirstChar[i] := FirstCharInLine;
     s := Lines[i];
     FirstVis := HorzScrollPos;
     LastVis := Min(Length(s)-1, ClientWidth div CharSize.cx + HorzScrollPos);
+    for j:=0 to Length(s)-1 do
+      CharPos[FirstCharInLine + j] := Point(j, i);
     PrevAttr := UndefAttr;
     j1 := FirstVis;
+    // Iterate visible chars of line (subject to horizontal scroll)
     for j:=FirstVis to LastVis+1 do
     begin
+      CharIndex := FirstCharInLine + j;
       if j<=LastVis then
       begin
-        CharPos[CharIndex] := SmallPoint(j, i);
         if CharIndex < Length(CharAttr) then
           CurAttr := CharAttr[CharIndex]
         else
@@ -304,8 +307,8 @@ begin
         j1 := j;
       end;
       if j > LastVis then Break;
-      Inc(CharIndex);
     end;
+    Inc(FirstCharInLine, Length(s));
   end;
 
   // Draw region outlines

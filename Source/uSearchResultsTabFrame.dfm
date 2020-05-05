@@ -13,7 +13,8 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     Header.AutoSizeIndex = 1
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     TabOrder = 0
-    TreeOptions.PaintOptions = [toShowDropmark, toShowHorzGridLines, toShowRoot, toThemeAware, toUseBlendedImages]
+    TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoSpanColumns, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
+    TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages]
     TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
     OnDrawText = ResultsListDrawText
     OnFreeNode = ResultsListFreeNode
@@ -23,12 +24,12 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
       item
         Position = 0
         Text = 'Address'
-        Width = 80
+        Width = 110
       end
       item
         Position = 1
         Text = 'Hex'
-        Width = 117
+        Width = 83
       end
       item
         Position = 2

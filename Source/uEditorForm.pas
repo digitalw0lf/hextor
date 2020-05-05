@@ -821,8 +821,6 @@ begin
   BeginUpdatePanes();
   try
     Data.DataSource := DataSource;
-    Data.Resizable := (dspResizable in DataSource.GetProperties());
-    Data.ResetParts();
     HasUnsavedChanges := False;
     UndoStack.Clear();
 

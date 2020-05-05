@@ -40,6 +40,7 @@ type
   public
     Haystack: TEditedData;
     Params: TSearchParams;
+    Range: TFileRange;  // Actual range; equals to file size if Params.Range = EntireFile
     LastFound: TFileRange;
     FSearchInProgress: Boolean;
     OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
@@ -68,10 +69,11 @@ var
   Block: TFileRange;
 begin
   if FSearchInProgress then Exit(False);
-  if Params.Range.AEnd < 0 then Params.Range.AEnd := Haystack.GetSize();
+  Range := Params.Range;
+  if Range.AEnd < 0 then Range.AEnd := Haystack.GetSize();
   LastFound := NoRange;
 
-  if (Start < Params.Range.Start) or (Start >= Params.Range.AEnd) then Exit(False);
+  if (Start < Range.Start) or (Start >= Range.AEnd) then Exit(False);
 
   Ptr := Start;
   BlockSize := MinBlockSize;
@@ -90,8 +92,8 @@ begin
         Block.Start := Ptr - BlockSize + BlockOverlap;
         Block.AEnd := Ptr + BlockOverlap;
       end;
-      if Block.Start < Params.Range.Start then Block.Start := Params.Range.Start;
-      if Block.AEnd > Params.Range.AEnd then Block.AEnd := Params.Range.AEnd;
+      if Block.Start < Range.Start then Block.Start := Range.Start;
+      if Block.AEnd > Range.AEnd then Block.AEnd := Range.AEnd;
 
       // Take next data portion
       Data := Haystack.Get(Block.Start, Block.Size, False);
@@ -108,12 +110,12 @@ begin
       end;
 
       // Reached end of range
-      if (Direction > 0) and (Block.AEnd = Params.Range.AEnd) then Break;
-      if (Direction < 0) and (Block.Start = Params.Range.Start) then Break;
+      if (Direction > 0) and (Block.AEnd = Range.AEnd) then Break;
+      if (Direction < 0) and (Block.Start = Range.Start) then Break;
       if BlockSize < MaxBlockSize then
         BlockSize := BlockSize * 2;
 
-      OnProgress.Call(Self, Ptr-Params.Range.Start, Params.Range.Size, '-');
+      OnProgress.Call(Self, Ptr-Range.Start, Range.Size, '-');
     until False;
   finally
     FSearchInProgress := False;

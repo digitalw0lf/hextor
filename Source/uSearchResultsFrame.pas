@@ -81,14 +81,17 @@ begin
 end;
 
 procedure TSearchResultsFrame.RefreshResultsEditor(PageIndex: Integer);
+var
+  AEditor: TEditorForm;
 begin
-  // Refresh specified result page's editor to highlight found items in data
+  // Refresh specified result page's editors to highlight found items in data
   // when switching between result pages
+
   if (PageIndex < 0) or (PageIndex >= PageControl.PageCount) then Exit;
   with PageControl.Pages[PageIndex] do
-    if (ControlCount > 0) and (Controls[0] is TSearchResultsTabFrame) and
-       ((Controls[0] as TSearchResultsTabFrame).Editor <> nil) then
-      (Controls[0] as TSearchResultsTabFrame).Editor.UpdatePanes();
+    if (ControlCount > 0) and (Controls[0] is TSearchResultsTabFrame) then
+      for AEditor in (Controls[0] as TSearchResultsTabFrame).GetLinkedEditors() do
+        AEditor.UpdatePanes();
 end;
 
 function TSearchResultsFrame.StartNewList(AEditor: TEditorForm; const ASearchText: string): TSearchResultsTabFrame;
