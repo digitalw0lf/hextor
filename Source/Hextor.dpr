@@ -37,7 +37,8 @@ uses
   uHashFrame in 'uHashFrame.pas' {HashFrame: TFrame},
   uModifyWithExpressionForm in 'uModifyWithExpressionForm.pas' {ModifyWithExpressionForm},
   uCopyAsForm in 'uCopyAsForm.pas' {CopyAsForm},
-  uSearchResultsTabFrame in 'uSearchResultsTabFrame.pas' {SearchResultsTabFrame: TFrame};
+  uSearchResultsTabFrame in 'uSearchResultsTabFrame.pas' {SearchResultsTabFrame: TFrame},
+  uFileInfoForm in 'uFileInfoForm.pas' {FileInfoForm};
 
 {$R *.res}
 
@@ -57,5 +58,6 @@ begin
   Application.CreateForm(TAboutForm, AboutForm);
   Application.CreateForm(TModifyWithExpressionForm, ModifyWithExpressionForm);
   Application.CreateForm(TCopyAsForm, CopyAsForm);
+  Application.CreateForm(TFileInfoForm, FileInfoForm);
   Application.Run;
 end.

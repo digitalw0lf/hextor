@@ -229,6 +229,10 @@
             <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
+        <DCCReference Include="uFileInfoForm.pas">
+            <Form>FileInfoForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>

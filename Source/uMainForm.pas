@@ -219,6 +219,10 @@ type
     ActionFindInFiles: TAction;
     FindReplaceinfiles1: TMenuItem;
     N2: TMenuItem;
+    Copyfullname1: TMenuItem;
+    Showinfolder1: TMenuItem;
+    Fileinfo1: TMenuItem;
+    Closeothertabs1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -280,6 +284,10 @@ type
     procedure ActionCloseExecute(Sender: TObject);
     procedure ActionCloseAllExecute(Sender: TObject);
     procedure ActionFindInFilesExecute(Sender: TObject);
+    procedure Copyfullname1Click(Sender: TObject);
+    procedure Showinfolder1Click(Sender: TObject);
+    procedure Fileinfo1Click(Sender: TObject);
+    procedure Closeothertabs1Click(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -365,7 +373,8 @@ uses
 
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
-  uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm;
+  uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm,
+  uFileInfoForm;
 
 { TMainForm }
 
@@ -965,6 +974,24 @@ begin
   end;
 end;
 
+procedure TMainForm.Closeothertabs1Click(Sender: TObject);
+var
+  i: Integer;
+begin
+  if EditorForTabMenu <> nil then
+  begin
+    for i:=EditorCount-1 downto 0 do
+      if Editors[i] <> EditorForTabMenu then
+        Editors[i].Close();
+  end;
+end;
+
+procedure TMainForm.Copyfullname1Click(Sender: TObject);
+begin
+  if EditorForTabMenu <> nil then
+    Clipboard.AsText := EditorForTabMenu.DataSource.Path;
+end;
+
 function TMainForm.CreateNewEditor: TEditorForm;
 begin
   Result := TEditorForm.Create(Application);
@@ -1034,6 +1061,15 @@ end;
 procedure TMainForm.DoTest(x: Integer);
 begin
   Application.MessageBox(PChar(IntToStr(x)), 'DoTest', MB_OK);
+end;
+
+procedure TMainForm.Fileinfo1Click(Sender: TObject);
+begin
+  if EditorForTabMenu <> nil then
+  begin
+    FileInfoForm.ShowInfo(EditorForTabMenu);
+    FileInfoForm.ShowModal();
+  end;
 end;
 
 function TMainForm.FindEditorWithSource(DataSourceType: THextorDataSourceType;
@@ -1429,6 +1465,14 @@ begin
   end;
 end;
 
+procedure TMainForm.Showinfolder1Click(Sender: TObject);
+begin
+  if (EditorForTabMenu <> nil) and (EditorForTabMenu.DataSource is TFileDataSource) then
+  begin
+    ShellExecute(0,'','explorer.exe',PChar('/select,"'+EditorForTabMenu.DataSource.Path+'"'),'',SW_SHOW);
+  end;
+end;
+
 procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
 // '-' => do not change text
 var
@@ -1645,6 +1689,7 @@ var
   s:string;
 begin
   inherited;
+//  StartTimeMeasure();
   Catcher := TDropFileCatcher.Create(Msg.Drop);
   try
     for I := 0 to Catcher.FileCount-1 do
@@ -1655,6 +1700,7 @@ begin
   finally
     Catcher.Free;
   end;
+//  EndTimeMeasure('DropFiles', True);
   Msg.Result := 0;
 end;
 
