@@ -38,7 +38,8 @@ uses
   uModifyWithExpressionForm in 'uModifyWithExpressionForm.pas' {ModifyWithExpressionForm},
   uCopyAsForm in 'uCopyAsForm.pas' {CopyAsForm},
   uSearchResultsTabFrame in 'uSearchResultsTabFrame.pas' {SearchResultsTabFrame: TFrame},
-  uFileInfoForm in 'uFileInfoForm.pas' {FileInfoForm};
+  uFileInfoForm in 'uFileInfoForm.pas' {FileInfoForm},
+  uDataSaver in 'uDataSaver.pas';
 
 {$R *.res}
 

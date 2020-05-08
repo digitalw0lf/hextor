@@ -20,7 +20,7 @@ uses
   System.UITypes, System.IOUtils, System.Types, Vcl.Buttons, System.StrUtils,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
-  uDataSearcher, uSearchResultsTabFrame, uHextorDataSources;
+  uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver;
 
 type
   TFindReplaceForm = class(TForm)
@@ -85,7 +85,7 @@ type
     function GetTargetEditorNoEx: TEditorForm;
     procedure AutosizeForm();
     procedure CheckEnabledControls();
-    procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; var Count: Integer; ResultsFrame: TSearchResultsTabFrame);
+    procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
     function FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame): Integer;
     function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
   public
@@ -286,6 +286,7 @@ begin
   BtnFindNext.Enabled := FindInEditor;
   CBFindInSelection.Enabled := FindInEditor and (ATargetEditor <> nil) and (ATargetEditor.SelLength > 0);
   CBReplaceInSelection.Enabled := CBFindInSelection.Enabled;
+  CBAskReplace.Enabled := not RBInSelectedDirectories.Checked;
 
   EditInDirectories.Enabled := (RBInSelectedDirectories.Checked);
   BtnSelectDirectory.Enabled := EditInDirectories.Enabled;
@@ -415,14 +416,11 @@ function TFindReplaceForm.FindAll(Action: TSearchAction): Integer;
 var
   ResultsFrame: TSearchResultsTabFrame;
   ResultBoundToEditor: TEditorForm;
-  i: Integer;
+  i, NewCount: Integer;
 begin
   ResultsFrame := nil;
   FillParams(False, True);
   Result := 0;
-
-  if (Action = saReplace) and (FindWhere.AType = fwSelectedDirectories) then
-    raise Exception.Create('Replace in directory not implemented yet');
 
   if Action in [saList, saReplace] then
   begin
@@ -438,13 +436,15 @@ begin
     case FindWhere.AType of
       fwCurrentFile:
         begin
-          FindInData(TargetEditor, TargetEditor.Data, Action, Result, ResultsFrame);
+          FindInData(TargetEditor, TargetEditor.Data, Action, 0, Result, ResultsFrame);
         end;
       fwAllOpenFiles:
         begin
+          Result := 0;
           for i:=0 to MainForm.EditorCount-1 do
           begin
-            FindInData(MainForm.Editors[i], MainForm.Editors[i].Data, Action, Result, ResultsFrame);
+            FindInData(MainForm.Editors[i], MainForm.Editors[i].Data, Action, Result, NewCount, ResultsFrame);
+            Inc(Result, NewCount);
           end;
         end;
       fwSelectedDirectories:
@@ -467,11 +467,11 @@ begin
 end;
 
 procedure TFindReplaceForm.FindInData(AEditor: TEditorForm; AData: TEditedData;
-  Action: TSearchAction; var Count: Integer; ResultsFrame: TSearchResultsTabFrame);
+  Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
 var
   ResultsGroupNode: Pointer;
   Start, Ptr, ACaret: TFilePointer;
-  NewCount, Size, NewSize: Integer;
+  Size, NewSize: Integer;
   YesToAll{, Cancelled}: Boolean;
   ActionCode: Integer;
   //LastReplaced: TFileRange;
@@ -536,7 +536,7 @@ begin
 
       Inc(NewCount);
       Start := Ptr + NewSize;
-      MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Found '+IntToStr(Count + NewCount)+' time(s)');
+      MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Found '+IntToStr(OldCount + NewCount)+' time(s)');
     end;
   finally
     // Move caret to where operation ended
@@ -556,7 +556,6 @@ begin
       AEditor.EndUpdatePanes();
     if NewCount = 0 then
       ResultsFrame.DeleteListGroup(ResultsGroupNode);
-    Inc(Count, NewCount);
     MainForm.OperationDone(Searcher);
   end;
 end;
@@ -652,7 +651,7 @@ function TFindReplaceForm.FindInDirectories(Action: TSearchAction;
   ResultsFrame: TSearchResultsTabFrame): Integer;
 var
   FileNames, FilesInDir: TStringDynArray;
-  i: Integer;
+  i, j, NewCount: Integer;
   Data: TEditedData;
   DataSource: THextorDataSource;
 begin
@@ -662,6 +661,12 @@ begin
   for i:=0 to Length(FindWhere.Directories)-1 do
   begin
     FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], FindWhere.FileMask, TSearchOption.soAllDirectories);
+    // Cannot operate on opened file
+    if Action = saReplace then
+      for j:=0 to Length(FilesInDir)-1 do
+        if MainForm.FindEditorWithSource(TFileDataSource, FilesInDir[j]) <> nil then
+          raise Exception.Create('"Replace in directory" cannot operate on a file that is open in editor now. Close this file before proceeding:' +
+            sLineBreak + sLineBreak + FilesInDir[j]);
     FileNames := FileNames + FilesInDir;
   end;
 
@@ -675,7 +680,15 @@ begin
       try
         Data.DataSource := DataSource;
 
-        FindInData(nil, Data, Action, Result, ResultsFrame);  // <--
+        FindInData(nil, Data, Action, Result, NewCount, ResultsFrame);  // <--
+        Inc(Result, NewCount);
+
+        // If something was replaced, save file
+        if (Action = saReplace) and (NewCount > 0) then
+        begin
+          TDataSaver.Save(Data, TFileDataSource, FileNames[i]);
+          DataSource := Data.DataSource;
+        end;
 
       finally
         Data.Free;

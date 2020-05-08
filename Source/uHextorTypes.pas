@@ -76,6 +76,8 @@ type
     class function StrToObject<T>(const S: string): T;
   end;
 
+//  TProgressProc = reference to procedure(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
+
 function Data2Hex(Data: PByteArray; Size: Integer; InsertSpaces: Boolean = False): string; overload;
 function Data2Hex(const Data: TBytes; InsertSpaces: Boolean = False): string; overload;
 function Hex2Data(const Text: string): TBytes;

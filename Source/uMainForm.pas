@@ -29,7 +29,7 @@ uses
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame, uHashFrame;
+  uSearchResultsFrame, uHashFrame, uDataSaver;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -330,7 +330,6 @@ type
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     function OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
-    function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveSettings();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
@@ -726,11 +725,12 @@ begin
 
     SameFile := SameFileName(fn, DataSource.Path);
     if SameFile then
-      if Application.MessageBox('Current file will be overwritten and re-opened with new content', 'Replace file', MB_OKCANCEL) <> IDOK then Exit;
+      raise EInvalidUserInput.Create('Cannot save file part under same name');
+//      if Application.MessageBox('Current file will be overwritten and re-opened with new content', 'Replace file', MB_OKCANCEL) <> IDOK then Exit;
 
     AData := GetEditedData(SelStart, SelLength);
 
-    if SameFile then CloseCurrentFile(False);
+//    if SameFile then CloseCurrentFile(False);
 
     if not System.SysUtils.ForceDirectories(ExtractFilePath(fn)) then
     begin
@@ -746,8 +746,10 @@ begin
       fs.Free;
     end;
 
-    if SameFile then
-      OpenFile(THextorDataSourceType(DataSource.ClassType), fn);
+//    if SameFile then
+//    begin
+//      OpenFile(TFileDataSource, fn);
+//    end;
   end;
 end;
 
@@ -957,21 +959,6 @@ procedure TMainForm.MICloseEditorTabClick(Sender: TObject);
 begin
   if EditorForTabMenu <> nil then
     EditorForTabMenu.Close();
-end;
-
-function TMainForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
-begin
-  with ActiveEditor do
-  begin
-    if (AskSave) then
-    begin
-      Result := AskSaveChanges();
-      if Result = mrCancel then Exit;
-    end;
-    Result := mrNo;
-
-    FreeAndNil(DataSource);
-  end;
 end;
 
 procedure TMainForm.Closeothertabs1Click(Sender: TObject);
@@ -1650,7 +1637,7 @@ begin
     ShowMsg := False;
     if (DataSource <> nil) then
     begin
-      if ChooseSaveMethod(THextorDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
+      if TDataSaver.ChooseSaveMethod(Data, THextorDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
       begin
         ASize := Data.GetSize();
         if ASize > WarnSize then

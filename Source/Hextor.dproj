@@ -233,6 +233,7 @@
             <Form>FileInfoForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uDataSaver.pas"/>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>

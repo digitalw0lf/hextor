@@ -18,7 +18,8 @@ uses
   System.ImageList, Vcl.ImgList, System.IOUtils,
 
   uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
-  uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper;
+  uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper,
+  uDataSaver;
 
 type
   TEditorForm = class;
@@ -109,7 +110,6 @@ type
     procedure ShowSelectionInfo();
     procedure AddCurrentFileToRecentFiles();
     procedure SelectionChanged();
-    procedure CopyDataRegion(Source, Dest: THextorDataSource; SourceAddr, DestAddr, Size: TFilePointer);
     procedure SetInsertMode(Value: Boolean);
     function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
     procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
@@ -142,6 +142,7 @@ type
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
+    function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveFile(DataSourceType: THextorDataSourceType; APath: string);
     procedure NewFileOpened(ResetCaret: Boolean);
     function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
@@ -178,8 +179,6 @@ type
     [API]
     procedure EndUpdatePanes();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
-    function ChooseSaveMethod(DataSourceType: THextorDataSourceType; const APath: string;
-      var InplaceSaving, UseTempFile: Boolean): Boolean;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property HorzScrollPos: Integer read FHorzScrollPos write SetHorzScrollPos;
     property ByteColumns: Integer read FByteColumns write SetByteColumns;
@@ -355,40 +354,16 @@ begin
   Data.Change(Addr, Length(Value), @Value[0]);
 end;
 
-function TEditorForm.ChooseSaveMethod(DataSourceType: THextorDataSourceType; const APath: string;
-  var InplaceSaving, UseTempFile: Boolean): Boolean;
-// How can we save our modified data to given target:
-// Can we only write changed parts, or maybe we'll have to use temp file?
-var
-  SameSource: Boolean;
+function TEditorForm.CloseCurrentFile(AskSave: Boolean): TModalResult;
 begin
-  SameSource := (DataSourceType = DataSource.ClassType) and
-                (SameFileName(APath, DataSource.Path));
-
-  InplaceSaving := SameSource and (not Data.HasMovements());
-  UseTempFile := (SameSource) and (not InplaceSaving);
-  Result := True;
-end;
-
-procedure TEditorForm.CopyDataRegion(Source, Dest: THextorDataSource; SourceAddr,
-  DestAddr, Size: TFilePointer);
-const
-  BlockSize = 10*MByte;
-var
-  Buf: TBytes;
-  Pos: TFilePointer;
-  PortionSize: Integer;
-begin
-  SetLength(Buf, BlockSize);
-  Pos := 0;
-
-  while Pos < Size do
+  if (AskSave) then
   begin
-    PortionSize := Min(BlockSize, Size - Pos);
-    Source.GetData(SourceAddr + Pos, PortionSize, Buf[0]);
-    Dest.ChangeData(DestAddr + Pos, PortionSize, Buf[0]);
-    Pos := Pos + PortionSize;
+    Result := AskSaveChanges();
+    if Result = mrCancel then Exit;
   end;
+  Result := mrNo;
+
+  FreeAndNil(DataSource);
 end;
 
 procedure TEditorForm.DataChanged(Addr: TFilePointer; OldSize,
@@ -935,108 +910,9 @@ begin
 end;
 
 procedure TEditorForm.SaveFile(DataSourceType: THextorDataSourceType; APath: string);
-var
-  Dest: THextorDataSource;
-  InplaceSaving, UseTempFile: Boolean;
-  TempFileName: string;
-  APart: TEditedData.TDataPart;
 begin
-  if (DataSourceType=nil) or (APath='') then Exit;
-
-  if not ChooseSaveMethod(DataSourceType, APath, InplaceSaving, UseTempFile) then
-    raise Exception.Create('Cannot save this data to this target');
-
-  if InplaceSaving then
-  // If saving to same file, re-open it for writing
-  begin
-    try
-      DataSource.Open(fmOpenReadWrite);
-    except
-      // If failed to open for write (e.g. used by other app) - re-open for reading
-      DataSource.Open(fmOpenRead);
-      raise;
-    end;
-    Dest := DataSource;
-  end
-  else
-  // If saving to another file, create another DataSource
-  begin
-    if UseTempFile then
-    // Overwrite using temporary file
-    begin
-      if DataSourceType = TFileDataSource then
-        TempFileName := APath+'_temp'+IntToStr(Random(10000))
-      else
-        TempFileName := MainForm.TempPath + 'save'+IntToStr(Random(10000));
-      Dest := TFileDataSource.Create(TempFileName);
-    end
-    else
-      // Save to new file
-      Dest := DataSourceType.Create(APath);
-    Dest.Open(fmCreate);
-  end;
-
-  // Write regions
-  try
-    for APart in Data.Parts do
-    begin
-      if (InplaceSaving) and (APart.PartType = ptSource) then Continue;
-      case APart.PartType of
-        ptSource:
-          CopyDataRegion(DataSource, Dest, APart.SourceAddr, APart.Addr, APart.Size);
-        ptBuffer:
-          Dest.ChangeData(APart.Addr, APart.Size, APart.Data[0]);
-      end;
-
-      MainForm.ShowProgress(Self, APart.Addr + APart.Size, Data.GetSize, '-');
-    end;
-  finally
-    MainForm.OperationDone(Self);
-  end;
-  // TODO: Handle write errors
-
-  // If saving in-place, we may have to truncate file
-  if (InplaceSaving) and (dspResizable in Dest.GetProperties()) and
-     (Data.GetSize() <> Dest.GetSize) then
-    Dest.SetSize(Data.GetSize());
-
-
-  if UseTempFile then
-  // Saving throught temporary file
-  begin
-    if DataSourceType = TFileDataSource then
-    // Destination is file - rename TempFile to target filename
-    begin
-      DataSource.Free;
-      Dest.Free;
-      DeleteFile(APath);
-      RenameFile(TempFileName, APath);
-      DataSource := TFileDataSource.Create(APath);
-    end
-    else
-    // Not a file - copy tempfile content to destination
-    begin
-      DataSource.Free;
-      DataSource := DataSourceType.Create(APath);
-      DataSource.Open(fmCreate);
-      DataSource.CopyContentFrom(Dest);
-      Dest.Free;
-      DeleteFile(TempFileName);
-    end;
-  end
-  else
-  begin
-    if not InplaceSaving then
-    // Switch to new file
-    begin
-      DataSource.Free;
-      DataSource := Dest;
-    end;
-  end;
-
-  // Open new saved file for reading
-  DataSource.Open(fmOpenRead);
-
+  TDataSaver.Save(Data, DataSourceType, APath);
+  DataSource := Data.DataSource;
   NewFileOpened(False);
 end;
 
