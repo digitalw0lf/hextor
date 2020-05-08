@@ -323,7 +323,7 @@ begin
   end;
 
   try
-    FFSkipSearcher.Find(Start, Dir, Ptr, Size);
+    FFSkipSearcher.FindNext(Start, Dir, Ptr, Size);
   finally
     MainForm.OperationDone(FFSkipSearcher);
   end;

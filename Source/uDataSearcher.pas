@@ -48,7 +48,7 @@ type
     function ParamsDefined(): Boolean;
     function NeedleSize(): Integer; virtual;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; virtual;
-    function Find(Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
+    function FindNext(Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
     function ReplaceLastFound(var NewSize: Integer): Boolean;
   end;
 
@@ -56,7 +56,7 @@ implementation
 
 { TDataSearcher }
 
-function TDataSearcher.Find(Start: TFilePointer;
+function TDataSearcher.FindNext(Start: TFilePointer;
   Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
 const
   MinBlockSize = 64*KByte;

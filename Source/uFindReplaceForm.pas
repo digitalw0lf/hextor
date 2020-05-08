@@ -17,7 +17,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
-  System.UITypes, System.IOUtils, System.Types, Vcl.Buttons,
+  System.UITypes, System.IOUtils, System.Types, Vcl.Buttons, System.StrUtils,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
   uDataSearcher, uSearchResultsTabFrame, uHextorDataSources;
@@ -70,7 +70,7 @@ type
     procedure FormShow(Sender: TObject);
     procedure BtnFindListClick(Sender: TObject);
   private type
-    TSearchAction = (saCount, saList);
+    TSearchAction = (saCount, saList, saReplace);
     TFineWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
     TFindWhere = record
       AType: TFineWhereType;
@@ -87,6 +87,7 @@ type
     procedure CheckEnabledControls();
     procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; var Count: Integer; ResultsFrame: TSearchResultsTabFrame);
     function FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame): Integer;
+    function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
   public
     { Public declarations }
     Searcher: TDataSearcher;
@@ -135,7 +136,7 @@ begin
 end;
 
 procedure TFindReplaceForm.BtnReplaceAllClick(Sender: TObject);
-var
+{var
   Count: Integer;
   Start, Ptr, ACaret: TFilePointer;
   Size, NewSize: Integer;
@@ -143,9 +144,10 @@ var
   YesToAll, Cancelled: Boolean;
   ActionCode: Integer;
   LastReplaced: TFileRange;
-  s: string;
+  s: string;}
 begin
-  FillParams(True, True);
+  FindAll(saReplace);
+{  FillParams(True, True);
   if FindWhere.AType <> fwCurrentFile then
     raise Exception.Create('Replace in files not implemented yet');
   Count := 0;
@@ -159,7 +161,7 @@ begin
   TargetEditor.BeginUpdatePanes();
   try
 
-    while Searcher.Find(Start, 1, Ptr, Size) do
+    while Searcher.FindNext(Start, 1, Ptr, Size) do
     begin
       if (Searcher.Params.bAskEachReplace) and (not YesToAll) then
       begin
@@ -240,7 +242,7 @@ begin
     else
       s := 'Search string not found';
     Application.MessageBox(PChar(s), 'Replace', MB_OK);
-  end;
+  end; }
 end;
 
 procedure TFindReplaceForm.BtnSelectDirectoryClick(Sender: TObject);
@@ -287,7 +289,42 @@ begin
 
   EditInDirectories.Enabled := (RBInSelectedDirectories.Checked);
   BtnSelectDirectory.Enabled := EditInDirectories.Enabled;
-  EditFileNameMask.Enabled := not FindInEditor;
+  EditFileNameMask.Enabled := (RBInSelectedDirectories.Checked);
+end;
+
+function TFindReplaceForm.ConfirmReplace(AEditor: TEditorForm; Ptr,
+  Size: TFilePointer; var YesToAll: Boolean): TModalResult;
+var
+  ACaret: TFilePointer;
+begin
+  // Show found occurrence in editor
+  MainForm.ActiveEditor := AEditor;
+  AEditor.BeginUpdatePanes();
+  try
+    ACaret := Ptr;
+    AEditor.ScrollToShow(ACaret, -1, -1);
+    AEditor.MoveCaret(ACaret, []);
+    AEditor.SetSelection(Ptr, Ptr + Size);
+  finally
+    AEditor.EndUpdatePanes();
+  end;
+
+  AEditor.EndUpdatePanes();  // Redraw editor when showing confirmation
+  try
+    Result := MessageDlg('Replace this Occurrence?'+sLineBreak+'"'+Searcher.Params.Text+'"  ->  "'+Searcher.Params.Replace+'"',
+                      mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel, TMsgDlgBtn.mbYesToAll], 0);
+  finally
+    AEditor.BeginUpdatePanes();
+  end;
+
+  case Result of
+    mrCancel:
+      begin
+        Abort();
+      end;
+    mrYesToAll: YesToAll := True;
+  end;
+
 end;
 
 procedure TFindReplaceForm.CPFindExpand(Sender: TObject);
@@ -383,7 +420,11 @@ begin
   ResultsFrame := nil;
   FillParams(False, True);
   Result := 0;
-  if Action = saList then
+
+  if (Action = saReplace) and (FindWhere.AType = fwSelectedDirectories) then
+    raise Exception.Create('Replace in directory not implemented yet');
+
+  if Action in [saList, saReplace] then
   begin
     if FindWhere.AType = fwCurrentFile then
       ResultBoundToEditor := TargetEditor
@@ -414,44 +455,105 @@ begin
     end;
 
   finally
-    if Action = saList then
+    if Action in [saList, saReplace] then
       ResultsFrame.EndUpdateList();
   end;
 
-  if Action = saList then
+  if Action in [saList, saReplace] then
   begin
     MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
   end;
-  Application.MessageBox(PChar('Search string found '+IntToStr(Result)+' times'), 'Search', MB_OK);
+  Application.MessageBox(PChar('Search string ' + IfThen(Action = saReplace, 'replaced', 'found') + ' '+IntToStr(Result)+' times'), 'Search', MB_OK);
 end;
 
 procedure TFindReplaceForm.FindInData(AEditor: TEditorForm; AData: TEditedData;
   Action: TSearchAction; var Count: Integer; ResultsFrame: TSearchResultsTabFrame);
 var
   ResultsGroupNode: Pointer;
-  Start, Ptr: TFilePointer;
-  NewCount, Size: Integer;
+  Start, Ptr, ACaret: TFilePointer;
+  NewCount, Size, NewSize: Integer;
+  YesToAll{, Cancelled}: Boolean;
+  ActionCode: Integer;
+  //LastReplaced: TFileRange;
+  SelectAfterOperation: TFileRange;
 begin
   Searcher.Haystack := AData;
   ResultsGroupNode := nil;
-  if Action = saList then
+  if Action in [saList, saReplace] then
   begin
     ResultsGroupNode := ResultsFrame.AddListGroup(AEditor, Searcher.Haystack);
   end;
   NewCount := 0;
   Start := Searcher.Params.Range.Start;
+  YesToAll := False;
+//  Cancelled := False;
+  ActionCode := Random(1000000);
+  SelectAfterOperation := NoRange;
+
+  if Assigned(AEditor) then
+    AEditor.BeginUpdatePanes();
   try
-    while Searcher.Find(Start, 1, Ptr, Size) do  // <--
+    while Searcher.FindNext(Start, 1, Ptr, Size) do  // <--
     begin
-      Inc(NewCount);
-      if Action = saList then
+      NewSize := Size;
+
+      if Action = saReplace then
       begin
-        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + Size));
+        // Confirm replace if it is needed
+        if (Assigned(AEditor)) and (Searcher.Params.bAskEachReplace) and (not YesToAll) then
+        begin
+          SelectAfterOperation := NoRange;  // To keep selection set by "ConfirmReplace()" if search cancelled
+          if ConfirmReplace(AEditor, Ptr, NewSize, YesToAll) = mrNo then
+          begin
+            Start := Ptr + Size;
+            Continue;
+          end;
+
+          ActionCode := Random(1000000);  // Confirmed changes will be separate "undo" steps
+        end;
+
+        // Replace
+        if Assigned(AEditor) then
+          AEditor.UndoStack.BeginAction('Replace_'+IntToStr(ActionCode), 'Replace');
+        try
+          if Searcher.ReplaceLastFound(NewSize) then
+          begin
+            SelectAfterOperation := TFileRange.Create(Searcher.LastFound.Start, Searcher.LastFound.Start + NewSize);
+            // Adjust search range
+            Searcher.Range.AEnd := Searcher.Range.AEnd + (NewSize - Searcher.LastFound.Size);
+          end;
+        finally
+          if Assigned(AEditor) then
+            AEditor.UndoStack.EndAction();
+        end;
       end;
-      Start := Ptr+Size;
+
+      // Add found item to list. We always add items to list when replacing
+      if Action in [saList, saReplace] then
+      begin
+        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + NewSize));
+      end;
+
+      Inc(NewCount);
+      Start := Ptr + NewSize;
       MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Found '+IntToStr(Count + NewCount)+' time(s)');
     end;
   finally
+    // Move caret to where operation ended
+    if (FindWhere.AType = fwCurrentFile) and (Assigned(AEditor)) and
+       (SelectAfterOperation <> NoRange) then
+    begin
+      AEditor.BeginUpdatePanes();
+      try
+        ACaret := SelectAfterOperation.AEnd;
+        AEditor.ScrollToShow(ACaret, -1, -1);
+        AEditor.MoveCaret(ACaret, []);
+      finally
+        AEditor.EndUpdatePanes();
+      end;
+    end;
+    if Assigned(AEditor) then
+      AEditor.EndUpdatePanes();
     if NewCount = 0 then
       ResultsFrame.DeleteListGroup(ResultsGroupNode);
     Inc(Count, NewCount);
@@ -465,6 +567,7 @@ var
   Dir, Size: Integer;
 begin
   FillParams(False, False);
+  Searcher.Haystack := TargetEditor.Data;
   Dir := Direction;
   if Dir > 0 then
     Start := TargetEditor.SelStart + TargetEditor.SelLength
@@ -476,7 +579,7 @@ begin
   end;
 
   try
-    if Searcher.Find(Start, Dir, Ptr, Size) then
+    if Searcher.FindNext(Start, Dir, Ptr, Size) then
     begin
       TargetEditor.BeginUpdatePanes();
       try

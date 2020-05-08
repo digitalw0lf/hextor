@@ -417,12 +417,12 @@ end;
 
 procedure TEditedData.SetDataSource(const Value: THextorDataSource);
 begin
-  if FDataSource <> Value then
-  begin
+//  if FDataSource <> Value then
+//  begin
     FDataSource := Value;
     Resizable := (dspResizable in FDataSource.GetProperties());
     ResetParts();
-  end;
+//  end;
 end;
 
 function TEditedData.SplitPart(Addr: TFilePointer): Boolean;
