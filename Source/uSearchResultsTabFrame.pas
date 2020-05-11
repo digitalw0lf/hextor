@@ -34,11 +34,12 @@ type
     procedure CBHighlightResultsClick(Sender: TObject);
   private type
     TDisplayedNeedle = array[0..2] of string;  // Text[1] is highlighted needle, Text[0] and Text[2] is short context before and after
+    // Data for result list node (both "File name" nodes and "item" leaf nodes)
     TResultTreeNode = record
       DisplayFileName: string;                // Used in root nodes
       FEditor: TEditorForm;                   // Used if "Find in current editor / in open files"
-      DataSourceType: THextorDataSourceType;  // Used if "Find in directories"
-      DataSourcePath: string;                 // Used if "Find in directories"
+      DataSourceType: THextorDataSourceType;  // Used to re-open file in editor if it's closed now
+      DataSourcePath: string;                 //
       Range: TFileRange;
       DisplayHex, DisplayText: TDisplayedNeedle;
     end;
@@ -348,8 +349,11 @@ begin
   if (RNode = nil) then Exit;
 
   if RNode.FEditor = nil then
+  // This node is not linked with any editor
   begin
+    // Find if this file is open in some editor
     AEditor := MainForm.FindEditorWithSource(RNode.DataSourceType, RNode.DataSourcePath);
+    // Open file in editor if it is not open now
     if AEditor = nil then
       AEditor := MainForm.OpenFile(RNode.DataSourceType, RNode.DataSourcePath);
     LinkNodeToEditor(HitInfo.HitNode, AEditor);
@@ -358,8 +362,7 @@ begin
     AEditor := RNode.FEditor;
 
   MainForm.ActiveEditor := AEditor;
-  AEditor.SetSelection(RNode.Range.Start, RNode.Range.AEnd, True);
-  AEditor.ScrollToShow(RNode.Range.Start, -1, -1);
+  AEditor.SelectAndShow(RNode.Range.Start, RNode.Range.AEnd);
 end;
 
 procedure TSearchResultsTabFrame.StartList(AEditor: TEditorForm;

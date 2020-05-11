@@ -137,9 +137,9 @@ var
   ElemSize: Integer;
 begin
   Expression := EditExpression.Text;
-  AddComboBoxHistory(EditExpression, Expression);
+  AddComboBoxHistory(EditExpression);
   Pattern := Hex2Data(EditPattern.Text);
-  AddComboBoxHistory(EditPattern, EditPattern.Text);
+  AddComboBoxHistory(EditPattern);
   ElemSize := 1 shl CBElementType.ItemIndex;
 
   // Get original data

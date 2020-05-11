@@ -57,6 +57,7 @@ end;
 procedure TSearchResultsFrame.PageControlChanging(Sender: TObject;
   var AllowChange: Boolean);
 begin
+  // Remember previous page to refresh it's editor in OnChange
   PrevPageIndex := PageControl.ActivePageIndex;
 end;
 

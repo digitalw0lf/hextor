@@ -777,7 +777,7 @@ begin
     Range.Start := StrToInt64Relative(EditSelRangeStart.Text, Range.Start);
     Range.AEnd := StrToInt64Relative(EditSelRangeEnd.Text, Range.AEnd);
 
-    SetSelection(Range.Start, Range.AEnd, True);
+    SetSelection(Range.Start, Range.AEnd, CaretAtStart);
   end;
 end;
 

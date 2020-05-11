@@ -111,7 +111,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -226,7 +226,7 @@ object MainForm: TMainForm
             ExplicitHeight = 519
             ColWidths = (
               64
-              347)
+              343)
             RowHeights = (
               21
               21)
@@ -283,13 +283,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblStructName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
         end
       end
@@ -468,6 +461,10 @@ object MainForm: TMainForm
             Height = 195
             ExplicitWidth = 412
             ExplicitHeight = 195
+            inherited StaticText1: TStaticText
+              Width = 406
+              ExplicitWidth = 406
+            end
             inherited ResultListView: TListView
               Width = 412
               Height = 172
@@ -530,8 +527,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 259
-        Height = 17
+        Width = 389
+        Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -1080,7 +1077,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010114004001D80210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010114004001DC0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000006000000001002000000000000060
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -1920,14 +1917,14 @@ object MainForm: TMainForm
       ImageIndex = 1
       OnClick = Showinfolder1Click
     end
+    object Closeothertabs1: TMenuItem
+      Caption = 'Close other tabs'
+      OnClick = Closeothertabs1Click
+    end
     object MICloseEditorTab: TMenuItem
       Caption = 'Close'
       ImageIndex = 19
       OnClick = MICloseEditorTabClick
-    end
-    object Closeothertabs1: TMenuItem
-      Caption = 'Close other tabs'
-      OnClick = Closeothertabs1Click
     end
   end
 end

@@ -62,9 +62,9 @@ object FindReplaceForm: TFindReplaceForm
       object Label4: TLabel
         Left = 16
         Top = 128
-        Width = 47
+        Width = 60
         Height = 13
-        Caption = 'File mask:'
+        Caption = 'File mask(s):'
       end
       object RBInCurrentEditor: TRadioButton
         Left = 16

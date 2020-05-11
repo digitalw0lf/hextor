@@ -18,9 +18,11 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
   System.UITypes, System.IOUtils, System.Types, Vcl.Buttons, System.StrUtils,
+  System.Masks,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
-  uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver;
+  uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver,
+  uHextorGUI;
 
 type
   TFindReplaceForm = class(TForm)
@@ -71,11 +73,11 @@ type
     procedure BtnFindListClick(Sender: TObject);
   private type
     TSearchAction = (saCount, saList, saReplace);
-    TFineWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
+    TFindWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
     TFindWhere = record
-      AType: TFineWhereType;
+      AType: TFindWhereType;
       Directories: TArray<string>;
-      FileMask: string;
+      FileMasks: TArray<string>;
     end;
   private
     { Private declarations }
@@ -86,7 +88,7 @@ type
     procedure AutosizeForm();
     procedure CheckEnabledControls();
     procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
-    function FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame): Integer;
+    procedure FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
   public
     { Public declarations }
@@ -104,6 +106,22 @@ implementation
 
 {$R *.dfm}
 
+function SplitPathList(const Text: string): TArray<string>;
+// Split ';'-separated and '"'-quoted list of paths to string array
+var
+  sl: TStringList;
+begin
+  sl := TStringList.Create();
+  try
+    sl.Delimiter := PathSep;
+    sl.QuoteChar := '"';
+    sl.DelimitedText := Text;
+    Result := sl.ToStringArray();
+  finally
+    sl.Free;
+  end;
+end;
+
 { TFindReplaceForm }
 
 procedure TFindReplaceForm.AutosizeForm();
@@ -113,11 +131,9 @@ begin
   h := 0;
   for i:=0 to CategoryPanelGroup1.Panels.Count-1 do
     Inc(h, TCustomCategoryPanel(CategoryPanelGroup1.Panels[i]).Height);
-  //Constraints := TSizeConstraints.Create(
   h := h + (Height - ClientHeight) + 2;
   Constraints.MinHeight := h;
   Constraints.MaxHeight := h;
-//  ClientHeight := h;
 end;
 
 procedure TFindReplaceForm.BtnFindCountClick(Sender: TObject);
@@ -136,116 +152,12 @@ begin
 end;
 
 procedure TFindReplaceForm.BtnReplaceAllClick(Sender: TObject);
-{var
-  Count: Integer;
-  Start, Ptr, ACaret: TFilePointer;
-  Size, NewSize: Integer;
-  Res: Integer;
-  YesToAll, Cancelled: Boolean;
-  ActionCode: Integer;
-  LastReplaced: TFileRange;
-  s: string;}
 begin
   FindAll(saReplace);
-{  FillParams(True, True);
-  if FindWhere.AType <> fwCurrentFile then
-    raise Exception.Create('Replace in files not implemented yet');
-  Count := 0;
-  Searcher.Haystack := TargetEditor.Data;
-  Start := Searcher.Params.Range.Start;
-  YesToAll := False;
-  Cancelled := False;
-  ActionCode := Random(1000000);
-  LastReplaced := NoRange;
-
-  TargetEditor.BeginUpdatePanes();
-  try
-
-    while Searcher.FindNext(Start, 1, Ptr, Size) do
-    begin
-      if (Searcher.Params.bAskEachReplace) and (not YesToAll) then
-      begin
-        // Show found occurrence in editor
-        TargetEditor.BeginUpdatePanes();
-        try
-          ACaret := Ptr;
-          TargetEditor.ScrollToShow(ACaret, -1, -1);
-          TargetEditor.MoveCaret(ACaret, []);
-          TargetEditor.SetSelection(Ptr, Ptr + Size);
-        finally
-          TargetEditor.EndUpdatePanes();
-        end;
-        LastReplaced := NoRange;  // To keep this selection if search cancelled
-
-        TargetEditor.EndUpdatePanes();  // Redraw editor when showing confirmation
-        try
-          Res := MessageDlg('Replace this Occurrence?'+sLineBreak+'"'+Searcher.Params.Text+'"  ->  "'+Searcher.Params.Replace+'"',
-                            mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel, TMsgDlgBtn.mbYesToAll], 0);
-        finally
-          TargetEditor.BeginUpdatePanes();
-        end;
-
-        case Res of
-          mrYes: begin end;
-          mrNo:
-            begin
-              Start := Ptr + Size;
-              Continue;
-            end;
-          mrCancel:
-            begin
-              Cancelled := True;
-              Break;
-            end;
-          mrYesToAll: YesToAll := True;
-        end;
-        ActionCode := Random(1000000);  // Confirmed changes will be separate "undo" steps
-      end;
-
-      TargetEditor.UndoStack.BeginAction('Replace_'+IntToStr(ActionCode), 'Replace');
-      try
-        if Searcher.ReplaceLastFound(NewSize) then
-        begin
-          LastReplaced := TFileRange.Create(Searcher.LastFound.Start, Searcher.LastFound.Start + NewSize);
-          Searcher.Range.AEnd := Searcher.Range.AEnd + (NewSize - Searcher.LastFound.Size);
-        end;
-      finally
-        TargetEditor.UndoStack.EndAction();
-      end;
-
-      Inc(Count);
-      Start := Ptr+NewSize;
-
-      MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Replaced '+IntToStr(Count)+' time(s)');
-    end;
-
-  finally
-    MainForm.OperationDone(Searcher);
-    // Move caret to last replaced
-    if LastReplaced <> NoRange then
-    begin
-      TargetEditor.BeginUpdatePanes();
-      try
-        ACaret := LastReplaced.AEnd;
-        TargetEditor.ScrollToShow(ACaret, -1, -1);
-        TargetEditor.MoveCaret(ACaret, []);
-      finally
-        TargetEditor.EndUpdatePanes();
-      end;
-    end;
-    TargetEditor.EndUpdatePanes();
-  end;
-  if not Cancelled then
-  begin
-    if Count > 0 then
-      s := 'Search string replaced '+IntToStr(Count)+' times'
-    else
-      s := 'Search string not found';
-    Application.MessageBox(PChar(s), 'Replace', MB_OK);
-  end; }
 end;
 
 procedure TFindReplaceForm.BtnSelectDirectoryClick(Sender: TObject);
+// Directory select dialog
 var
   sl: TStringList;
 begin
@@ -272,6 +184,7 @@ begin
 end;
 
 procedure TFindReplaceForm.CheckEnabledControls;
+// Enable/disable some controls based on selected search options
 var
   FindInEditor: Boolean;
   ATargetEditor: TEditorForm;
@@ -295,20 +208,11 @@ end;
 
 function TFindReplaceForm.ConfirmReplace(AEditor: TEditorForm; Ptr,
   Size: TFilePointer; var YesToAll: Boolean): TModalResult;
-var
-  ACaret: TFilePointer;
+// Show found item in editor and display replacement confirmation
 begin
   // Show found occurrence in editor
   MainForm.ActiveEditor := AEditor;
-  AEditor.BeginUpdatePanes();
-  try
-    ACaret := Ptr;
-    AEditor.ScrollToShow(ACaret, -1, -1);
-    AEditor.MoveCaret(ACaret, []);
-    AEditor.SetSelection(Ptr, Ptr + Size);
-  finally
-    AEditor.EndUpdatePanes();
-  end;
+  AEditor.SelectAndShow(Ptr, Ptr + Size);
 
   AEditor.EndUpdatePanes();  // Redraw editor when showing confirmation
   try
@@ -319,13 +223,9 @@ begin
   end;
 
   case Result of
-    mrCancel:
-      begin
-        Abort();
-      end;
+    mrCancel:   Abort();
     mrYesToAll: YesToAll := True;
   end;
-
 end;
 
 procedure TFindReplaceForm.CPFindExpand(Sender: TObject);
@@ -334,28 +234,34 @@ begin
 end;
 
 procedure TFindReplaceForm.FillParams(aReplace, aCanFindInSel: Boolean);
-var
-  sl: TStringList;
+// Collect search parameters from input controls to internal structure
 begin
+  // What to search for
   with Searcher do
   begin
+    // Search text
     Params.Text := EditFindText.Text;
+    AddComboBoxHistory(EditFindText);
     Params.bHex := CBFindHex.Checked;
     Params.bWildcards := CBWildcards.Checked;
     Params.bUnicode := CBUnicode.Checked;
     Params.bMatchCase := CBMatchCase.Checked;
     Params.bFindInSel := aCanFindInSel and CBFindInSelection.Enabled and CBFindInSelection.Checked;
 
+    // Replace
     Params.bReplace := aReplace;
     Params.Replace := EditReplaceText.Text;
+    AddComboBoxHistory(EditReplaceText);
     Params.bRepHex := CBReplaceHex.Checked;
     Params.bAskEachReplace := CBAskReplace.Checked;
 
+    // Encoding
     if TargetEditorNoEx <> nil then
       Params.CodePage := TargetEditorNoEx.TextEncoding
     else
       Params.CodePage := TEncoding.Default.CodePage;
 
+    // Range inside data
     if Params.bFindInSel then
     begin
       Params.Range.Start := TargetEditor.SelStart;
@@ -364,6 +270,7 @@ begin
     else
       Params.Range := EntireFile;
 
+    // Generate binary search pattern from given text
     if Params.bHex then
       Params.Needle := Hex2Data(Params.Text)
     else
@@ -374,55 +281,59 @@ begin
 
     if Length(Params.Needle) = 0 then
       raise EInvalidUserInput.Create('Specify search string');
-
-    if EditFindText.Items.IndexOf(Params.Text) < 0 then
-      EditFindText.Items.Insert(0, Params.Text);
-    while EditFindText.Items.Count > 20 do
-      EditFindText.Items.Delete(EditFindText.Items.Count-1);
   end;
 
+  // Where to search - editor or files
   with FindWhere do
   begin
-    if RBInCurrentEditor.Checked then  AType := fwCurrentFile
+    if RBInCurrentEditor.Checked       then  AType := fwCurrentFile
     else
-    if RBInAllOpenFiles.Checked then  AType := fwAllOpenFiles
+    if RBInAllOpenFiles.Checked        then  AType := fwAllOpenFiles
     else
     if RBInSelectedDirectories.Checked then  AType := fwSelectedDirectories;
 
     if AType = fwSelectedDirectories then
     begin
-      sl := TStringList.Create();
-      try
-        sl.Delimiter := PathSep;
-        sl.QuoteChar := '"';
-        sl.DelimitedText := EditInDirectories.Text;
-        Directories := sl.ToStringArray();
-      finally
-        sl.Free;
-      end;
-//      Directories := string(EditInDirectories.Text).Split([PathSep], '"');
+      Directories := SplitPathList(EditInDirectories.Text);
+      if Length(Directories) = 0 then
+        raise EInvalidUserInput.Create('Specify search directories');
+      AddComboBoxHistory(EditInDirectories);
     end;
 
-    if AType <> fwCurrentFile then
+    if AType = fwSelectedDirectories then
     begin
-      FileMask := EditFileNameMask.Text;
-      if Trim(FileMask) = '' then
-        FileMask := '*';
+      FileMasks := SplitPathList(EditFileNameMask.Text);
+      AddComboBoxHistory(EditFileNameMask);
     end;
   end;
 end;
 
 function TFindReplaceForm.FindAll(Action: TSearchAction): Integer;
+// Universal top-level function for "Count", "List" and "Replace"
 var
   ResultsFrame: TSearchResultsTabFrame;
   ResultBoundToEditor: TEditorForm;
-  i, NewCount: Integer;
+  i, NewCount, InFilesCount: Integer;
+  s: string;
 begin
   ResultsFrame := nil;
+  // Collect search parameters from input controls
   FillParams(False, True);
   Result := 0;
+  InFilesCount := 0;
+
+  // Confirmation for "Replace in directories" - in contrast to "replace in open editor(s)", this is
+  // saved immediately to files and can't be easily undone
+  if (Action = saReplace) and (FindWhere.AType = fwSelectedDirectories) then
+  begin
+    s := 'Replace all occurances of "' + Searcher.Params.Text + '" to "' +
+         Searcher.Params.Replace + '" in selected directories/files?' + sLineBreak + sLineBreak +
+         'This can''t be undone.';
+    if Application.MessageBox(PChar(s), 'Replace', MB_OKCANCEL) <> IDOK then Exit;
+  end;
 
   if Action in [saList, saReplace] then
+  // Prepare result list
   begin
     if FindWhere.AType = fwCurrentFile then
       ResultBoundToEditor := TargetEditor
@@ -434,24 +345,25 @@ begin
   try
 
     case FindWhere.AType of
-      fwCurrentFile:
+      fwCurrentFile:  // Search in current editor
         begin
           FindInData(TargetEditor, TargetEditor.Data, Action, 0, Result, ResultsFrame);
         end;
-      fwAllOpenFiles:
+      fwAllOpenFiles:  // Search in all open files
         begin
           Result := 0;
           for i:=0 to MainForm.EditorCount-1 do
           begin
             FindInData(MainForm.Editors[i], MainForm.Editors[i].Data, Action, Result, NewCount, ResultsFrame);
             Inc(Result, NewCount);
+            if NewCount > 0 then
+              Inc(InFilesCount);
           end;
         end;
-      fwSelectedDirectories:
+      fwSelectedDirectories:  // Search in specified directories
         begin
-          Result := FindInDirectories(Action, ResultsFrame);
+          FindInDirectories(Action, ResultsFrame, Result, InFilesCount);
         end;
-
     end;
 
   finally
@@ -463,19 +375,29 @@ begin
   begin
     MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
   end;
-  Application.MessageBox(PChar('Search string ' + IfThen(Action = saReplace, 'replaced', 'found') + ' '+IntToStr(Result)+' times'), 'Search', MB_OK);
+  // Result count message box
+  if Result = 0 then
+    s := 'Search string not found'
+  else
+  begin
+    s := 'Search string ' + IfThen(Action = saReplace, 'replaced', 'found') + ' '+IntToStr(Result)+' time(s)';
+    if (FindWhere.AType <> fwCurrentFile) then
+      s := s + ' in ' + IntToStr(InFilesCount) + ' file(s)';
+  end;
+  Application.MessageBox(PChar(s), 'Search', MB_OK);
 end;
 
 procedure TFindReplaceForm.FindInData(AEditor: TEditorForm; AData: TEditedData;
   Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
+// Find all occurances of requested item in specified EditedData and do specified Action.
+// OldCount is used to display total progress
 var
-  ResultsGroupNode: Pointer;
-  Start, Ptr, ACaret: TFilePointer;
+  ResultsGroupNode: Pointer;  // PResultTreeNode type is private to TSearchResultsTabFrame
+  Start, Ptr: TFilePointer;
   Size, NewSize: Integer;
-  YesToAll{, Cancelled}: Boolean;
+  YesToAll: Boolean;
   ActionCode: Integer;
-  //LastReplaced: TFileRange;
-  SelectAfterOperation: TFileRange;
+  SelectAfterOperation: TFileRange;  // This range will be selected after operation complete (e.g. last replaced item)
 begin
   Searcher.Haystack := AData;
   ResultsGroupNode := nil;
@@ -486,7 +408,6 @@ begin
   NewCount := 0;
   Start := Searcher.Params.Range.Start;
   YesToAll := False;
-//  Cancelled := False;
   ActionCode := Random(1000000);
   SelectAfterOperation := NoRange;
 
@@ -543,14 +464,7 @@ begin
     if (FindWhere.AType = fwCurrentFile) and (Assigned(AEditor)) and
        (SelectAfterOperation <> NoRange) then
     begin
-      AEditor.BeginUpdatePanes();
-      try
-        ACaret := SelectAfterOperation.AEnd;
-        AEditor.ScrollToShow(ACaret, -1, -1);
-        AEditor.MoveCaret(ACaret, []);
-      finally
-        AEditor.EndUpdatePanes();
-      end;
+      AEditor.SelectAndShow(SelectAfterOperation.AEnd, SelectAfterOperation.AEnd);
     end;
     if Assigned(AEditor) then
       AEditor.EndUpdatePanes();
@@ -561,10 +475,13 @@ begin
 end;
 
 function TFindReplaceForm.FindNext(Direction: Integer): Boolean;
+// Find requested item in active editor starting from current position in specified direction.
 var
-  Start, Ptr, ACaret: TFilePointer;
+  Start, Ptr: TFilePointer;
   Dir, Size: Integer;
+  MoveCaret: TEditorForm.TCaretInSelection;
 begin
+  // Collect search parameters from input controls
   FillParams(False, False);
   Searcher.Haystack := TargetEditor.Data;
   Dir := Direction;
@@ -580,20 +497,16 @@ begin
   try
     if Searcher.FindNext(Start, Dir, Ptr, Size) then
     begin
-      TargetEditor.BeginUpdatePanes();
-      try
-        ACaret := Ptr + IfThen(Dir>0, Size-1, 0);
-        TargetEditor.ScrollToShow(ACaret, -1, -1);
-        TargetEditor.MoveCaret(ACaret, []);
-        TargetEditor.SetSelection(Ptr, Ptr + Size, False);
-      finally
-        TargetEditor.EndUpdatePanes();
-      end;
+      // Select found item. Move caret to it's start/end depending on search direction
+      if Dir > 0 then MoveCaret := CaretAtEnd
+                 else MoveCaret := CaretAtStart;
+      TargetEditor.SelectAndShow(Ptr, Ptr + Size, MoveCaret);
       Result := True;
     end
     else
     begin
-      TargetEditor.SetSelection(TargetEditor.CaretPos, -1);
+      // Nothing more found - remove selection and move caret to start/end of last found item
+      TargetEditor.SetSelection(IfThen(Dir > 0, TargetEditor.SelStart + TargetEditor.SelLength, TargetEditor.SelStart), -1, CaretAtStart);
       Result := False;
     end;
   finally
@@ -621,9 +534,15 @@ begin
   if ssAlt in Shift then
   begin
     if Key = VK_LEFT then
+    begin
       FindNext(-1);
+      Key := 0;
+    end;
     if Key = VK_RIGHT then
+    begin
       FindNext(1);
+      Key := 0;
+    end;
   end;
 end;
 
@@ -647,26 +566,40 @@ begin
   CheckEnabledControls();
 end;
 
-function TFindReplaceForm.FindInDirectories(Action: TSearchAction;
-  ResultsFrame: TSearchResultsTabFrame): Integer;
+procedure TFindReplaceForm.FindInDirectories(Action: TSearchAction;
+  ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
+// Search for requested item in specified directories
 var
   FileNames, FilesInDir: TStringDynArray;
   i, j, NewCount: Integer;
   Data: TEditedData;
   DataSource: THextorDataSource;
 begin
-  Result := 0;
+  Count := 0;
+  InFilesCount := 0;
   // Collect a list of files matching requested directory/mask
   FileNames := [];
   for i:=0 to Length(FindWhere.Directories)-1 do
   begin
-    FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], FindWhere.FileMask, TSearchOption.soAllDirectories);
+    FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], '*', TSearchOption.soAllDirectories,
+      function(const Path: string; const SearchRec: TSearchRec): Boolean
+      // Compare with all masks from list
+      var
+        i: Integer;
+      begin
+        if (SearchRec.Attr and faDirectory) <> 0 then Exit(True);
+        if Length(FindWhere.FileMasks) = 0 then
+          Exit(True);
+        for i:=0 to Length(FindWhere.FileMasks)-1 do
+          if MatchesMask(SearchRec.Name, FindWhere.FileMasks[i]) then Exit(True);
+        Result := False;
+      end);
     // Cannot operate on opened file
     if Action = saReplace then
       for j:=0 to Length(FilesInDir)-1 do
         if MainForm.FindEditorWithSource(TFileDataSource, FilesInDir[j]) <> nil then
-          raise Exception.Create('"Replace in directory" cannot operate on a file that is open in editor now. Close this file before proceeding:' +
-            sLineBreak + sLineBreak + FilesInDir[j]);
+          raise EInvalidUserInput.Create('"Replace in directory" cannot operate on a file that is open in editor now. ' +
+            'Close this file before proceeding:' + sLineBreak + sLineBreak + FilesInDir[j]);
     FileNames := FileNames + FilesInDir;
   end;
 
@@ -680,8 +613,12 @@ begin
       try
         Data.DataSource := DataSource;
 
-        FindInData(nil, Data, Action, Result, NewCount, ResultsFrame);  // <--
-        Inc(Result, NewCount);
+        // Do search in loaded data
+        FindInData(nil, Data, Action, Count, NewCount, ResultsFrame);  // <--
+
+        Inc(Count, NewCount);
+        if NewCount > 0 then
+          Inc(InFilesCount);
 
         // If something was replaced, save file
         if (Action = saReplace) and (NewCount > 0) then
@@ -696,11 +633,7 @@ begin
     finally
       DataSource.Free;
     end;
-
-
   end;
-
-
 end;
 
 procedure TFindReplaceForm.Timer1Timer(Sender: TObject);

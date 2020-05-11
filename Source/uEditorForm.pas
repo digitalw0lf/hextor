@@ -127,6 +127,8 @@ type
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
+  public type
+    TCaretInSelection = (CaretNoMove, CaretAtStart, CaretAtEnd);
   public
     { Public declarations }
     DataSource: THextorDataSource;
@@ -171,9 +173,10 @@ type
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     [API]
-    procedure SetSelection(AStart, AEnd: TFilePointer; MoveCaret: Boolean = False);
+    procedure SetSelection(AStart, AEnd: TFilePointer; MoveCaret: TCaretInSelection = CaretNoMove);
     procedure ScrollToShow(Addr: TFilePointer; RowsFromBorder: Integer = 0; ColsFromBorder: Integer = 0);
     procedure ScrollToCaret();
+    procedure SelectAndShow(AStart, AEnd: TFilePointer; MoveCaret: TCaretInSelection = CaretAtStart);
     [API]
     procedure BeginUpdatePanes();
     [API]
@@ -785,7 +788,7 @@ begin
     SelDragStart := NewPos;
     SelDragEnd := -1;
   end;
-  SetSelection(SelDragStart, SelDragEnd, False);
+  SetSelection(SelDragStart, SelDragEnd, CaretNoMove);
 
   CaretPos := NewPos;
   ScrollToCaret();
@@ -956,6 +959,20 @@ begin
   end;
 end;
 
+procedure TEditorForm.SelectAndShow(AStart, AEnd: TFilePointer;
+  MoveCaret: TCaretInSelection = CaretAtStart);
+// Select specified range and scroll it to view.
+// Caret is placed at start or at end of range.
+begin
+  BeginUpdatePanes();
+  try
+    ScrollToShow(AStart, -1, -1);
+    SetSelection(AStart, AEnd, MoveCaret);
+  finally
+    EndUpdatePanes();
+  end;
+end;
+
 procedure TEditorForm.SelectionChanged;
 begin
   ShowSelectionInfo();
@@ -1086,10 +1103,10 @@ end;
 
 procedure TEditorForm.SetSelectedRange(const Value: TFileRange);
 begin
-  SetSelection(Value.Start, Value.AEnd, True);
+  SetSelection(Value.Start, Value.AEnd);
 end;
 
-procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer; MoveCaret: Boolean = False);
+procedure TEditorForm.SetSelection(AStart, AEnd: TFilePointer; MoveCaret: TCaretInSelection = CaretNoMove);
 // AEnd is after last byte of selection
 var
   Tmp: TFilePointer;
@@ -1112,8 +1129,10 @@ begin
   end;
   BeginUpdatePanes();
   try
-    if MoveCaret then
-      CaretPos := FSelStart{ + FSelLength};
+    case MoveCaret of
+      CaretAtStart: CaretPos := FSelStart;
+      CaretAtEnd:   CaretPos := FSelStart + FSelLength;
+    end;
     UpdatePanes();
     SelectionChanged();
   finally
@@ -1249,7 +1268,7 @@ begin
   try
     if Direction = udUndo then
     begin
-      SetSelection(Action.SelBefore.SelStart, Action.SelBefore.SelStart + Action.SelBefore.SelLength, False);
+      SetSelection(Action.SelBefore.SelStart, Action.SelBefore.SelStart + Action.SelBefore.SelLength, CaretNoMove);
       CaretPos := Action.SelBefore.CaretPos;
     end
     else

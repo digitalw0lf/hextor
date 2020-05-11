@@ -83,11 +83,14 @@ type
     property DropPoint: TPoint read GetPoint;
   end;
 
+const
+  sTextFromControl = '%%TextFromControl%%';  // Used as default parameter value
+
 procedure PopupFromControl(Menu:tPopupMenu; Control:tControl);
 function CreateFormWithContent(Content:TWinControl; BorderStyle:TFormBorderStyle; const Caption:string=''):TForm;
 function MakeFormWithContent(Content:TWinControl; BorderStyle:TFormBorderStyle; const Caption:string=''):TForm;
 function FmtHint(): TFmtHintWindow;
-procedure AddComboBoxHistory(CB: TComboBox; Text: string; MaxCount: Integer = 20);
+procedure AddComboBoxHistory(CB: TComboBox; Text: string = sTextFromControl; MaxCount: Integer = 20);
 
 procedure Register;
 
@@ -159,10 +162,13 @@ begin
   Result := DefaultFmtHintWindow;
 end;
 
-procedure AddComboBoxHistory(CB: TComboBox; Text: string; MaxCount: Integer = 20);
+procedure AddComboBoxHistory(CB: TComboBox; Text: string = sTextFromControl; MaxCount: Integer = 20);
+// Add given text to dropdown list of ComboBox, limiting total dropdown count
 var
   n: Integer;
 begin
+  if Text = sTextFromControl then
+    Text := CB.Text;
   n := CB.Items.IndexOf(Text);
   if n >= 0 then
     CB.Items.Move(n, 0)

@@ -663,7 +663,7 @@ begin
   Node := DSTreeView.FocusedNode;
   if Node = nil then Exit;
   DS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
-  FEditor.SetSelection(DS.BufAddr, DS.BufAddr + DS.BufSize, True);
+  FEditor.SelectAndShow(DS.BufAddr, DS.BufAddr + DS.BufSize);
 end;
 
 procedure TStructFrame.PnlButtonBar2MouseDown(Sender: TObject;
