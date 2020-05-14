@@ -22,5 +22,13 @@ object SearchResultsFrame: TSearchResultsFrame
       Caption = 'Close'
       OnClick = MICloseClick
     end
+    object MICloseOtherTabs: TMenuItem
+      Caption = 'Close other tabs'
+      OnClick = MICloseOtherTabsClick
+    end
+    object MICloseAll: TMenuItem
+      Caption = 'Close all'
+      OnClick = MICloseAllClick
+    end
   end
 end

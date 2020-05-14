@@ -13,7 +13,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Samples.Gauges, Vcl.StdCtrls,
-  System.Types;
+  System.Types,
+
+  uHextorTypes;
 
 type
   TProgressForm = class(TForm)
@@ -29,10 +31,13 @@ type
     ActiveWindow: HWnd;
     FocusState: TFocusState;
     WindowList: TTaskWindowList;
+    function FitTextInWidth(const Text: string; Canvas: TCanvas; MaxWidth: Integer): string;
   public
     { Public declarations }
     FOperationAborted: Boolean;
     procedure ShowLikeModal();
+    procedure ProgressDisplay(Sender: TProgressTracker; TotalProgress: Double; Text: string);
+    procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
   end;
 
 var
@@ -46,6 +51,21 @@ procedure TProgressForm.BtnAbortClick(Sender: TObject);
 begin
 //  FOperationAborted := True;
   Close();
+end;
+
+function TProgressForm.FitTextInWidth(const Text: string; Canvas: TCanvas;
+  MaxWidth: Integer): string;
+// Approximately fit text in specified width (in pixels) by replacing part of text with "...".
+var
+  w, chars: Integer;
+begin
+  w := Canvas.TextWidth(Text);
+  if w <= MaxWidth then Exit(Text);
+  // Approx. count of chars that fit in MaxWidth
+  chars := Round(MaxWidth / (w / Length(Text)));
+  Result := Copy(Text, Low(Text), chars * 2 div 3) +
+            '...' +
+            Copy(Text, Length(Text) - chars div 3 + 5, MaxInt);
 end;
 
 procedure TProgressForm.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -72,6 +92,34 @@ begin
   Constraints.MinHeight := Height;
   Constraints.MaxHeight := Height;
   Constraints.MinWidth := Width;
+end;
+
+procedure TProgressForm.ProgressDisplay(Sender: TProgressTracker;
+  TotalProgress: Double; Text: string);
+// Show progress reported by ProgressTracker
+var
+  s: string;
+begin
+  ProgressGauge.Progress := Round(TotalProgress * 100);
+  s := FitTextInWidth(Text, ProgressTextLabel.Canvas, ProgressTextLabel.Width);
+  ProgressTextLabel.Caption := s;
+
+  if not Visible then
+    ShowLikeModal();
+
+  FOperationAborted := False;
+  Application.ProcessMessages();
+  if FOperationAborted then Abort();
+end;
+
+procedure TProgressForm.ProgressTaskEnd(Sender: TProgressTracker;
+  Task: TProgressTracker.TTask);
+begin
+  if Sender.CurrentTaskLevel() = 0 then
+  begin
+    // Hide progress window when top-level task finishes
+    Close();
+  end;
 end;
 
 procedure TProgressForm.ShowLikeModal;

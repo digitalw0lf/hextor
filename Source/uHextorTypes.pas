@@ -12,7 +12,7 @@ interface
 
 uses
   SysUtils, Winapi.Windows, Generics.Collections, Vcl.Graphics, System.Math,
-  System.SysConst, superobject;
+  System.SysConst, superobject, uCallbackList;
 
 const
   KByte = 1024;
@@ -76,7 +76,41 @@ type
     class function StrToObject<T>(const S: string): T;
   end;
 
-//  TProgressProc = reference to procedure(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
+  // Manages progress reported by tasks and sub-tasks and passes it to
+  // main GUI for display.
+  // Any worker can create sub-tasks and define their portions of parent task's work.
+  // Sub-tasks will report their own progress. Progress tracker calculates
+  // total progress at any time moment.
+  TProgressTracker = class
+  public type
+    TTask = class
+      Worker: TObject;
+      Portion: Double;  // What portion of parent task this task occupies
+      TotalWorkFrom, TotalWorkTo: Double; // What portion of overall work this task occupies
+      Progress: Double; // Current (relative) progress of this task
+    end;
+  protected
+    TaskStack: TObjectStack<TTask>;
+    FTotalProgress: Double;
+    FLastText: string;
+    LastDisplay: Cardinal;
+    FDisplayInterval: Cardinal;
+    function GetCurrentTask(): TTask;
+  public
+    OnTaskStart: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;
+    OnTaskEnd: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;
+    OnDisplay: TCallbackListP3<{Sender: }TProgressTracker, {TotalProgress: }Double, {Text: }string>;
+    constructor Create();
+    destructor Destroy(); override;
+    property DisplayInterval: Cardinal read FDisplayInterval write FDisplayInterval;
+    procedure TaskStart(Worker: TObject; PortionOfParent: Double = 1.0);
+    procedure TaskEnd();
+    procedure Show({Worker: TObject;} Pos, Total: TFilePointer; Text: string = '-'); overload;
+    procedure Show({Worker: TObject;} AProgress: Double; Text: string = '-'); overload;
+    function CurrentTaskLevel(): Integer;
+    property CurrentTask: TTask read GetCurrentTask;
+    property TotalProgress: Double read FTotalProgress;
+  end;
 
 function Data2Hex(Data: PByteArray; Size: Integer; InsertSpaces: Boolean = False): string; overload;
 function Data2Hex(const Data: TBytes; InsertSpaces: Boolean = False): string; overload;
@@ -108,6 +142,9 @@ function GetAppBuildTime(Instance:THandle = 0):TDateTime;
 const
   EntireFile: TFileRange = (Start: 0; AEnd: -1);
   NoRange: TFileRange = (Start: -1; AEnd: -1);
+
+var
+  Progress: TProgressTracker = nil;  // Grobal progress tracker instance for all operations
 
 implementation
 
@@ -556,6 +593,119 @@ end;
 constructor TTaggedDataRegionList.Create;
 begin
   Create(EntireFile);
+end;
+
+{ TProgressTracker }
+
+constructor TProgressTracker.Create;
+begin
+  inherited;
+  TaskStack := TObjectStack<TTask>.Create();
+  FDisplayInterval := 100;
+end;
+
+function TProgressTracker.GetCurrentTask: TTask;
+begin
+  if TaskStack.Count = 0 then
+    Result := nil
+  else
+    Result := TaskStack.Peek;
+end;
+
+function TProgressTracker.CurrentTaskLevel: Integer;
+begin
+  Result := TaskStack.Count;
+end;
+
+destructor TProgressTracker.Destroy;
+begin
+  TaskStack.Free;
+  inherited;
+end;
+
+procedure TProgressTracker.Show({Worker: TObject;} AProgress: Double; Text: string);
+// Task calls this to report it's own progress.
+// '-' => do not change text.
+// Must be surrounded by TaskStart() / TaskEnd()
+var
+  ATotalProgress: Double;
+  CurTask: TTask;
+begin
+  CurTask := CurrentTask;
+  if CurTask = nil then Exit;
+
+  if Text <> '-' then
+    FLastText := Text;
+
+  with CurTask do
+  begin
+    Progress := AProgress;
+    ATotalProgress := TotalWorkFrom + (TotalWorkTo - TotalWorkFrom) * Progress;
+  end;
+  FTotalProgress := ATotalProgress;
+
+  // Pass to GUI once in 100 ms.
+  // If overall task takes less then 100 ms, progress window will not be displayed
+  if LastDisplay = 0 then LastDisplay := GetTickCount();
+  if (GetTickCount() - LastDisplay > DisplayInterval) then
+  begin
+    LastDisplay := GetTickCount();
+
+    OnDisplay.Call(Self, FTotalProgress, FLastText);
+  end;
+end;
+
+procedure TProgressTracker.Show({Worker: TObject; }Pos, Total: TFilePointer; Text: string = '-');
+var
+  AProgress: Double;
+begin
+  if Total > 0 then
+    AProgress := Pos/Total
+  else
+    AProgress := 0;
+  Show({Worker,} AProgress, Text);
+end;
+
+procedure TProgressTracker.TaskEnd;
+var
+  Task: TTask;
+begin
+  if CurrentTaskLevel = 0 then
+  begin
+    Assert(False, 'Unbalanced Progress.TaskStart/TaskEnd');
+    Exit;
+  end;
+  Show({CurrentTask.Worker,} 1.0);
+  Task := TaskStack.Extract();
+  OnTaskEnd.Call(Self, Task);
+  Task.Free;
+end;
+
+procedure TProgressTracker.TaskStart(Worker: TObject; PortionOfParent: Double = 1.0);
+var
+  Task, ParentTask: TTask;
+begin
+  if (PortionOfParent <> 1.0) and (CurrentTask = nil) then
+    raise Exception.Create('Top-level task thould have a portion equal to 1.0');
+  Task := TTask.Create();
+  Task.Worker := Worker;
+  Task.Portion := PortionOfParent;
+  ParentTask := CurrentTask;
+  if ParentTask = nil then
+  begin
+    Task.TotalWorkFrom := 0.0;
+    Task.TotalWorkTo := 1.0;
+    LastDisplay := 0;
+    FLastText := '';
+  end
+  else
+  begin
+    Task.TotalWorkFrom := TotalProgress;
+    Task.TotalWorkTo := Task.TotalWorkFrom + (ParentTask.TotalWorkTo - ParentTask.TotalWorkFrom) * PortionOfParent;
+  end;
+  TaskStack.Push(Task);
+  OnTaskStart.Call(Self, Task);
+  Show({Worker,} 0.0);
 end;
 
 initialization

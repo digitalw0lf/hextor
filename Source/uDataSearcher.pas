@@ -43,8 +43,6 @@ type
     Range: TFileRange;  // Actual range; equals to file size if Params.Range = EntireFile
     LastFound: TFileRange;
     FSearchInProgress: Boolean;
-    OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
-//    OnSearchDone: TCallbackListP1<TDataSearcher>;
     function ParamsDefined(): Boolean;
     function NeedleSize(): Integer; virtual;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; virtual;
@@ -115,7 +113,7 @@ begin
       if BlockSize < MaxBlockSize then
         BlockSize := BlockSize * 2;
 
-      OnProgress.Call(Self, Ptr-Range.Start, Range.Size, '-');
+      Progress.Show(Ptr-Range.Start, Range.Size);
     until False;
   finally
     FSearchInProgress := False;

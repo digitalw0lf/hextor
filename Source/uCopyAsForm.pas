@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uCopyAsForm;
 
 interface
@@ -121,6 +129,7 @@ begin
     raise Exception.Create('Invalid type name: ' + ElemType);
 
   sb := TStringBuilder.Create();
+  Progress.TaskStart(Self);
   try
     ElemSize := Interp.MinSize;
     Count := Length(AData) div ElemSize;
@@ -155,8 +164,8 @@ begin
           sb.Append(ExpandMacroses(Layout.Separator));
       end;
 
-      if (i mod 100000) = 0 then
-        MainForm.ShowProgress(Self, i+1, Count);
+      if (i mod 10000) = 0 then
+        Progress.Show(i+1, Count);
     end;
     // Footer
     sb.Append(ExpandMacroses(Layout.Footer));
@@ -164,7 +173,7 @@ begin
     Result := sb.ToString();
   finally
     sb.Free;
-    MainForm.OperationDone(Self);
+    Progress.TaskEnd();
   end;
 end;
 

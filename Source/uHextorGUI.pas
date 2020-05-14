@@ -165,10 +165,12 @@ end;
 procedure AddComboBoxHistory(CB: TComboBox; Text: string = sTextFromControl; MaxCount: Integer = 20);
 // Add given text to dropdown list of ComboBox, limiting total dropdown count
 var
+  ControlText: string;
   n: Integer;
 begin
+  ControlText := CB.Text;
   if Text = sTextFromControl then
-    Text := CB.Text;
+    Text := ControlText;
   n := CB.Items.IndexOf(Text);
   if n >= 0 then
     CB.Items.Move(n, 0)
@@ -176,6 +178,9 @@ begin
     CB.Items.Insert(0, Text);
   while CB.Items.Count > MaxCount do
     CB.Items.Delete(CB.Items.Count-1);
+  // Workaround: when moving item equal to current input box text,
+  // TComboBox clears it's contents
+  CB.Text := ControlText;
 end;
 
 { tFmtHintWindow }

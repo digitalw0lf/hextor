@@ -167,56 +167,69 @@ var
   i: Integer;
   DS: TDSField;
 begin
-  DSTreeView.Clear();
-  FreeAndNil(FShownDS);
-  BtnCopyValue.Enabled := False;
-
-  // Parse structure description
-  FShownDS := FParser.ParseStruct(Struct);
-
-  // Populate structure fields
-  FInterpretor.OnGetMoreData := procedure (AAddr, ASize: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean})
-    begin
-      Data := FEditor.Data.Get(AAddr, ASize);
-    end;
+  Progress.TaskStart(Self);
   try
-    FInterpretor.Interpret(ShownDS, Addr, Size);
-  except
-    // Show message and a partially parsed DS too
-    on E: Exception do
-      Application.ShowException(E);
-  end;
 
-  // Redraw editor to show structure
-  FEditor.UpdatePanes();
+    DSTreeView.Clear();
+    FreeAndNil(FShownDS);
+    BtnCopyValue.Enabled := False;
 
-  // Show tree
-  DSTreeView.BeginUpdate();
-  try
-    with TDSCompoundField(ShownDS) do
-      for i:=0 to Fields.Count-1 do
-        ShowStructTree(Fields[i], nil);
+    // Parse structure description
+    FShownDS := FParser.ParseStruct(Struct);
 
-    DSTreeView.IterateSubtree(nil,
-      procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean)
+    // Populate structure fields
+    FInterpretor.OnGetMoreData := procedure (AAddr, ASize: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean})
       begin
-        // Expand top-level nodes
-        if (Node.Parent = DSTreeView.RootNode) and (DSTreeView.ChildCount[Node] < 30) then
-          DSTreeView.Expanded[Node] := True;
-        // Expand nodes with errors
-        DS := GetNodeDS(Node);
-        if (DS <> nil) and (DS is TDSSimpleField) and ((DS as TDSSimpleField).ErrorText <> '') then
-          ExpandToNode(Node);
+        Data := FEditor.Data.Get(AAddr, ASize);
+      end;
 
-      end,
-      nil);
+    Progress.TaskStart(Self, 0.75);
+    try
+      try
+        FInterpretor.Interpret(ShownDS, Addr, Size);
+      except
+        // Show message and a partially parsed DS too
+        on E: Exception do
+          Application.ShowException(E);
+      end;
+    finally
+      Progress.TaskEnd();
+    end;
 
+    // Redraw editor to show structure
+    FEditor.UpdatePanes();
+
+    // Show tree
+    DSTreeView.BeginUpdate();
+    Progress.TaskStart(Self, 0.25);
+    try
+      with TDSCompoundField(ShownDS) do
+        for i:=0 to Fields.Count-1 do
+          ShowStructTree(Fields[i], nil);
+
+      DSTreeView.IterateSubtree(nil,
+        procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean)
+        begin
+          // Expand top-level nodes
+          if (Node.Parent = DSTreeView.RootNode) and (DSTreeView.ChildCount[Node] < 30) then
+            DSTreeView.Expanded[Node] := True;
+          // Expand nodes with errors
+          DS := GetNodeDS(Node);
+          if (DS <> nil) and (DS is TDSSimpleField) and ((DS as TDSSimpleField).ErrorText <> '') then
+            ExpandToNode(Node);
+
+        end,
+        nil);
+
+    finally
+      DSTreeView.EndUpdate();
+      Progress.TaskEnd();
+    end;
+
+    BtnCopyValue.Enabled := True;
   finally
-    DSTreeView.EndUpdate();
-    MainForm.OperationDone(Self);
+    Progress.TaskEnd();
   end;
-
-  BtnCopyValue.Enabled := True;
 end;
 
 
@@ -302,8 +315,6 @@ begin
 
   FParser := TDSParser.Create();
   FInterpretor := TDSInterpretor.Create();
-  FInterpretor.OnProgress.Add(MainForm.ShowProgress);
-  FInterpretor.OnOperationDone.Add(MainForm.OperationDone);
   FInterpretor.OnFieldInterpreted.Add(FieldInterpreted);
 
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
@@ -721,7 +732,7 @@ var
   i: Integer;
   RootDS: TDSField;
 begin
-  MainForm.ShowProgress(Self, DS.BufAddr - ShownDS.BufAddr, ShownDS.BufSize, 'Showing tree');
+  Progress.Show(DS.BufAddr - ShownDS.BufAddr, ShownDS.BufSize, 'Showing tree');
 
   S := DSNodeText(DS);
 

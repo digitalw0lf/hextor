@@ -190,8 +190,6 @@ type
     procedure ValidateField(DS: TDSSimpleField);
   public
     OnGetMoreData: TOnDSInterpretorGetData;
-    OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
-    OnOperationDone: TCallbackListP1<{Sender:}TObject>;
     OnFieldInterpreted: TCallbackListP2<{Sender:}TObject, {DS:}TDSField>;  // Called after each field populated with data from source
     procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
     constructor Create();
@@ -651,19 +649,23 @@ var
   Fields: TArrayOfDSField;
 begin
   Result := TDSStruct.Create();
-
-  while (Ptr < BufEnd) do
-  begin
-    if PeekLexem() = '}' then Break;
-    Fields := ReadStatement();
-//    if Fields = nil then Break;
-    for i:=0 to Length(Fields)-1 do
+  try
+    while (Ptr < BufEnd) do
     begin
-      Fields[i].Parent := Result;
-      Result.Fields.Add(Fields[i]);
+      if PeekLexem() = '}' then Break;
+      Fields := ReadStatement();
+  //    if Fields = nil then Break;
+      for i:=0 to Length(Fields)-1 do
+      begin
+        Fields[i].Parent := Result;
+        Result.Fields.Add(Fields[i]);
+      end;
     end;
+    LastStatementFields := nil;  // "#valid" works only inside same struct
+  except
+    Result.Free;
+    raise;
   end;
-  LastStatementFields := nil;  // "#valid" works only inside same struct
 end;
 
 function TDSParser.ReadSwitchStatement: TDSConditional;
@@ -1250,7 +1252,7 @@ begin
   DS.BufAddr := FCurAddr;
 
   // Real structure size is unknown, so suppose buffer size
-  OnProgress.Call(Self, FCurAddr - FStartAddr, FMaxSize, IntToStr(FieldsProcessed) + ' fields processed');
+  Progress.Show(FCurAddr - FStartAddr, FMaxSize, IntToStr(FieldsProcessed) + ' fields processed');
   try
     try
       if DS is TDSSimpleField then
@@ -1295,10 +1297,11 @@ begin
   EndOfData := (MaxSize = 0);
   FieldsProcessed := 0;
 //  WriteLogF('Struct_Intepret', 'Start');
+  Progress.TaskStart(Self);
   try
     InternalInterpret(DS);
   finally
-    OnOperationDone.Call(Self);
+    Progress.TaskEnd();
   end;
 end;
 

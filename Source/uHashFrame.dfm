@@ -74,7 +74,7 @@ object HashFrame: THashFrame
       AlignWithMargins = True
       Left = 3
       Top = 3
-      Width = 408
+      Width = 7
       Height = 17
       Align = alTop
       Caption = ' '

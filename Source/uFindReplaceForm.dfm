@@ -100,6 +100,7 @@ object FindReplaceForm: TFindReplaceForm
         Top = 82
         Width = 338
         Height = 21
+        AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
         TabOrder = 3
       end
@@ -108,6 +109,7 @@ object FindReplaceForm: TFindReplaceForm
         Top = 125
         Width = 432
         Height = 21
+        AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
         TabOrder = 4
       end

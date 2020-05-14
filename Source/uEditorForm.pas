@@ -324,10 +324,11 @@ begin
     Start := FirstVisibleAddr() + VisibleBytesCount();
   end;
 
+  Progress.TaskStart(FFSkipSearcher);
   try
     FFSkipSearcher.FindNext(Start, Dir, Ptr, Size);
   finally
-    MainForm.OperationDone(FFSkipSearcher);
+    Progress.TaskEnd();
   end;
   BeginUpdatePanes();
   try
@@ -425,12 +426,9 @@ begin
   UndoStack := TUndoStack.Create(Data);
   UndoStack.OnActionCreating.Add(UndoActionCreating);
   UndoStack.OnActionReverted.Add(UndoActionReverted);
-  UndoStack.OnProgress.Add(MainForm.ShowProgress);
-  UndoStack.OnOperationDone.Add(MainForm.OperationDone);
 
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
-  FFSkipSearcher.OnProgress.Add(MainForm.ShowProgress);
   OnGetTaggedRegions.Add(EditorGetTaggedRegions);
 
   MainForm.AddEditor(Self);

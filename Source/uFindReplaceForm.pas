@@ -88,6 +88,7 @@ type
     procedure AutosizeForm();
     procedure CheckEnabledControls();
     procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
+    procedure FindInOpenFiles(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     procedure FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
   public
@@ -114,6 +115,7 @@ begin
   sl := TStringList.Create();
   try
     sl.Delimiter := PathSep;
+    sl.StrictDelimiter := True;
     sl.QuoteChar := '"';
     sl.DelimitedText := Text;
     Result := sl.ToStringArray();
@@ -313,7 +315,7 @@ function TFindReplaceForm.FindAll(Action: TSearchAction): Integer;
 var
   ResultsFrame: TSearchResultsTabFrame;
   ResultBoundToEditor: TEditorForm;
-  i, NewCount, InFilesCount: Integer;
+  InFilesCount: Integer;
   s: string;
 begin
   ResultsFrame := nil;
@@ -342,6 +344,7 @@ begin
     ResultsFrame := MainForm.SearchResultsFrame.StartNewList(ResultBoundToEditor, Searcher.Params.Text);
   end;
 
+  Progress.TaskStart(Self);
   try
 
     case FindWhere.AType of
@@ -351,14 +354,7 @@ begin
         end;
       fwAllOpenFiles:  // Search in all open files
         begin
-          Result := 0;
-          for i:=0 to MainForm.EditorCount-1 do
-          begin
-            FindInData(MainForm.Editors[i], MainForm.Editors[i].Data, Action, Result, NewCount, ResultsFrame);
-            Inc(Result, NewCount);
-            if NewCount > 0 then
-              Inc(InFilesCount);
-          end;
+          FindInOpenFiles(Action, ResultsFrame, Result, InFilesCount);
         end;
       fwSelectedDirectories:  // Search in specified directories
         begin
@@ -368,13 +364,13 @@ begin
 
   finally
     if Action in [saList, saReplace] then
+    begin
       ResultsFrame.EndUpdateList();
+      MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
+    end;
+    Progress.TaskEnd();
   end;
 
-  if Action in [saList, saReplace] then
-  begin
-    MainForm.ShowToolFrame(MainForm.SearchResultsFrame);
-  end;
   // Result count message box
   if Result = 0 then
     s := 'Search string not found'
@@ -398,6 +394,12 @@ var
   YesToAll: Boolean;
   ActionCode: Integer;
   SelectAfterOperation: TFileRange;  // This range will be selected after operation complete (e.g. last replaced item)
+
+  function ProgressText(): string;
+  begin
+    Result := 'Found '+IntToStr(OldCount + NewCount)+' time(s)  (' + AData.DataSource.Path + ')';
+  end;
+
 begin
   Searcher.Haystack := AData;
   ResultsGroupNode := nil;
@@ -411,9 +413,11 @@ begin
   ActionCode := Random(1000000);
   SelectAfterOperation := NoRange;
 
+  Progress.TaskStart(Searcher);
   if Assigned(AEditor) then
     AEditor.BeginUpdatePanes();
   try
+    Progress.Show(0, ProgressText());
     while Searcher.FindNext(Start, 1, Ptr, Size) do  // <--
     begin
       NewSize := Size;
@@ -457,7 +461,7 @@ begin
 
       Inc(NewCount);
       Start := Ptr + NewSize;
-      MainForm.ShowProgress(Searcher, Start - Searcher.Range.Start, Searcher.Range.Size, 'Found '+IntToStr(OldCount + NewCount)+' time(s)');
+      Progress.Show(Start - Searcher.Range.Start, Searcher.Range.Size, ProgressText());
     end;
   finally
     // Move caret to where operation ended
@@ -470,7 +474,7 @@ begin
       AEditor.EndUpdatePanes();
     if NewCount = 0 then
       ResultsFrame.DeleteListGroup(ResultsGroupNode);
-    MainForm.OperationDone(Searcher);
+    Progress.TaskEnd();
   end;
 end;
 
@@ -494,6 +498,7 @@ begin
     if Start > TargetEditor.GetFileSize()-1 then Start := TargetEditor.GetFileSize()-1;
   end;
 
+  Progress.TaskStart(Searcher);
   try
     if Searcher.FindNext(Start, Dir, Ptr, Size) then
     begin
@@ -510,14 +515,13 @@ begin
       Result := False;
     end;
   finally
-    MainForm.OperationDone(Searcher);
+    Progress.TaskEnd();
   end;
 end;
 
 procedure TFindReplaceForm.FormCreate(Sender: TObject);
 begin
   Searcher := TDataSearcher.Create();
-  Searcher.OnProgress.Add(MainForm.ShowProgress);
   CPReplace.Collapsed := True;
   CPFindInFiles.Collapsed := True;
   AutosizeForm();
@@ -574,33 +578,46 @@ var
   i, j, NewCount: Integer;
   Data: TEditedData;
   DataSource: THextorDataSource;
+  TotalSize: Double;  // We can overflow Int64 here
 begin
   Count := 0;
   InFilesCount := 0;
+  TotalSize := 0;
   // Collect a list of files matching requested directory/mask
   FileNames := [];
-  for i:=0 to Length(FindWhere.Directories)-1 do
-  begin
-    FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], '*', TSearchOption.soAllDirectories,
-      function(const Path: string; const SearchRec: TSearchRec): Boolean
-      // Compare with all masks from list
-      var
-        i: Integer;
-      begin
-        if (SearchRec.Attr and faDirectory) <> 0 then Exit(True);
-        if Length(FindWhere.FileMasks) = 0 then
-          Exit(True);
-        for i:=0 to Length(FindWhere.FileMasks)-1 do
-          if MatchesMask(SearchRec.Name, FindWhere.FileMasks[i]) then Exit(True);
-        Result := False;
-      end);
-    // Cannot operate on opened file
-    if Action = saReplace then
-      for j:=0 to Length(FilesInDir)-1 do
-        if MainForm.FindEditorWithSource(TFileDataSource, FilesInDir[j]) <> nil then
-          raise EInvalidUserInput.Create('"Replace in directory" cannot operate on a file that is open in editor now. ' +
-            'Close this file before proceeding:' + sLineBreak + sLineBreak + FilesInDir[j]);
-    FileNames := FileNames + FilesInDir;
+  Progress.TaskStart(Self, 0);
+  try
+    for i:=0 to Length(FindWhere.Directories)-1 do
+    begin
+      FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], '*', TSearchOption.soAllDirectories,
+        function(const Path: string; const SearchRec: TSearchRec): Boolean
+        // Compare with all masks from list
+        var
+          i: Integer;
+        begin
+          Progress.Show(0, 'Scanning folders... (' + Path + ')');
+          if (SearchRec.Attr and faDirectory) <> 0 then Exit(True);
+          Result := False;
+          if Length(FindWhere.FileMasks) = 0 then
+            Result := True
+          else
+          for i:=0 to Length(FindWhere.FileMasks)-1 do
+            if MatchesMask(SearchRec.Name, FindWhere.FileMasks[i]) then
+              Result := True;
+          if Result then
+            TotalSize := TotalSize + SearchRec.Size;
+        end);
+      // Cannot operate on opened file
+      if Action = saReplace then
+        for j:=0 to Length(FilesInDir)-1 do
+          if MainForm.FindEditorWithSource(TFileDataSource, FilesInDir[j]) <> nil then
+            raise EInvalidUserInput.Create('"Replace in directory" cannot operate on a file that is open in editor now. ' +
+              'Close this file before proceeding:' + sLineBreak + sLineBreak + FilesInDir[j]);
+      FileNames := FileNames + FilesInDir;
+    end;
+    if TotalSize = 0 then TotalSize := 1;
+  finally
+    Progress.TaskEnd();
   end;
 
   // Search in files
@@ -609,6 +626,7 @@ begin
     DataSource := TFileDataSource.Create(FileNames[i]);
     try
       DataSource.Open(fmOpenRead);
+      Progress.TaskStart(Searcher, DataSource.GetSize() / TotalSize);
       Data := TEditedData.Create();
       try
         Data.DataSource := DataSource;
@@ -629,9 +647,40 @@ begin
 
       finally
         Data.Free;
+        Progress.TaskEnd();
       end;
     finally
       DataSource.Free;
+    end;
+  end;
+end;
+
+procedure TFindReplaceForm.FindInOpenFiles(Action: TSearchAction;
+  ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
+// Search in all open files
+var
+  i, NewCount: Integer;
+  TotalSize: Double;  // We can overflow Int64 here
+begin
+  // Calculate sum of files sizes to display total progress
+  TotalSize := 0;
+  for i:=0 to MainForm.EditorCount-1 do
+    TotalSize := TotalSize + MainForm.Editors[i].GetFileSize();
+  if TotalSize = 0 then TotalSize := 1;
+
+  // Search
+  Count := 0;
+  InFilesCount := 0;
+  for i:=0 to MainForm.EditorCount-1 do
+  begin
+    Progress.TaskStart(Searcher, MainForm.Editors[i].GetFileSize() / TotalSize);
+    try
+      FindInData(MainForm.Editors[i], MainForm.Editors[i].Data, Action, Count, NewCount, ResultsFrame);
+      Inc(Count, NewCount);
+      if NewCount > 0 then
+        Inc(InFilesCount);
+    finally
+      Progress.TaskEnd();
     end;
   end;
 end;

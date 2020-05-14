@@ -1,3 +1,11 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uDataSaver;
 
 interface
@@ -14,7 +22,7 @@ type
       DataSourceType: THextorDataSourceType; const APath: string;
       var InplaceSaving, UseTempFile: Boolean): Boolean;
     class procedure CopyDataRegion(Source, Dest: THextorDataSource;
-      SourceAddr, DestAddr, Size: TFilePointer);
+      SourceAddr, DestAddr, Size: TFilePointer; ShowProgress: Boolean = False);
     class procedure Save(Data: TEditedData;
       NewDataSourceType: THextorDataSourceType; NewPath: string);
   end;
@@ -43,7 +51,7 @@ begin
 end;
 
 class procedure TDataSaver.CopyDataRegion(Source, Dest: THextorDataSource;
-  SourceAddr, DestAddr, Size: TFilePointer);
+  SourceAddr, DestAddr, Size: TFilePointer; ShowProgress: Boolean = False);
 const
   BlockSize = 10 * MByte;
 var
@@ -60,6 +68,8 @@ begin
     Source.GetData(SourceAddr + Pos, PortionSize, Buf[0]);
     Dest.ChangeData(DestAddr + Pos, PortionSize, Buf[0]);
     Pos := Pos + PortionSize;
+    if (ShowProgress) and (Pos < Size) then
+      Progress.Show(Pos, Size);
   end;
 end;
 
@@ -113,6 +123,7 @@ begin
   end;
 
   // Write regions
+  Progress.TaskStart(Data);
   try
     for APart in Data.Parts do
     begin
@@ -120,18 +131,23 @@ begin
         Continue;
       case APart.PartType of
         ptSource:
-          CopyDataRegion(Data.DataSource, Dest, APart.SourceAddr, APart.Addr,
-            APart.Size);
+          begin
+            Progress.TaskStart(Data, APart.Size / Data.GetSize);
+            try
+              CopyDataRegion(Data.DataSource, Dest, APart.SourceAddr, APart.Addr,
+                APart.Size, True);
+            finally
+              Progress.TaskEnd();
+            end;
+          end;
         ptBuffer:
           Dest.ChangeData(APart.Addr, APart.Size, APart.Data[0]);
       end;
 
-      // TODO: remove direct dependence in MainForm
-      MainForm.ShowProgress(nil { TODO } , APart.Addr + APart.Size,
-        Data.GetSize, '-');
+      Progress.Show(APart.Addr + APart.Size, Data.GetSize);
     end;
   finally
-    MainForm.OperationDone(nil { TODO } );
+    Progress.TaskEnd();
   end;
   // TODO: Handle write errors
 

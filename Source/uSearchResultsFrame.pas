@@ -22,11 +22,15 @@ type
     PageControl: TPageControl;
     ResultsTabMenu: TPopupMenu;
     MIClose: TMenuItem;
+    MICloseAll: TMenuItem;
+    MICloseOtherTabs: TMenuItem;
     procedure PageControlMouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure MICloseClick(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
     procedure PageControlChanging(Sender: TObject; var AllowChange: Boolean);
+    procedure MICloseAllClick(Sender: TObject);
+    procedure MICloseOtherTabsClick(Sender: TObject);
   private
     { Private declarations }
     LastUsedNameIndex: Integer;
@@ -41,6 +45,23 @@ type
 implementation
 
 {$R *.dfm}
+
+procedure TSearchResultsFrame.MICloseAllClick(Sender: TObject);
+var
+  i: Integer;
+begin
+  for i:=PageControl.PageCount-1 downto 0 do
+    PageControl.Pages[i].Free;
+end;
+
+procedure TSearchResultsFrame.MICloseOtherTabsClick(Sender: TObject);
+var
+  i: Integer;
+begin
+  for i:=PageControl.PageCount-1 downto 0 do
+    if i <> ResultsTabMenuTabIndex then
+      PageControl.Pages[i].Free;
+end;
 
 procedure TSearchResultsFrame.MICloseClick(Sender: TObject);
 begin

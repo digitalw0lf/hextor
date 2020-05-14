@@ -55,8 +55,6 @@ type
     OnActionCreating: TCallbackListP1<{Action:}TUndoStackAction>;
     OnActionCreated: TCallbackListP1<{Action:}TUndoStackAction>;
     OnActionReverted: TCallbackListP2<{Action:}TUndoStackAction, {Direction:}TUndoDirection>;
-    OnProgress: TCallbackListP4<{Sender:}TObject, {Pos:}TFilePointer, {Total:}TFilePointer, {Text:}string>;
-    OnOperationDone: TCallbackListP1<{Sender:}TObject>;
     constructor Create(AEditedData: TEditedData);
     destructor Destroy(); override;
     procedure Undo();
@@ -220,16 +218,17 @@ begin
   // our Action with inversed changes for subsequent redo/undo operation
   Inc(CurPointer, Ord(Direction));
   UndoingNow := Direction;
+  Progress.TaskStart(Self);
   try
     for i:=TmpChanges.Count-1 downto 0 do
     begin
       EditedData.ReplaceParts(TmpChanges[i].Addr, TmpChanges[i].NewSize, TmpChanges[i].DataParts);
-      OnProgress.Call(Self, TmpChanges.Count-i, TmpChanges.Count, '-');
+      Progress.Show(TmpChanges.Count-i, TmpChanges.Count);
     end;
   finally
     UndoingNow := udNone;
     TmpChanges.Free;
-    OnOperationDone.Call(Self);
+    Progress.TaskEnd();
   end;
   OnActionReverted.Call(Action, Direction);
 end;

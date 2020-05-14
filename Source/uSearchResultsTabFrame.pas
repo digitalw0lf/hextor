@@ -202,7 +202,8 @@ var
   AEditor: TEditorForm;
 begin
   ResultsList.EndUpdate();
-  LblFoundCount.Caption := IntToStr(ResultsList.TotalCount - ResultsList.RootNodeCount) + ' items';
+  LblFoundCount.Caption := IntToStr(ResultsList.TotalCount - ResultsList.RootNodeCount) + ' item(s) in ' +
+                           IntToStr(ResultsList.RootNodeCount) + ' file(s)';
 
   for AEditor in GetLinkedEditors() do
     AEditor.UpdatePanes();

@@ -226,7 +226,7 @@ object MainForm: TMainForm
             ExplicitHeight = 519
             ColWidths = (
               64
-              343)
+              347)
             RowHeights = (
               21
               21)
@@ -283,6 +283,13 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSaveDescr: TToolButton
+              ExplicitWidth = 26
+            end
+            inherited LblStructName: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
           end
         end
       end
@@ -1077,7 +1084,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010114004001DC0210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010114004001E40210001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000006000000001002000000000000060
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

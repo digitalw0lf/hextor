@@ -155,6 +155,7 @@ begin
   ResultListView.Clear();
 
   Ptr := Range.Start;
+  Progress.TaskStart(Self);
   try
     while Ptr < Range.AEnd do
     begin
@@ -168,7 +169,7 @@ begin
 
         HashObjs[a].Update(@Data[0], Length(Data));
 
-        MainForm.ShowProgress(Self, (Ptr - Range.Start) + (Size * (a+1) div Length(Algorithms)), Range.Size);
+        Progress.Show((Ptr - Range.Start) + (Size * (a+1) div Length(Algorithms)), Range.Size);
       end;
 
       Ptr := Ptr + Size;
@@ -188,7 +189,7 @@ begin
     end;
 
   finally
-    MainForm.OperationDone(Self);
+    Progress.TaskEnd();
   end;
 end;
 

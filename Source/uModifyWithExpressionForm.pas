@@ -94,6 +94,7 @@ begin
   ScriptControl := TScriptControl.Create(nil);
   ScriptControl.Language := 'JScript';
   ScriptVars := TFillExpressionVars.Create();
+  Progress.TaskStart(Self);
   try
     // Container for built-in variables x, p, i, a
     ScriptControl.AddObject('ScriptVars', MainForm.APIEnv.GetAPIWrapper(ScriptVars), True);
@@ -117,11 +118,11 @@ begin
       PutElement(AData, ElementSize, i, x);
 
       if i mod 10000 = 0 then
-        MainForm.ShowProgress(Self, i+1, ElemCount);
+        Progress.Show(i+1, ElemCount);
     end;
 
   finally
-    MainForm.OperationDone(Self);
+    Progress.TaskEnd();
     MainForm.APIEnv.ObjectDestroyed(ScriptVars);
     ScriptVars.Free;
     ScriptControl.Free;

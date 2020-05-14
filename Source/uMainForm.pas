@@ -300,8 +300,6 @@ type
     FEditors: TObjectList<TEditorForm>;
     FInitialFilesOpened: Boolean;
     FDoAfterEvent: array of TProc;
-    LastProgressRefresh: Cardinal;
-    LastProgressText: string;
     OldOnActiveControlChange: TNotifyEvent;
     EditorActionShortcuts: TDictionary<TContainedAction, TShortCutSet>;
     EditorForTabMenu: TEditorForm;
@@ -351,10 +349,7 @@ type
     function FindEditorWithSource(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;
     procedure ShowToolFrame(Frame: TFrame);
     procedure DoAfterEvent(Proc: TProc);
-    [API]
-    procedure ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
-    [API]
-    procedure OperationDone(Sender: TObject);
+
     [API]
     procedure DoTest(x: Integer);
   end;
@@ -1013,6 +1008,7 @@ begin
   Size := Str2FileSize(s);
 
   fs := TFileStream.Create(ExtractFilePath(Application.ExeName) + 'TestFile_'+s.Replace(' ','_')+'.dat', fmCreate);
+  Progress.TaskStart(Sender);
   try
     SetLength(Block, BlockSize);
     for i:=0 to BlockSize div 4-1 do
@@ -1023,11 +1019,11 @@ begin
       s1 := AnsiString(Format('-------- Block %8d --------', [i]));
       Move(s1[Low(s1)], Block[0], Length(s1));
       fs.WriteBuffer(Block[0], BlockSize);
-      ShowProgress(Sender, i+1, Size div BlockSize);
+      Progress.Show(i+1, Size div BlockSize);
     end;
 
   finally
-    OperationDone(Sender);
+    Progress.TaskEnd();
     fs.Free;
   end;
 
@@ -1088,6 +1084,9 @@ var
 begin
 //  bWriteLogFile := True;
 //  bThreadedLogWrite := False;
+  Progress := TProgressTracker.Create();
+  Progress.OnDisplay.Add(ProgressForm.ProgressDisplay);
+  Progress.OnTaskEnd.Add(ProgressForm.ProgressTaskEnd);
 
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
@@ -1146,6 +1145,7 @@ begin
 
   Utils.Free;
   APIEnv.Free;
+  FreeAndNil(Progress);
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
@@ -1357,15 +1357,6 @@ begin
     ActionNewExecute(nil);
 end;
 
-procedure TMainForm.OperationDone(Sender: TObject);
-// Hide progress window
-begin
-  ProgressForm.ProgressTextLabel.Caption := '';
-  ProgressForm.Close();
-  LastProgressRefresh := 0;
-  LastProgressText := '';
-end;
-
 procedure TMainForm.RecentFilesMenuPopup(Sender: TObject);
 begin
   GenerateRecentFilesMenu(RecentFilesMenu.Items);
@@ -1460,33 +1451,6 @@ begin
   end;
 end;
 
-procedure TMainForm.ShowProgress(Sender: TObject; Pos, Total: TFilePointer; Text: string = '-');
-// '-' => do not change text
-var
-  Percents: Integer;
-begin
-  if Text <> '-' then
-    LastProgressText := Text;
-
-  if LastProgressRefresh = 0 then LastProgressRefresh := GetTickCount();
-  if (GetTickCount() - LastProgressRefresh < 100) then Exit;
-  LastProgressRefresh := GetTickCount();
-
-  if Total > 0 then
-    Percents := Round(Pos/Total*100)
-  else
-    Percents := 0;
-  ProgressForm.ProgressGauge.Progress := Percents;
-  ProgressForm.ProgressTextLabel.Caption := LastProgressText;
-
-  if not ProgressForm.Visible then
-    ProgressForm.ShowLikeModal();
-
-  ProgressForm.FOperationAborted := False;
-  Application.ProcessMessages();
-  if ProgressForm.FOperationAborted then Abort();
-end;
-
 procedure TMainForm.ShowToolFrame(Frame: TFrame);
 //var
 //  i: Integer;
@@ -1546,6 +1510,7 @@ var
 begin
   b := String2Data(AnsiString('#SPEEDTEST'));
 
+  Progress.TaskStart(Sender);
   with ActiveEditor do
   begin
     BeginUpdatePanes();
@@ -1555,13 +1520,13 @@ begin
 //        StartTimeMeasure();
         ChangeBytes(Random(GetFileSize() - Length(b)), b);
 //        EndTimeMeasure('change', True, 'Timing');
-        ShowProgress(Sender, i, WriteCount);
+        Progress.Show(i, WriteCount);
       end;
     finally
       EndUpdatePanes();
     end;
   end;
-  OperationDone(Sender);
+  Progress.TaskEnd();
 end;
 
 procedure TMainForm.Undostack1Click(Sender: TObject);
