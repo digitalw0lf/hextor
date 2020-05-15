@@ -285,6 +285,7 @@ end;
 constructor TValueInterpretor.Create;
 begin
   Names := TStringList.Create();
+  Names.CaseSensitive := False;
 end;
 
 destructor TValueInterpretor.Destroy;
@@ -346,11 +347,11 @@ var
   i: Integer;
 begin
   RegisterInterpretor(['int8'], Int2Variant, Variant2Int, 1);
-  RegisterInterpretor(['uint8', 'char', 'byte'], UInt2Variant, Variant2UInt, 1);
+  RegisterInterpretor(['uint8', 'char', 'uchar', 'byte'], UInt2Variant, Variant2UInt, 1);
   RegisterInterpretor(['int16'], Int2Variant, Variant2Int, 2);
   RegisterInterpretor(['uint16', 'word'], UInt2Variant, Variant2UInt, 2);
-  RegisterInterpretor(['int32', 'int'], Int2Variant, Variant2Int, 4);
-  RegisterInterpretor(['uint32', 'uint', 'dword', 'cardinal'], UInt2Variant, Variant2UInt, 4);
+  RegisterInterpretor(['int32', 'int', 'long'], Int2Variant, Variant2Int, 4);
+  RegisterInterpretor(['uint32', 'uint', 'dword', 'cardinal', 'ulong'], UInt2Variant, Variant2UInt, 4);
   RegisterInterpretor(['int64'], Int2Variant, Variant2Int, 8);
   RegisterInterpretor(['uint64', 'qword'], UInt2Variant, Variant2UInt, 8);
 

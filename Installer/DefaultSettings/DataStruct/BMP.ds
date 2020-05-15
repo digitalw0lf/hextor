@@ -1,0 +1,49 @@
+// File header
+{
+  ansi magic[2]; //WORD  bfType;
+  DWORD bfSize;
+  WORD  bfReserved1;
+  WORD  bfReserved2;
+  DWORD bfOffBits;
+} BitmapFileHeader;
+
+// Bitmap header
+{
+  DWORD biSize;
+  LONG  biWidth;
+  LONG  biHeight;
+  WORD  biPlanes;
+  WORD  biBitCount;
+  DWORD biCompression;
+  DWORD biSizeImage;
+  LONG  biXPelsPerMeter;
+  LONG  biYPelsPerMeter;
+  DWORD biClrUsed;
+  DWORD biClrImportant;
+  if (biSize > 40) {
+    uint8 unknown[biSize - 40];
+  };
+} bmiHeader;
+
+// Color palette
+{
+  BYTE rgbBlue;
+  BYTE rgbGreen;
+  BYTE rgbRed;
+  BYTE rgbReserved;
+} bmiColors[(bmiHeader.biClrUsed > 0) ? bmiHeader.biClrUsed :
+            (bmiHeader.biBitCount == 1) ? 2 :
+            (bmiHeader.biBitCount == 4) ? 16 :
+            (bmiHeader.biBitCount == 8) ? 256 : 0];
+
+// Pixel data
+{
+  switch (bmiHeader.biBitCount) {
+    case 16: uint16 data16[bmiHeader.biWidth];
+    case 24: {uint8 b, g, r;} rgb[bmiHeader.biWidth];
+    case 32: {uint8 b, g, r, a;} rgba[bmiHeader.biWidth];
+    default: uint8 data[Math.floor((bmiHeader.biWidth*bmiHeader.biBitCount-1)/8)+1];
+  }
+  // Align to 4 bytes
+  int8 padding[(4 - (Math.floor((bmiHeader.biWidth*bmiHeader.biBitCount-1)/8)+1) % 4) % 4];
+} rows[Math.abs(bmiHeader.biHeight)];

@@ -1218,11 +1218,31 @@ begin
 end;
 
 procedure TMainForm.InitDefaultSettings;
+var
+  Files: TStringDynArray;
+  Source, Target: string;
+  i: Integer;
 begin
   AppSettings.ScrollWithWheel := 3;
   AppSettings.ByteColumns := -1;
 
 //  AppSettings.Colors.ValueHighlightBg := $FFD0A0;
+
+  // Copy default configuration from App_Folder\DefaultSettings to AppData
+  try
+    Source := TPath.Combine(ExtractFilePath(Application.ExeName), 'DefaultSettings');
+    if System.SysUtils.DirectoryExists(Source) then
+    begin
+      Files := TDirectory.GetDirectories(Source, '*', TSearchOption.soTopDirectoryOnly);
+      for i:=0 to Length(Files)-1 do
+      begin
+        Target := TPath.Combine(SettingsFolder, ExtractFileName(Files[i]));
+        if not System.SysUtils.DirectoryExists(Target) then
+          TDirectory.Copy(Files[i], Target);
+      end;
+    end;
+  except
+  end;
 end;
 
 type

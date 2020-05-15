@@ -149,7 +149,7 @@ type
     function ReadLexem(): string;
     function PeekLexem(): string;
     function ReadExpectedLexem(const Expected: array of string): string;
-    function ReadExpressionStr(): string;
+    function ReadExpressionStr(StopAtChars: TSysCharSet = [';']): string;
     function ReadLine(): string;
     function ReadType(): TDSField;
     function ReadStatement(): TArrayOfDSField;
@@ -421,7 +421,7 @@ begin
   raise EDSParserError.Create(s + ' expected');
 end;
 
-function TDSParser.ReadExpressionStr: string;
+function TDSParser.ReadExpressionStr(StopAtChars: TSysCharSet = [';']): string;
 // Read expression text until closing bracket found
 var
   Level: Integer;
@@ -437,7 +437,7 @@ begin
       ']', ')', '}': Dec(Level);
     end;
     if (Level < 0) or (C = #0) then Break;
-    if (Level = 0) and ((C = ';') or (C = ':')) then Break;
+    if (Level = 0) and (CharInSet(C, StopAtChars)) then Break;
 
     Result := Result + C;
   until False;
@@ -696,7 +696,7 @@ begin
       S := ReadLexem();
       if SameName(S, 'case') then
       begin
-        ACase := ReadExpressionStr();
+        ACase := ReadExpressionStr([';', ':']);
         ReadExpectedLexem([':']);
         // Read Statement
         AFields := ReadStatement();
@@ -906,19 +906,18 @@ begin
   for i:=0 to Fields.Count-1 do
   begin
     Result := Result + Fields[i].ToQuotedString;
-    if i = Fields.Count-1 then
-      Result := Result + ')'
-    else
+    if i < Fields.Count-1 then
     begin
       if Length(Result) > MaxDispLen then
       begin
         Result := Result + '...';
-        Exit;
+        Break;
       end
       else
         Result := Result + ', ';
     end;
   end;
+  Result := Result + ')';
 end;
 
 { TDSArray }
