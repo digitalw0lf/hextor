@@ -152,6 +152,19 @@ object ProcessSelectForm: TProcessSelectForm
     ShowHint = True
     OnClick = BtnRefreshListClick
   end
+  object Label2: TLabel
+    Left = 16
+    Top = 392
+    Width = 221
+    Height = 13
+    Caption = 'Warning: this feature is incomplete and buggy'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clRed
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+  end
   object ListView1: TListView
     Left = 8
     Top = 47

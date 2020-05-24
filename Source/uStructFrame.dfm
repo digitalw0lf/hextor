@@ -3,6 +3,8 @@ object StructFrame: TStructFrame
   Top = 0
   Width = 297
   Height = 629
+  HelpType = htKeyword
+  HelpKeyword = 'Structure-analyzer'
   DoubleBuffered = True
   ParentDoubleBuffered = False
   TabOrder = 0
@@ -43,6 +45,28 @@ object StructFrame: TStructFrame
       Images = MainForm.ImageList16
       TabOrder = 1
       OnClick = BtnCopyValueClick
+    end
+    object Panel1: TPanel
+      Left = 256
+      Top = 0
+      Width = 41
+      Height = 41
+      Align = alRight
+      BevelOuter = bvNone
+      TabOrder = 2
+      object BtnHelp: TButton
+        Left = 8
+        Top = 8
+        Width = 25
+        Height = 25
+        HelpType = htKeyword
+        HelpKeyword = 'Structure-analyzer'
+        ImageAlignment = iaCenter
+        ImageIndex = 20
+        Images = MainForm.ImageList16
+        TabOrder = 0
+        OnClick = BtnHelpClick
+      end
     end
   end
   object DSDescrEdit: TSynEdit
@@ -127,6 +151,7 @@ object StructFrame: TStructFrame
     Caption = 'ToolBar1'
     Images = MainForm.ImageList16
     TabOrder = 4
+    ExplicitTop = -6
     object BtnNewDescr: TToolButton
       Left = 0
       Top = 0

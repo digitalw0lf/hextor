@@ -50,6 +50,8 @@ type
     MIRangeSelection: TMenuItem;
     DSFieldPopupMenu: TPopupMenu;
     MISelectInEditor: TMenuItem;
+    Panel1: TPanel;
+    BtnHelp: TButton;
     procedure BtnInterpretClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
     procedure PnlButtonBar2MouseDown(Sender: TObject; Button: TMouseButton;
@@ -83,6 +85,7 @@ type
     procedure InterpretRangeMenuPopup(Sender: TObject);
     procedure MIRangeEntireFileClick(Sender: TObject);
     procedure MISelectInEditorClick(Sender: TObject);
+    procedure BtnHelpClick(Sender: TObject);
   private const
     Unnamed_Struct = 'Unnamed';
   public type
@@ -242,6 +245,11 @@ procedure TStructFrame.BtnCopyValueClick(Sender: TObject);
 begin
   if ShownDS <> nil then
     Clipboard.AsText := DSValueAsJson(ShownDS);
+end;
+
+procedure TStructFrame.BtnHelpClick(Sender: TObject);
+begin
+  Application.HelpKeyword((Sender as TControl).HelpKeyword);
 end;
 
 procedure TStructFrame.BtnInterpretClick(Sender: TObject);

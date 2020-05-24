@@ -893,7 +893,12 @@ begin
       FocusInEditor := (Screen.ActiveControl=PaneHex) or (Screen.ActiveControl=PaneText);
 
       ActionSave.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and ((HasUnsavedChanges) or (DataSource.Path=''));
+      ActionSaveAs.Enabled := True;
+      ActionSaveAll.Enabled := True;
+      ActionSaveSelectionAs.Enabled := (SelLength > 0);
       ActionRevert.Enabled := (HasUnsavedChanges);
+      ActionClose.Enabled := True;
+      ActionCloseAll.Enabled := True;
 
       for i:=0 to ActionList1.ActionCount-1 do
         if (ActionList1.Actions[i].Category = 'Edit') or
@@ -926,7 +931,12 @@ begin
   else
   begin
     ActionSave.Enabled := False;
+    ActionSaveAs.Enabled := False;
+    ActionSaveAll.Enabled := False;
+    ActionSaveSelectionAs.Enabled := False;
     ActionRevert.Enabled := False;
+    ActionClose.Enabled := False;
+    ActionCloseAll.Enabled := False;
 
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or

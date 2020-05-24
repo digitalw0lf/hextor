@@ -348,8 +348,8 @@ var
 begin
   RegisterInterpretor(['int8'], Int2Variant, Variant2Int, 1);
   RegisterInterpretor(['uint8', 'char', 'uchar', 'byte'], UInt2Variant, Variant2UInt, 1);
-  RegisterInterpretor(['int16'], Int2Variant, Variant2Int, 2);
-  RegisterInterpretor(['uint16', 'word'], UInt2Variant, Variant2UInt, 2);
+  RegisterInterpretor(['int16', 'short'], Int2Variant, Variant2Int, 2);
+  RegisterInterpretor(['uint16', 'word', 'ushort'], UInt2Variant, Variant2UInt, 2);
   RegisterInterpretor(['int32', 'int', 'long'], Int2Variant, Variant2Int, 4);
   RegisterInterpretor(['uint32', 'uint', 'dword', 'cardinal', 'ulong'], UInt2Variant, Variant2UInt, 4);
   RegisterInterpretor(['int64'], Int2Variant, Variant2Int, 8);

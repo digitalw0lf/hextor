@@ -48,6 +48,7 @@ type
     Timer1: TTimer;
     BtnClearFilter: TSpeedButton;
     BtnRefreshList: TSpeedButton;
+    Label2: TLabel;
     procedure PaintBox1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure PaintBox1MouseUp(Sender: TObject; Button: TMouseButton;
