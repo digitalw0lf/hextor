@@ -23,13 +23,13 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
-  System.StrUtils, MSScriptControl_TLB, System.IOUtils,
+  System.StrUtils, MSScriptControl_TLB, System.IOUtils, Vcl.HtmlHelpViewer,
 
   uEditorPane, {uLogFile,} superobject,
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame, uHashFrame, uDataSaver;
+  uSearchResultsFrame, uHashFrame, uDataSaver, Vcl.StdActns;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -223,6 +223,8 @@ type
     Showinfolder1: TMenuItem;
     Fileinfo1: TMenuItem;
     Closeothertabs1: TMenuItem;
+    Help1: TMenuItem;
+    ActionHelpContents: THelpContents;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);

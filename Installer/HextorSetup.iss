@@ -37,6 +37,7 @@ Source: "..\Build\Win32\Release\Hextor.exe"; DestDir: "{app}"; Flags: ignorevers
 Source: ".\DefaultSettings\*"; DestDir: "{app}\DefaultSettings"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\HextorWiki\html\Hextor.chm"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
