@@ -20,6 +20,12 @@ uses
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
   uDataStruct, uEditedData;
 
+const
+  Color_DSFieldBg = $FFF8F8;
+  Color_DSFieldFr = $F8E0E0;
+  Color_SelDSFieldBg = $FFD0D0;
+  Color_SelDSFieldFr = $E0A0A0;
+
 type
   TDSTreeNode = record
     Caption: string;
@@ -138,7 +144,6 @@ procedure TStructFrame.AddRegionsForFields(DS{, HighlightDS}: TDSField;
 // Add DS and it's childs as visible regions to Regions
 var
   i{, c}: Integer;
-  Bg: TColor;
 begin
   // Check within requested address range
   if (DS.BufAddr >= AEnd) or (DS.BufAddr + DS.BufSize <= Start) then Exit;
@@ -155,9 +160,8 @@ begin
 //    c := 255 - DS.Name.GetHashCode() and $1F;
 //    Bg := RGB(c, c, 255);
 //  end;
-  Bg := $FFF8F8;
   // Add this DS
-  Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, $F8E0E0);
+  Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Color_DSFieldBg, Color_DSFieldFr);
   // Add childs
   if DS is TDSCompoundField then
     for i:=0 to TDSCompoundField(DS).Fields.Count-1 do
@@ -592,7 +596,7 @@ begin
     if Node <> nil then
     begin
       SelDS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
-      Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, $FFD0D0, $E0A0A0);
+      Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, Color_SelDSFieldBg, Color_SelDSFieldFr);
     end;
   end;
 

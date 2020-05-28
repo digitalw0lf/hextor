@@ -36,6 +36,7 @@ type
     property Size: TFilePointer read GetSize write SetSize;
     function Intersects(const BRange: TFileRange): Boolean; overload; inline;
     function Intersects(BStart, BEnd: TFilePointer): Boolean; overload; inline;
+    function Intersects(Value: TFilePointer): Boolean; overload; inline;
     class operator Equal(const A, B: TFileRange): Boolean; inline;
     class operator NotEqual(const A, B: TFileRange): Boolean; inline;
     constructor Create(BStart, BEnd: TFilePointer);
@@ -502,6 +503,11 @@ end;
 function TFileRange.GetSize: TFilePointer;
 begin
   Result := AEnd-Start;
+end;
+
+function TFileRange.Intersects(Value: TFilePointer): Boolean;
+begin
+  Result := (Value >= Start) and (Value < AEnd);
 end;
 
 function TFileRange.Intersects(BStart, BEnd: TFilePointer): Boolean;

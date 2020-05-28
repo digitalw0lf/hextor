@@ -39,7 +39,8 @@ uses
   uCopyAsForm in 'uCopyAsForm.pas' {CopyAsForm},
   uSearchResultsTabFrame in 'uSearchResultsTabFrame.pas' {SearchResultsTabFrame: TFrame},
   uFileInfoForm in 'uFileInfoForm.pas' {FileInfoForm},
-  uDataSaver in 'uDataSaver.pas';
+  uDataSaver in 'uDataSaver.pas',
+  uAsmFrame in 'uAsmFrame.pas' {AsmFrame: TFrame};
 
 {$R *.res}
 

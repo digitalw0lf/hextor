@@ -234,6 +234,11 @@
             <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uDataSaver.pas"/>
+        <DCCReference Include="uAsmFrame.pas">
+            <Form>AsmFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>

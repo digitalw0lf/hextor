@@ -151,7 +151,6 @@ object StructFrame: TStructFrame
     Caption = 'ToolBar1'
     Images = MainForm.ImageList16
     TabOrder = 4
-    ExplicitTop = -6
     object BtnNewDescr: TToolButton
       Left = 0
       Top = 0

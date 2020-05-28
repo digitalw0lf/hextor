@@ -29,7 +29,7 @@ uses
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame, uHashFrame, uDataSaver, Vcl.StdActns;
+  uSearchResultsFrame, uHashFrame, uDataSaver, Vcl.StdActns, uAsmFrame;
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -197,7 +197,7 @@ type
     ActionAboutBox: TAction;
     AboutHextor1: TMenuItem;
     PgHash: TTabSheet;
-    HashFrame1: THashFrame;
+    HashFrame: THashFrame;
     ToolButton6: TToolButton;
     ToolButton7: TToolButton;
     ToolButton8: TToolButton;
@@ -225,6 +225,8 @@ type
     Closeothertabs1: TMenuItem;
     Help1: TMenuItem;
     ActionHelpContents: THelpContents;
+    PgAsm: TTabSheet;
+    AsmFrame: TAsmFrame;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);

@@ -111,7 +111,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 0
+      Top = 2
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -204,7 +204,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 547
-      ActivePage = PgStruct
+      ActivePage = PgHash
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -263,6 +263,7 @@ object MainForm: TMainForm
             end
             inherited Panel1: TPanel
               Left = 371
+              ExplicitLeft = 371
               inherited BtnHelp: TButton
                 Images = nil
               end
@@ -444,7 +445,7 @@ object MainForm: TMainForm
       object PgHash: TTabSheet
         Caption = 'Hash'
         ImageIndex = 6
-        inline HashFrame1: THashFrame
+        inline HashFrame: THashFrame
           Left = 0
           Top = 0
           Width = 412
@@ -479,6 +480,27 @@ object MainForm: TMainForm
               ExplicitWidth = 412
               ExplicitHeight = 172
             end
+          end
+        end
+      end
+      object PgAsm: TTabSheet
+        Caption = 'Asm'
+        ImageIndex = 7
+        inline AsmFrame: TAsmFrame
+          Left = 0
+          Top = 0
+          Width = 412
+          Height = 519
+          Align = alClient
+          TabOrder = 0
+          ExplicitWidth = 412
+          inherited ToolPanel: TPanel
+            Width = 412
+            ExplicitWidth = 412
+          end
+          inherited SynEdit1: TSynEdit
+            Width = 412
+            ExplicitWidth = 412
           end
         end
       end
@@ -1095,7 +1117,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C0101150040010C0310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010115004001300310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000006000000001002000000000000060
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
