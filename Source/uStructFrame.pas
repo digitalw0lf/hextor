@@ -58,6 +58,10 @@ type
     MISelectInEditor: TMenuItem;
     Panel1: TPanel;
     BtnHelp: TButton;
+    MIGotoAddr: TMenuItem;
+    MICopyFieldName: TMenuItem;
+    MICopyFieldFullName: TMenuItem;
+    MICopyFieldValue: TMenuItem;
     procedure BtnInterpretClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
     procedure PnlButtonBar2MouseDown(Sender: TObject; Button: TMouseButton;
@@ -92,6 +96,11 @@ type
     procedure MIRangeEntireFileClick(Sender: TObject);
     procedure MISelectInEditorClick(Sender: TObject);
     procedure BtnHelpClick(Sender: TObject);
+    procedure DSFieldPopupMenuPopup(Sender: TObject);
+    procedure MIGotoAddrClick(Sender: TObject);
+    procedure MICopyFieldNameClick(Sender: TObject);
+    procedure MICopyFieldFullNameClick(Sender: TObject);
+    procedure MICopyFieldValueClick(Sender: TObject);
   private const
     Unnamed_Struct = 'Unnamed';
   public type
@@ -105,7 +114,7 @@ type
     FEditor: TEditorForm;
     EditedNode: PVirtualNode;
     EditedDS: TDSSimpleField;
-//    FInterpretRange: TInterpretRange;
+    MIGotoAddr_DestAddr: TFilePointer;
     function DSNodeText(DS: TDSField): string;
     procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
     procedure ExpandToNode(Node: PVirtualNode);
@@ -147,6 +156,8 @@ var
 begin
   // Check within requested address range
   if (DS.BufAddr >= AEnd) or (DS.BufAddr + DS.BufSize <= Start) then Exit;
+  // Do not show directives
+  if DS is TDSDirective then Exit;
   // Do not add separate regions for 1-byte elements of arrays
   if (DS is TDSSimpleField) and (DS.BufSize = 1) and
      (DS.Parent <> nil) and (DS.Parent is TDSArray) then
@@ -340,9 +351,35 @@ begin
   inherited;
 end;
 
+procedure TStructFrame.DSFieldPopupMenuPopup(Sender: TObject);
+var
+  DS: TDSField;
+  Vis: Boolean;
+  AValue: Variant;
+begin
+  // Show "Go to <addr>" menu item if this field looks like address in file
+  Vis := False;
+  DS := GetNodeDS(DSTreeView.FocusedNode);
+  if (DS <> nil) and (DS is TDSSimpleField) then
+  begin
+    AValue := (DS as TDSSimpleField).ValueAsVariant();
+    if (VarIsOrdinal(AValue)) and (AValue >= 0) and (AValue < FEditor.GetFileSize()) then
+    begin
+      Vis := True;
+      MIGotoAddr_DestAddr := AValue;
+      MIGotoAddr.Caption := 'Go to ' + DS.ToString();
+    end;
+  end;
+  MIGotoAddr.Visible := Vis;
+end;
+
 function TStructFrame.DSNodeText(DS: TDSField): string;
 // Text for treeview node of this DS field
 begin
+  // Don't show directives in tree
+  if DS is TDSDirective then
+    Exit('');
+
   // Don't create separate nodes for nameless fields - e.g. conditional statements
   if DS.Name = '' then
     Exit('');
@@ -583,7 +620,6 @@ end;
 procedure TStructFrame.EditorGetTaggedRegions(Editor: TEditorForm; Start,
   AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
 var
-  Node: PVirtualNode;
   SelDS: TDSField;
 begin
   if ShownDS = nil then Exit;
@@ -592,12 +628,9 @@ begin
 
   if Screen.ActiveControl = DSTreeView then
   begin
-    Node := DSTreeView.FocusedNode;
-    if Node <> nil then
-    begin
-      SelDS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
+    SelDS := GetNodeDS(DSTreeView.FocusedNode);
+    if SelDS <> nil then
       Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, Color_SelDSFieldBg, Color_SelDSFieldFr);
-    end;
   end;
 
 end;
@@ -631,6 +664,33 @@ begin
   DSDescrEdit.Constraints.MaxHeight := DSDescrEdit.Height + DSTreeView.Height - 20;
 end;
 
+procedure TStructFrame.MICopyFieldFullNameClick(Sender: TObject);
+var
+  DS: TDSField;
+begin
+  DS := GetNodeDS(DSTreeView.FocusedNode);
+  if DS <> nil then
+    Clipboard.AsText := DS.FullName;
+end;
+
+procedure TStructFrame.MICopyFieldNameClick(Sender: TObject);
+var
+  DS: TDSField;
+begin
+  DS := GetNodeDS(DSTreeView.FocusedNode);
+  if DS <> nil then
+    Clipboard.AsText := DS.Name;
+end;
+
+procedure TStructFrame.MICopyFieldValueClick(Sender: TObject);
+var
+  DS: TDSField;
+begin
+  DS := GetNodeDS(DSTreeView.FocusedNode);
+  if DS <> nil then
+    Clipboard.AsText := RemUnprintable(DS.ToString());
+end;
+
 procedure TStructFrame.MIDummyDataStructClick(Sender: TObject);
 var
   fn: string;
@@ -638,6 +698,13 @@ begin
   fn := (Sender as TMenuItem).Caption;
   DSDescrEdit.Lines.LoadFromFile(TPath.Combine(DSSaveFolder, fn + '.ds'));
   LblStructName.Caption := '    ' + fn;
+end;
+
+procedure TStructFrame.MIGotoAddrClick(Sender: TObject);
+begin
+  if (MIGotoAddr_DestAddr < 0) or (MIGotoAddr_DestAddr >= FEditor.GetFileSize()) then Exit;
+
+  FEditor.SelectAndShow(MIGotoAddr_DestAddr, MIGotoAddr_DestAddr);
 end;
 
 procedure TStructFrame.MIRangeEntireFileClick(Sender: TObject);
@@ -680,13 +747,11 @@ end;
 
 procedure TStructFrame.MISelectInEditorClick(Sender: TObject);
 var
-  Node: PVirtualNode;
   DS: TDSField;
 begin
-  Node := DSTreeView.FocusedNode;
-  if Node = nil then Exit;
-  DS := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
-  FEditor.SelectAndShow(DS.BufAddr, DS.BufAddr + DS.BufSize);
+  DS := GetNodeDS(DSTreeView.FocusedNode);
+  if DS <> nil then
+    FEditor.SelectAndShow(DS.BufAddr, DS.BufAddr + DS.BufSize);
 end;
 
 procedure TStructFrame.PnlButtonBar2MouseDown(Sender: TObject;
@@ -713,10 +778,8 @@ begin
 end;
 
 function TStructFrame.GetNodeDS(Node: PVirtualNode): TDSField;
-//var
-//  Node: PVirtualNode;
+// Returns DSField associated with given tree node
 begin
-//  Node := DSTreeView.FocusedNode;
   if Node = nil then Exit(nil);
   Result := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
 end;

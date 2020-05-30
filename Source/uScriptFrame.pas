@@ -42,6 +42,7 @@ type
     destructor Destroy(); override;
     procedure Init();
     procedure Uninit();
+    function Eval(const Text: string): Variant;
   end;
 
 implementation
@@ -67,8 +68,6 @@ begin
   //t := GetNanosec();
   Timer := TStopwatch.StartNew();
 
-  PrepareScriptEnv();
-
   for i:=0 to MainForm.EditorCount-1 do
   begin
     MainForm.Editors[i].UndoStack.BeginAction('Script_'+IntToStr(Random(1000000)), 'Scripted change');
@@ -76,7 +75,7 @@ begin
   end;
   try
 
-    Res := ScriptControl1.Eval(AText);  // <--
+    Res := Eval(AText);  // <--
 
   finally
     for i:=0 to MainForm.EditorCount-1 do
@@ -108,6 +107,14 @@ begin
   inherited;
 end;
 
+function TScriptFrame.Eval(const Text: string): Variant;
+// Evaluate given script text
+begin
+  PrepareScriptEnv();
+
+  Result := ScriptControl1.Eval(Text);
+end;
+
 procedure TScriptFrame.Init;
 begin
   ScriptEdit.Text := AppSettings.Script.Text;
@@ -123,7 +130,7 @@ begin
   // Parsed structure from StructFrame
   if (MainForm.StructFrame.ShownDS <> nil) and
      (MainForm.StructFrame.ShownDS is TDSCompoundField) then
-  ScriptControl1.AddObject('ds', (MainForm.StructFrame.ShownDS as TDSCompoundField).GetComWrapper(), False);
+    ScriptControl1.AddObject('ds', (MainForm.StructFrame.ShownDS as TDSCompoundField).GetComWrapper(), False);
 end;
 
 procedure TScriptFrame.BtnClearOutputClick(Sender: TObject);

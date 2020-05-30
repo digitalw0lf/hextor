@@ -244,11 +244,28 @@ object StructFrame: TStructFrame
     end
   end
   object DSFieldPopupMenu: TPopupMenu
+    OnPopup = DSFieldPopupMenuPopup
     Left = 72
     Top = 408
     object MISelectInEditor: TMenuItem
       Caption = 'Select in editor'
       OnClick = MISelectInEditorClick
+    end
+    object MIGotoAddr: TMenuItem
+      Caption = 'Go to X'
+      OnClick = MIGotoAddrClick
+    end
+    object MICopyFieldName: TMenuItem
+      Caption = 'Copy name'
+      OnClick = MICopyFieldNameClick
+    end
+    object MICopyFieldFullName: TMenuItem
+      Caption = 'Copy full name'
+      OnClick = MICopyFieldFullNameClick
+    end
+    object MICopyFieldValue: TMenuItem
+      Caption = 'Copy value'
+      OnClick = MICopyFieldValueClick
     end
   end
 end

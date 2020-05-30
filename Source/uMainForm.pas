@@ -353,6 +353,7 @@ type
     function FindEditorWithSource(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;
     procedure ShowToolFrame(Frame: TFrame);
     procedure DoAfterEvent(Proc: TProc);
+    function ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
 
     [API]
     procedure DoTest(x: Integer);
@@ -519,8 +520,8 @@ begin
   with ActiveEditor do
   begin
     s := IntToStr(CaretPos);
-    if not InputQuery('Go to address', 'Go to address (use $ or 0x for hex value, + or - for relative jump):', s) then Exit;
-    Pos := StrToInt64Relative(s, CaretPos);
+    if not InputQuery('Go to address', 'Go to address (use $ or 0x for hex value, + or - for relative jump; supports expressions):', s) then Exit;
+    Pos := ParseFilePointer(s, CaretPos);
 
     MoveCaret(Pos, []);
   end;
@@ -773,8 +774,8 @@ begin
       if ShowModal() <> mrOk then Exit;
     end;
 
-    Range.Start := StrToInt64Relative(EditSelRangeStart.Text, Range.Start);
-    Range.AEnd := StrToInt64Relative(EditSelRangeEnd.Text, Range.AEnd);
+    Range.Start := ParseFilePointer(EditSelRangeStart.Text, Range.Start);
+    Range.AEnd := ParseFilePointer(EditSelRangeEnd.Text, Range.AEnd);
 
     SetSelection(Range.Start, Range.AEnd, CaretAtStart);
   end;
@@ -793,7 +794,7 @@ begin
     SetFileSizeForm.EditNewSize.Text := IntToStr(OldSize);
     if SetFileSizeForm.ShowModal() <> mrOk then Exit;
 
-    NewSize := StrToInt64Relative(SetFileSizeForm.EditNewSize.Text, OldSize);
+    NewSize := ParseFilePointer(SetFileSizeForm.EditNewSize.Text, OldSize);
     if NewSize < 0 then
       raise EInvalidUserInput.Create('Size can not be negative');
     if NewSize > OldSize + MaxInt then
@@ -1389,6 +1390,34 @@ begin
     OpenFile(TFileDataSource, ParamStr(1))
   else
     ActionNewExecute(nil);
+end;
+
+function TMainForm.ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
+// Parse file pointer from Text. Text can contain script expressions or just a number.
+// If Text starts with '+' or '-', it is treated as relative to OldValue
+var
+  Rel: Integer;
+begin
+  Text := Trim(Text);
+  if Text = '' then
+    raise EInvalidUserInput.Create('"" is not a valid offset');
+  Text := Text.Replace('$', '0x');
+
+  if Text[Low(Text)] = '-' then
+    Rel := -1
+  else
+  if Text[Low(Text)] = '+' then
+    Rel := 1
+  else
+    Rel := 0;
+  if Rel <> 0 then
+    Delete(Text, Low(Text), 1);
+
+  if not TryStrToInt64(Text, Result) then
+    Result := ScriptFrame.Eval(Text);
+
+  if Rel <> 0 then
+    Result := OldValue + Rel * Result;
 end;
 
 procedure TMainForm.RecentFilesMenuPopup(Sender: TObject);

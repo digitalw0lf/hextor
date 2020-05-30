@@ -50,7 +50,7 @@ var
 begin
   try
     OldSize := StrToInt64(EditOldSize.Text);
-    NewSize := StrToInt64Relative(EditNewSize.Text, OldSize);
+    NewSize := MainForm.ParseFilePointer(EditNewSize.Text, OldSize);
 
     LblFillValue.Enabled := (NewSize > OldSize);
     EditFillValue.Enabled := (NewSize > OldSize);

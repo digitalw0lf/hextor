@@ -115,6 +115,16 @@ type
     procedure Assign(Source: TDSField); override;
   end;
 
+  TDSDirective = class (TDSField)
+  // Directive that should be processed during structure population,
+  // for example "addr" and "align".
+  // TDSDirective is not created for directives which are fully processed
+  // during DS description parsing, like "bigendian"
+  public
+    Value: string;
+    procedure Assign(Source: TDSField); override;
+  end;
+
   // DS wrapper for scripts
   TDSComWrapper = class(TInterfacedObject, IDispatch)
   private const
@@ -156,7 +166,7 @@ type
     function ReadStruct(): TDSStruct;
     function ReadIfStatement(): TDSConditional;
     function ReadSwitchStatement(): TDSConditional;
-    procedure ReadDirective();
+    function ReadDirective(): TDSDirective;
     function MakeArray(AType: TDSField; const ACount: string): TDSArray;
     procedure EraseComments(var Buf: string);
   public
@@ -177,13 +187,14 @@ type
     ScriptControl: TScriptControl;  // Expression evaluator
 //    DSStack: TStack<TDSField>; // Current stack of nested structures
     procedure ReadData(var Data: TBytes; Size: Integer);
+    procedure Seek(Addr: TFilePointer);
     function GetFieldSize(DS: TDSSimpleField): Integer;
     procedure InterpretSimple(DS: TDSSimpleField);
     procedure InterpretStruct(DS: TDSStruct);
     procedure InterpretArray(DS: TDSArray);
     procedure InterpretConditional(DS: TDSConditional);
+    procedure ProcessDirective(DS: TDSDirective);
     procedure InternalInterpret(DS: TDSField);
-    class function FindLastValueByName(DS: TDSField; const AName: string): TDSField;
     class function CalculateExpressionSimple(Expr: string; CurField: TDSField): Variant;
     function CalculateExpression(Expr: string; CurField: TDSField): Variant;
     procedure PrepareScriptEnv(CurField: TDSField);
@@ -356,12 +367,13 @@ begin
   if Result = #10 then Inc(CurLineNum);
 end;
 
-procedure TDSParser.ReadDirective;
+function TDSParser.ReadDirective(): TDSDirective;
 // Read parser directive #... until end of line
 var
   DirName, Value: string;
   i: Integer;
 begin
+  Result := nil;
   DirName := ReadLexem();
 
   if SameName(DirName, 'bigendian') then
@@ -387,6 +399,17 @@ begin
       raise EDSParserError.Create('"#valid" directive should be just after validated fields');
     for i:=0 to Length(LastStatementFields)-1 do
       (LastStatementFields[i] as TDSSimpleField).ValidationStr := Value;
+    Exit;
+  end;
+
+  if SameName(DirName, 'addr') then
+  begin
+    Value := Trim(ReadLine());
+    if Value = '' then
+      raise EDSParserError.Create('Address expected');
+    Result := TDSDirective.Create();
+    Result.Name := DirName;
+    Result.Value := Value;
     Exit;
   end;
 
@@ -549,7 +572,13 @@ begin
   // Parser directive
   begin
     ReadLexem();
-    ReadDirective();
+    AInstance := ReadDirective();
+    // Some directives are turned into fields and are treated as full-fledged statemants
+    if AInstance <> nil then
+    begin
+      Result := [AInstance];
+      Exit;
+    end;
     S := PeekLexem();
   end;
 
@@ -874,6 +903,7 @@ begin
     if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
       Inc(Result, (Fields[i] as TDSCompoundField).NamedFieldsCount)
     else
+    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
       Inc(Result);
 end;
 
@@ -889,6 +919,7 @@ begin
       if Result <> nil then Exit;
     end
     else
+    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
     begin
       Dec(Index);
       if Index < 0 then Exit(Fields[i]);
@@ -905,17 +936,15 @@ begin
   Result := '(';
   for i:=0 to Fields.Count-1 do
   begin
-    Result := Result + Fields[i].ToQuotedString;
-    if i < Fields.Count-1 then
+    if Fields[i] is TDSDirective then Continue;
+    if Length(Result) >= MaxDispLen then
     begin
-      if Length(Result) > MaxDispLen then
-      begin
-        Result := Result + '...';
-        Break;
-      end
-      else
-        Result := Result + ', ';
+      Result := Result + '...';
+      Break;
     end;
+    if Length(Result) > 1 then
+      Result := Result + ', ';
+    Result := Result + Fields[i].ToQuotedString;
   end;
   Result := Result + ')';
 end;
@@ -1029,7 +1058,12 @@ begin
   else
     ParentFullName := '';
   if ParentFullName <> '' then
-    Result := ParentFullName + '.' + Result;
+  begin
+    if Parent is TDSArray then
+      Result := ParentFullName + '[' + Result + ']'
+    else
+      Result := ParentFullName + '.' + Result;
+  end;
 end;
 
 function TDSField.ToQuotedString: string;
@@ -1219,24 +1253,7 @@ begin
   inherited;
 end;
 
-class function TDSInterpretor.FindLastValueByName(DS: TDSField;
-  const AName: string): TDSField;
-var
-  i: Integer;
-begin
-  Result := nil;
-  if (DS is TDSSimpleField) and (not TryStrToInt(DS.Name, i)) and (SameName(DS.Name, AName)) then Exit(DS);
 
-  if DS is TDSCompoundField then
-  with TDSCompoundField(DS) do
-  begin
-    for i:=Fields.Count-1 downto 0 do
-    begin
-      Result := FindLastValueByName(Fields[i], AName);
-      if Result <> nil then Exit;
-    end;
-  end;
-end;
 
 function TDSInterpretor.GetFieldSize(DS: TDSSimpleField): Integer;
 var
@@ -1265,6 +1282,9 @@ begin
       else
       if DS is TDSConditional then
         InterpretConditional(TDSConditional(DS))
+      else
+      if DS is TDSDirective then
+        ProcessDirective(TDSDirective(DS))
       else
         raise EParserError.Create('Invalid class of field '+DS.Name);
   //    WriteLogF('Struct_Intepret', AnsiString(DS.ClassName+' '+DS.Name+' = '+DS.ToString));
@@ -1414,12 +1434,43 @@ begin
   until Ok;
 end;
 
+procedure TDSInterpretor.ProcessDirective(DS: TDSDirective);
+var
+  Addr: TFilePointer;
+  Field: TDSField;
+begin
+  if SameName(DS.Name, 'addr') then
+  // Jump to absolute address in file
+  begin
+    Addr := CalculateExpression(DS.Value, DS);
+    Seek(Addr);
+    DS.BufAddr := Addr;
+    // If #addr directive is a first field of a structure, adjust starting address
+    // of entire structure (and it's parent, recursively) - do not leave 
+    // a "gap" in the beginning of structure
+    Field := DS;
+    while (Field.Parent <> nil) and (Field.Parent.Fields[0] = Field) do
+    begin
+      Field.Parent.BufAddr := Addr;
+      Field := Field.Parent;
+    end;
+  end;
+end;
+
 procedure TDSInterpretor.ReadData(var Data: TBytes; Size: Integer);
 begin
   if FCurAddr + Size > FStartAddr + FMaxSize then
     raise EDSParserError.Create('End of buffer');
   OnGetMoreData(FCurAddr, Size, Data);
   FCurAddr := FCurAddr + Size;
+  EndOfData := (FCurAddr = FStartAddr + FMaxSize);
+end;
+
+procedure TDSInterpretor.Seek(Addr: TFilePointer);
+begin
+  if Addr > FStartAddr + FMaxSize then
+    raise EDSParserError.Create('End of buffer');
+  FCurAddr := Addr;
   EndOfData := (FCurAddr = FStartAddr + FMaxSize);
 end;
 
@@ -1606,7 +1657,9 @@ begin
       else
         // Return current value
         POleVariant(VarResult)^ := (Field as TDSSimpleField).ValueAsVariant();
-    end;
+    end
+    else
+      Result := DISP_E_BADVARTYPE;
   finally
     if (Result = S_OK) and (not Put) then
     begin
@@ -1614,6 +1667,17 @@ begin
         LoggedValue := string(POleVariant(VarResult)^);
 //      WriteLogF('Struct_Intepret', LoggedName + ' = ' + LoggedValue);
     end;
+  end;
+end;
+
+{ TDSDirective }
+
+procedure TDSDirective.Assign(Source: TDSField);
+begin
+  inherited;
+  if Source is TDSDirective then
+  begin
+    Value := (Source as TDSDirective).Value;
   end;
 end;
 
