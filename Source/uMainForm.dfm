@@ -111,7 +111,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -595,7 +595,7 @@ object MainForm: TMainForm
       ImageIndex = 0
       HintFmt = 
         'Use $ or 0x for hex value, + or - to select relative to current ' +
-        'selection start/end'
+        'selection start/end<br><br>Supports script expressions'
     end
     object EditSelRangeStart: TEdit
       Left = 104
@@ -1117,7 +1117,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010115004001300310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010115004001340310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000006000000001002000000000000060
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

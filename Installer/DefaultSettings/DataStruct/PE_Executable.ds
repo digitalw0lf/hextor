@@ -1,0 +1,105 @@
+// 32-bit PE executable file
+
+{  // DOS .EXE header
+  USHORT e_magic; #valid 0x5A4D         // Magic number
+  USHORT e_cblp;          // Bytes on last page of file
+  USHORT e_cp;            // Pages in file
+  USHORT e_crlc;          // Relocations
+  USHORT e_cparhdr;       // Size of header in paragraphs
+  USHORT e_minalloc;      // Minimum extra paragraphs needed
+  USHORT e_maxalloc;      // Maximum extra paragraphs needed
+  USHORT e_ss;            // Initial (relative) SS value
+  USHORT e_sp;            // Initial SP value
+  USHORT e_csum;          // Checksum
+  USHORT e_ip;            // Initial IP value
+  USHORT e_cs;            // Initial (relative) CS value
+  USHORT e_lfarlc;        // File address of relocation table
+  USHORT e_ovno;          // Overlay number
+  USHORT e_res[4];        // Reserved words
+  USHORT e_oemid;         // OEM identifier (for e_oeminfo)
+  USHORT e_oeminfo;       // OEM information; e_oemid specific
+  USHORT e_res2[10];      // Reserved words
+  LONG   e_lfanew;        // File address of new exe header
+} image_dos_header;
+
+// MS-DOS Stub Program
+char MsDosStub[image_dos_header.e_lfanew - 64];
+
+// IMAGE_FILE_HEADER
+{
+    ULONG  Magic;  #valid 0x00004550
+    USHORT  Machine;
+    USHORT  NumberOfSections;
+    ULONG   TimeDateStamp;
+    ULONG   PointerToSymbolTable;
+    ULONG   NumberOfSymbols;
+    USHORT  SizeOfOptionalHeader;
+    USHORT  Characteristics;
+} image_file_header;
+
+// IMAGE_OPTIONAL_HEADER
+{
+    //
+    // Standard fields.
+    //
+    USHORT  Magic;
+    UCHAR   MajorLinkerVersion;
+    UCHAR   MinorLinkerVersion;
+    ULONG   SizeOfCode;
+    ULONG   SizeOfInitializedData;
+    ULONG   SizeOfUninitializedData;
+    ULONG   AddressOfEntryPoint;
+    ULONG   BaseOfCode;
+    ULONG   BaseOfData;
+    //
+    // NT additional fields.
+    //
+    ULONG   ImageBase;
+    ULONG   SectionAlignment;
+    ULONG   FileAlignment;
+    USHORT  MajorOperatingSystemVersion;
+    USHORT  MinorOperatingSystemVersion;
+    USHORT  MajorImageVersion;
+    USHORT  MinorImageVersion;
+    USHORT  MajorSubsystemVersion;
+    USHORT  MinorSubsystemVersion;
+    ULONG   Reserved1;
+    ULONG   SizeOfImage;
+    ULONG   SizeOfHeaders;
+    ULONG   CheckSum;
+    USHORT  Subsystem;
+    USHORT  DllCharacteristics;
+    ULONG   SizeOfStackReserve;
+    ULONG   SizeOfStackCommit;
+    ULONG   SizeOfHeapReserve;
+    ULONG   SizeOfHeapCommit;
+    ULONG   LoaderFlags;
+    ULONG   NumberOfRvaAndSizes;
+    {
+      DWORD VirtualAddress;
+      DWORD Size;
+    } DataDirectory[16/*IMAGE_NUMBEROF_DIRECTORY_ENTRIES*/];
+} image_optional_header;
+
+// IMAGE_SECTION_HEADER
+{
+    ansi   Name[8/*IMAGE_SIZEOF_SHORT_NAME*/];
+//    union {
+            ULONG   PhysicalAddress;
+//            ULONG   VirtualSize;
+//    } Misc;
+    ULONG   VirtualAddress;
+    ULONG   SizeOfRawData;
+    ULONG   PointerToRawData;
+    ULONG   PointerToRelocations;
+    ULONG   PointerToLinenumbers;
+    USHORT  NumberOfRelocations;
+    USHORT  NumberOfLinenumbers;
+    ULONG   Characteristics;
+} image_section_header[image_file_header.NumberOfSections];
+
+// Sections
+{
+  #addr image_section_header[sections.index].PointerToRawData
+  byte data[image_section_header[sections.index].SizeOfRawData];
+} sections[image_file_header.NumberOfSections];

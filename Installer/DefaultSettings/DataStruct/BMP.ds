@@ -44,6 +44,6 @@
     case 32: {uint8 b, g, r, a;} rgba[bmiHeader.biWidth];
     default: uint8 data[Math.floor((bmiHeader.biWidth*bmiHeader.biBitCount-1)/8)+1];
   }
-  // Align to 4 bytes
-  int8 padding[(4 - (Math.floor((bmiHeader.biWidth*bmiHeader.biBitCount-1)/8)+1) % 4) % 4];
+  // Align rows to 4 bytes
+  #align 4
 } rows[Math.abs(bmiHeader.biHeight)];

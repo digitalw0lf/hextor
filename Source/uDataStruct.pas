@@ -79,6 +79,7 @@ type
     function GetNamedFieldsInternal(var Index: Integer): TDSField;
   public
     Fields: TObjectList<TDSField>;
+    FieldAlign: Integer;  // Alignment of fields relative to structure start
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
@@ -148,6 +149,7 @@ type
   TDSParser = class
   private
     BufStart, BufEnd, Ptr: PChar;
+    CurStruct: TDSCompoundField;  // Innermost currently parsed structure (this is a type, not an instance)
     CurLineNum: Integer;
     CurBigEndian: Boolean;  // Currently in big-endian mode
     LastStatementFields: TArrayOfDSField;  // e.g. for #valid
@@ -402,14 +404,25 @@ begin
     Exit;
   end;
 
-  if SameName(DirName, 'addr') then
+  if (SameName(DirName, 'addr')) or (SameName(DirName, 'align')) then
   begin
     Value := Trim(ReadLine());
     if Value = '' then
-      raise EDSParserError.Create('Address expected');
+      raise EDSParserError.Create('Value expected');
     Result := TDSDirective.Create();
     Result.Name := DirName;
     Result.Value := Value;
+    Exit;
+  end;
+
+  if SameName(DirName, 'fieldalign') then
+  begin
+    Value := Trim(ReadLine());
+    if Value = '' then
+      raise EDSParserError.Create('Value expected');
+    if CurStruct = nil then
+      raise EDSParserError.Create('"#fieldalign" directive not inside structure');
+    CurStruct.FieldAlign := TDSInterpretor.CalculateExpressionSimple(Value, nil);
     Exit;
   end;
 
@@ -676,21 +689,28 @@ function TDSParser.ReadStruct: TDSStruct;
 var
   i: Integer;
   Fields: TArrayOfDSField;
+  PrevCurStruct: TDSCompoundField;
 begin
   Result := TDSStruct.Create();
+  PrevCurStruct := CurStruct;
+  CurStruct := Result;
   try
-    while (Ptr < BufEnd) do
-    begin
-      if PeekLexem() = '}' then Break;
-      Fields := ReadStatement();
-  //    if Fields = nil then Break;
-      for i:=0 to Length(Fields)-1 do
+    try
+      while (Ptr < BufEnd) do
       begin
-        Fields[i].Parent := Result;
-        Result.Fields.Add(Fields[i]);
+        if PeekLexem() = '}' then Break;
+        Fields := ReadStatement();
+    //    if Fields = nil then Break;
+        for i:=0 to Length(Fields)-1 do
+        begin
+          Fields[i].Parent := Result;
+          Result.Fields.Add(Fields[i]);
+        end;
       end;
+    finally
+      LastStatementFields := nil;  // "#valid" works only inside same struct
+      CurStruct := PrevCurStruct;
     end;
-    LastStatementFields := nil;  // "#valid" works only inside same struct
   except
     Result.Free;
     raise;
@@ -857,6 +877,7 @@ begin
       n := Fields.Add( (Source as TDSCompoundField).Fields[i].Duplicate() );
       Fields[n].Parent := Self;
     end;
+    FieldAlign := (Source as TDSCompoundField).FieldAlign;
   end;
 end;
 
@@ -1436,7 +1457,7 @@ end;
 
 procedure TDSInterpretor.ProcessDirective(DS: TDSDirective);
 var
-  Addr: TFilePointer;
+  Addr, Align: TFilePointer;
   Field: TDSField;
 begin
   if SameName(DS.Name, 'addr') then
@@ -1454,6 +1475,20 @@ begin
       Field.Parent.BufAddr := Addr;
       Field := Field.Parent;
     end;
+  end;
+  
+  if SameName(DS.Name, 'align') then
+  // Align next field to specified boundary relative to parent structure start
+  begin
+    Align := CalculateExpression(DS.Value, DS);
+    if DS.Parent <> nil then
+      Addr := DS.Parent.BufAddr
+    else
+      Addr := 0;
+    //Addr := Addr + ((DS.BufAddr - Addr - 1) div Align + 1) * Align;
+    Addr := NextAlignBoundary(Addr, DS.BufAddr, Align);
+    Seek(Addr);
+    DS.BufAddr := Addr;
   end;
 end;
 
@@ -1523,8 +1558,19 @@ end;
 procedure TDSInterpretor.InterpretSimple(DS: TDSSimpleField);
 var
   Size: Integer;
+  AlignBoundary: TFilePointer;
 begin
   Size := GetFieldSize(DS);
+  // Apply field alignment
+  if (DS.Parent <> nil) and (DS.Parent.FieldAlign > 1) then
+  begin
+    AlignBoundary := NextAlignBoundary(DS.Parent.BufAddr, FCurAddr, DS.Parent.FieldAlign);
+    if (FCurAddr < AlignBoundary) and (FCurAddr + Size > AlignBoundary) then
+    begin
+      Seek(AlignBoundary);
+      DS.BufAddr := AlignBoundary;
+    end;
+  end;
   ReadData(DS.Data, Size);
   if DS.BigEndian then
     InvertByteOrder(DS.Data[0], Size);

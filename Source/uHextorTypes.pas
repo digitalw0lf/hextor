@@ -123,6 +123,7 @@ function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overloa
 function MakeValidFileName(const S: string): string;
 function RemUnprintable(const s:UnicodeString; NewChar: WideChar='.'):UnicodeString;
 function DivRoundUp(A, B: Int64): Int64; inline;
+function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
 function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeBytes(const Buf; BufSize:integer):tBytes; overload;
@@ -285,8 +286,15 @@ begin
   Result := (A-1) div B + 1;
 end;
 
+function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
+// Given buffer start address, current position and alignment block size,
+// returns next alignment boundary after current position (may be equal to current position)
+begin
+  Result := BufStart + ((BufPos - BufStart - 1) div Align + 1) * Align;
+end;
+
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
-// Ограничивает X в диапазон [MinX,MaxX]
+// Bound X by range [MinX,MaxX]
 var
   t: TFilePointer;
 begin

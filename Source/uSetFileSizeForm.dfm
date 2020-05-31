@@ -45,7 +45,9 @@ object SetFileSizeForm: TSetFileSizeForm
     Height = 16
     Image = MainForm.HintImage
     ImageIndex = 0
-    HintFmt = 'Use 0x or $ for hex, + or - for relative change'
+    HintFmt = 
+      'Use 0x or $ for hex, + or - for relative change<br><br>Supports ' +
+      'script expressions'
   end
   object EditOldSize: TEdit
     Left = 104
