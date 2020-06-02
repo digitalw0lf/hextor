@@ -28,6 +28,8 @@ type
 
   // Base class for all elements
   TDSField = class
+  private
+    function RootDS(): TDSField;
   public
     Name: string;
     Parent: TDSCompoundField;
@@ -37,7 +39,7 @@ type
     ErrorText: string;      // Parsing error (e.g. "End of buffer" or "Value out of range")
     // When field is modified e.g. in SetFromVariant(), only it's internal
     // Data buffer if changed. Original file data should be updated in
-    // OnChanged event
+    // OnChanged event - it is defined only in root field to save memory, but called by all fields
     OnChanged: TCallbackListP2<{DS:}TDSField, {Changer:}TObject>;
     constructor Create(); virtual;
     destructor Destroy(); override;
@@ -71,12 +73,38 @@ type
 
   // For arrays and structures
   TDSCompoundField = class (TDSField)
+  private type
+    // Enumarates named fields, recuresively stepping into unnamed fields
+    TNamedFieldsEnumerator = class(TEnumerator<TDSField>)
+    private
+      FTopLevel: TDSCompoundField;       // Compound field in which we are enumerating
+      FCurrentParent: TDSCompoundField;  // We are currently inside this field
+      FIndex: Integer;                   // Index of current item in it's parent
+      FIndices: TStack<Integer>;         // Indices in previous parents
+    protected
+      function DoGetCurrent: TDSField; override;
+      function DoMoveNext: Boolean; override;
+    public
+      constructor Create(TopLevelField: TDSCompoundField);
+      destructor Destroy(); override;
+    end;
+    // For auto-refcounting
+    INamedFieldsEnumerable = interface(IInterface)
+      function GetEnumerator: TNamedFieldsEnumerator;
+    end;
+    TNamedFieldsEnumerable = class(TInterfacedObject, INamedFieldsEnumerable)
+    protected
+      FTopLevel: TDSCompoundField;       // Compound field in which we are enumerating
+    public
+      constructor Create(TopLevelField: TDSCompoundField);
+      function GetEnumerator: TNamedFieldsEnumerator;
+    end;
   private
     FComWrapper: TDSComWrapper;
     FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
-    function GetNamedFieldsCount: Integer;
-    function GetNamedFields(Index: Integer): TDSField;
-    function GetNamedFieldsInternal(var Index: Integer): TDSField;
+//    function GetNamedFieldsCount: Integer;
+//    function GetNamedFields(Index: Integer): TDSField;
+//    function GetNamedFieldsInternal(var Index: Integer): TDSField;
   public
     Fields: TObjectList<TDSField>;
     FieldAlign: Integer;  // Alignment of fields relative to structure start
@@ -85,8 +113,9 @@ type
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
     function GetComWrapper(): TDSComWrapper;
-    property NamedFieldsCount: Integer read GetNamedFieldsCount;  // See comment in GetNamedFields()
-    property NamedFields[Index: Integer]: TDSField read GetNamedFields;
+//    property NamedFieldsCount: Integer read GetNamedFieldsCount;  // See comment in GetNamedFields()
+    function NamedFields(): INamedFieldsEnumerable;
+    function NamedFieldByIndex(Index: Integer): TDSField;
   end;
 
   TDSArray = class (TDSCompoundField)
@@ -906,46 +935,62 @@ begin
   Result := FComWrapper;
 end;
 
-function TDSCompoundField.GetNamedFields(Index: Integer): TDSField;
-// In NamedFields, content of unnamed compound fields (e.g. conditional) is "flattened" into single list.
-// So, in scripts we can access fields inside unnamed conditional branch as if it was directly
-// inside parent structure
-begin
-  Result := GetNamedFieldsInternal(Index);
-end;
+//function TDSCompoundField.GetNamedFields(Index: Integer): TDSField;
+//// In NamedFields, content of unnamed compound fields (e.g. conditional) is "flattened" into single list.
+//// So, in scripts we can access fields inside unnamed conditional branch as if it was directly
+//// inside parent structure
+//begin
+//  Result := GetNamedFieldsInternal(Index);
+//end;
 
-function TDSCompoundField.GetNamedFieldsCount: Integer;
-var
-  i: Integer;
-begin
-  // TODO: Optimize
-  Result := 0;
-  for i:=0 to Fields.Count-1 do
-    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
-      Inc(Result, (Fields[i] as TDSCompoundField).NamedFieldsCount)
-    else
-    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
-      Inc(Result);
-end;
+//function TDSCompoundField.GetNamedFieldsCount: Integer;
+//var
+//  i: Integer;
+//begin
+//  // TODO: Optimize
+//  Result := 0;
+//  for i:=0 to Fields.Count-1 do
+//    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
+//      Inc(Result, (Fields[i] as TDSCompoundField).NamedFieldsCount)
+//    else
+//    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
+//      Inc(Result);
+//end;
 
-function TDSCompoundField.GetNamedFieldsInternal(var Index: Integer): TDSField;
-var
-  i: Integer;
+//function TDSCompoundField.GetNamedFieldsInternal(var Index: Integer): TDSField;
+//var
+//  i: Integer;
+//begin
+//  // TODO: Optimize
+//  for i:=0 to Fields.Count-1 do
+//    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
+//    begin
+//      Result := (Fields[i] as TDSCompoundField).GetNamedFieldsInternal(Index);
+//      if Result <> nil then Exit;
+//    end
+//    else
+//    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
+//    begin
+//      Dec(Index);
+//      if Index < 0 then Exit(Fields[i]);
+//    end;
+//  Result := nil;
+//end;
+
+function TDSCompoundField.NamedFieldByIndex(Index: Integer): TDSField;
+// Slow
 begin
-  // TODO: Optimize
-  for i:=0 to Fields.Count-1 do
-    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
-    begin
-      Result := (Fields[i] as TDSCompoundField).GetNamedFieldsInternal(Index);
-      if Result <> nil then Exit;
-    end
-    else
-    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
-    begin
-      Dec(Index);
-      if Index < 0 then Exit(Fields[i]);
-    end;
+  for Result in NamedFields do
+  begin
+    Dec(Index);
+    if Index < 0 then Exit;
+  end;
   Result := nil;
+end;
+
+function TDSCompoundField.NamedFields: INamedFieldsEnumerable;
+begin
+  Result := TNamedFieldsEnumerable.Create(Self);
 end;
 
 function TDSCompoundField.ToString: string;
@@ -1057,8 +1102,11 @@ begin
 end;
 
 procedure TDSField.DoChanged(Changer: TObject);
+var
+  ARootDS: TDSField;
 begin
-  OnChanged.Call(Self, Changer);
+  ARootDS := RootDS();
+  ARootDS.OnChanged.Call(Self, Changer);
   if Parent <> nil then
     Parent.DoChanged(Changer);
 end;
@@ -1078,6 +1126,9 @@ begin
     ParentFullName := Parent.FullName()
   else
     ParentFullName := '';
+  if Result = '' then
+    Result := ParentFullName
+  else
   if ParentFullName <> '' then
   begin
     if Parent is TDSArray then
@@ -1085,6 +1136,14 @@ begin
     else
       Result := ParentFullName + '.' + Result;
   end;
+end;
+
+function TDSField.RootDS: TDSField;
+// Top-level structure containing this field
+begin
+  Result := Self;
+  while Result.Parent <> nil do
+    Result := Result.Parent;
 end;
 
 function TDSField.ToQuotedString: string;
@@ -1589,6 +1648,7 @@ type
 var
   i: Integer;
   AName: string;
+  Child: TDSField;
 begin
   AName := PNames(Names)^[0];
   if DSField is TDSArray then
@@ -1608,12 +1668,18 @@ begin
   end;
   if DSField is TDSCompoundField then
     with (DSField as TDSCompoundField) do
-      for i:=0 to NamedFieldsCount-1 do
-        if SameText(NamedFields[i].Name, AName) then
+    begin
+      i := 0;
+      for Child in NamedFields do
+      begin
+        if SameText(Child.Name, AName) then
         begin
           PCardinal(DispIDs)^ := i;
           Exit(S_OK);
         end;
+        Inc(i);
+      end;
+    end;
   Result := DISP_E_UNKNOWNNAME;
 end;
 
@@ -1678,7 +1744,7 @@ begin
       Exit(DISP_E_MEMBERNOTFOUND);
 
     Result := S_OK;
-    Field := (DSField as TDSCompoundField).NamedFields[DispID];
+    Field := (DSField as TDSCompoundField).NamedFieldByIndex(DispID);
     LoggedName := Field.FullName();
 
     if Field is TDSCompoundField then
@@ -1725,6 +1791,97 @@ begin
   begin
     Value := (Source as TDSDirective).Value;
   end;
+end;
+
+{ TDSCompoundField.TNamedFieldsEnumerator }
+
+constructor TDSCompoundField.TNamedFieldsEnumerator.Create(
+  TopLevelField: TDSCompoundField);
+begin
+  inherited Create();
+  FTopLevel := TopLevelField;
+  if FTopLevel.Fields.Count = 0 then
+  begin
+    FCurrentParent := nil;
+    Exit;
+  end;
+  FCurrentParent := FTopLevel;
+  FIndex := -1;
+  FIndices := TStack<Integer>.Create();
+end;
+
+destructor TDSCompoundField.TNamedFieldsEnumerator.Destroy;
+begin
+  FIndices.Free;
+  inherited;
+end;
+
+function TDSCompoundField.TNamedFieldsEnumerator.DoGetCurrent: TDSField;
+begin
+  Result := FCurrentParent.Fields[FIndex];
+end;
+
+function TDSCompoundField.TNamedFieldsEnumerator.DoMoveNext: Boolean;
+var
+  FItem: TDSField;
+begin
+  if FCurrentParent = nil then Exit(False);
+  // Move to next sibling
+  Inc(FIndex);
+  // Skip unnamed fields
+  repeat
+    if FIndex >= FCurrentParent.Fields.Count then
+    // No more fields in current parent
+    begin
+      if FCurrentParent = FTopLevel then
+      // This was originally requested parent field - enumetation finished
+      begin
+        FCurrentParent := nil;
+        Exit(False);
+      end
+      else
+      // Go one level up
+      begin
+        FCurrentParent := FCurrentParent.Parent;
+        if FCurrentParent = nil then
+          raise Exception.Create('Something went wrong in NamedFields');
+        FIndex := FIndices.Pop();
+        Inc(FIndex);
+      end;
+    end
+    else
+    begin
+      FItem := FCurrentParent.Fields[FIndex];
+      if (FItem.Name = '') and (FItem is TDSCompoundField) then
+      // Found unnamed field - step into it
+      begin
+        FCurrentParent := FItem as TDSCompoundField;
+        FIndices.Push(FIndex);
+        FIndex := 0;
+      end
+      else
+      if (FItem.Name <> '') and ((FItem is TDSSimpleField) or (FItem is TDSCompoundField)) then
+      // Found named field - return it.
+        Exit(True)
+      else
+      // Directives etc.
+        Inc(FIndex);
+    end;
+  until False;
+end;
+
+{ TDSCompoundField.TNamedFieldsEnumerable }
+
+constructor TDSCompoundField.TNamedFieldsEnumerable.Create(
+  TopLevelField: TDSCompoundField);
+begin
+  inherited Create();
+  FTopLevel := TopLevelField;
+end;
+
+function TDSCompoundField.TNamedFieldsEnumerable.GetEnumerator: TNamedFieldsEnumerator;
+begin
+  Result := TNamedFieldsEnumerator.Create(FTopLevel);
 end;
 
 end.

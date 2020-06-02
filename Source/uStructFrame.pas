@@ -18,7 +18,7 @@ uses
   SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils, Vcl.ToolWin,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
-  uDataStruct, uEditedData;
+  uDataStruct, uEditedData, uCallbackList;
 
 const
   Color_DSFieldBg = $FFF8F8;
@@ -101,6 +101,10 @@ type
     procedure MICopyFieldNameClick(Sender: TObject);
     procedure MICopyFieldFullNameClick(Sender: TObject);
     procedure MICopyFieldValueClick(Sender: TObject);
+    procedure DSTreeViewInitChildren(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; var ChildCount: Cardinal);
+    procedure DSTreeViewInitNode(Sender: TBaseVirtualTree; ParentNode,
+      Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
   private const
     Unnamed_Struct = 'Unnamed';
   public type
@@ -115,11 +119,13 @@ type
     EditedNode: PVirtualNode;
     EditedDS: TDSSimpleField;
     MIGotoAddr_DestAddr: TFilePointer;
+    NodesForDSs: TDictionary<TDSField, PVirtualNode>;
     function DSNodeText(DS: TDSField): string;
     procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
-    procedure ExpandToNode(Node: PVirtualNode);
+//    procedure ExpandToNode(Node: PVirtualNode);
     function DSSaveFolder(): string;
     function GetNodeDS(Node: PVirtualNode): TDSField;
+    function GetDSNode(DS: TDSField): PVirtualNode;
     procedure EditorClosed(Sender: TEditorForm);
     procedure AddRegionsForFields(DS{, HighlightDS}: TDSField; Start,
       AEnd: TFilePointer; Regions: TTaggedDataRegionList);
@@ -182,12 +188,15 @@ end;
 procedure TStructFrame.Analyze(Addr, Size: TFilePointer; {const Data: TBytes;}
   const Struct: string);
 var
-  i: Integer;
-  DS: TDSField;
+  Cnt: Cardinal;
+//  DS: TDSField;
+  AFromData: TEditedData;
+  ASavedRootDS: TDSField;
 begin
   Progress.TaskStart(Self);
   try
 
+    NodesForDSs.Clear();
     DSTreeView.Clear();
     FreeAndNil(FShownDS);
     BtnCopyValue.Enabled := False;
@@ -201,7 +210,7 @@ begin
         Data := FEditor.Data.Get(AAddr, ASize);
       end;
 
-    Progress.TaskStart(Self, 0.75);
+    Progress.TaskStart(Self, 0.9);
     try
       try
         FInterpretor.Interpret(ShownDS, Addr, Size);
@@ -214,30 +223,53 @@ begin
       Progress.TaskEnd();
     end;
 
+    AFromData := FEditor.Data;  // Capture for closure
+    ShownDS.OnChanged.Add(procedure(DS: TDSField; Changer: TObject)
+      begin
+        // Update bytes in edited file when DS changes
+        if DS is TDSSimpleField then
+          AFromData.Change(DS.BufAddr, DS.BufSize, @TDSSimpleField(DS).Data[0]);
+      end);
+
     // Redraw editor to show structure
     FEditor.UpdatePanes();
 
     // Show tree
     DSTreeView.BeginUpdate();
-    Progress.TaskStart(Self, 0.25);
+    Progress.TaskStart(Self, 0.1);
     try
-      with TDSCompoundField(ShownDS) do
-        for i:=0 to Fields.Count-1 do
-          ShowStructTree(Fields[i], nil);
+      // Show first level child fields
+      DSTreeViewInitChildren(DSTreeView, nil, Cnt);
 
-      DSTreeView.IterateSubtree(nil,
-        procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean)
+      // Update node text when field changes
+      ASavedRootDS := ShownDS;  // Capture for closure
+      ShownDS.OnChanged.Add(procedure (DS: TDSField; Changer: TObject)
+        var
+          Node: PVirtualNode;
         begin
-          // Expand top-level nodes
-          if (Node.Parent = DSTreeView.RootNode) and (DSTreeView.ChildCount[Node] < 30) then
-            DSTreeView.Expanded[Node] := True;
-          // Expand nodes with errors
-          DS := GetNodeDS(Node);
-          if (DS <> nil) and (DS is TDSSimpleField) and ((DS as TDSSimpleField).ErrorText <> '') then
-            ExpandToNode(Node);
+          if ShownDS <> ASavedRootDS then
+            Exit;  // Do not try to update text if another DS is already shown in tree
+          Node := GetDSNode(DS);
+          if Node <> nil then
+          begin
+            PDSTreeNode(Node.GetData).Caption := DSNodeText(DS);
+            DSTreeView.InvalidateNode(Node);
+          end;
+        end);
 
-        end,
-        nil);
+//      DSTreeView.IterateSubtree(nil,
+//        procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean)
+//        begin
+//          // Expand top-level nodes
+//          if (Node.Parent = DSTreeView.RootNode) and (DSTreeView.ChildCount[Node] < 30) then
+//            DSTreeView.Expanded[Node] := True;
+//          // Expand nodes with errors
+//          DS := GetNodeDS(Node);
+//          if (DS <> nil) and (DS is TDSSimpleField) and ((DS as TDSSimpleField).ErrorText <> '') then
+//            ExpandToNode(Node);
+//
+//        end,
+//        nil);
 
     finally
       DSTreeView.EndUpdate();
@@ -250,6 +282,13 @@ begin
   end;
 end;
 
+
+function TStructFrame.GetDSNode(DS: TDSField): PVirtualNode;
+// Returns tree node associated with given DSField
+begin
+  if not NodesForDSs.TryGetValue(DS, Result) then
+    Result := nil;
+end;
 
 function TStructFrame.GetInterpretRange: TInterpretRange;
 begin
@@ -341,10 +380,12 @@ begin
   FInterpretor.OnFieldInterpreted.Add(FieldInterpreted);
 
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
+  NodesForDSs := TDictionary<TDSField, PVirtualNode>.Create();
 end;
 
 destructor TStructFrame.Destroy;
 begin
+  NodesForDSs.Free;
   ShownDS.Free;
   FParser.Free;
   FInterpretor.Free;
@@ -472,6 +513,49 @@ begin
     CellText := Data.Caption;
 end;
 
+procedure TStructFrame.DSTreeViewInitChildren(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; var ChildCount: Cardinal);
+var
+  DS, ChildDS: TDSField;
+  ChildNode: PVirtualNode;
+begin
+  DS := GetNodeDS(Node);
+  if (DS <> nil) and (DS is TDSCompoundField) then
+  begin
+    Sender.BeginUpdate();
+    try
+      for ChildDS in (DS as TDSCompoundField).NamedFields do
+      begin
+        ChildNode := Sender.AddChild(Node);
+        with PDSTreeNode(ChildNode.GetData())^ do
+        begin
+          DSField := ChildDS;
+          NodesForDSs.AddOrSetValue(ChildDS, ChildNode);
+        end;
+      end;
+
+      ChildCount := Sender.ChildCount[Node];
+    finally
+      Sender.EndUpdate();
+    end;
+  end
+  else
+    ChildCount := 0;
+end;
+
+procedure TStructFrame.DSTreeViewInitNode(Sender: TBaseVirtualTree; ParentNode,
+  Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
+begin
+  with PDSTreeNode(Sender.GetNodeData(Node))^ do
+  begin
+    Progress.Show(DSField.BufAddr - ShownDS.BufAddr, ShownDS.BufSize, 'Showing tree');
+
+    Caption := DSNodeText(DSField);
+    if (DSField is TDSCompoundField) and ((DSField as TDSCompoundField).Fields.Count > 0) then
+      InitialStates := InitialStates + [ivsHasChildren];
+  end;
+end;
+
 procedure TStructFrame.DSTreeViewNodeDblClick(Sender: TBaseVirtualTree;
   const HitInfo: THitInfo);
 // Edit value
@@ -546,9 +630,8 @@ begin
   if DS is TDSCompoundField then
   begin
     Result := SO();
-    for i:=0 to (DS as TDSCompoundField).NamedFieldsCount-1 do
+    for Field in (DS as TDSCompoundField).NamedFields do
     begin
-      Field := (DS as TDSCompoundField).NamedFields[i];
       (Result as TSuperObject).O[Field.Name] := DSValueAsJsonObject(Field);
     end;
   end
@@ -611,6 +694,7 @@ end;
 
 procedure TStructFrame.EditorClosed(Sender: TEditorForm);
 begin
+  NodesForDSs.Clear();
   DSTreeView.Clear();
   FreeAndNil(FShownDS);
   FEditor := nil;
@@ -626,7 +710,7 @@ begin
 
   AddRegionsForFields(ShownDS, {SelDS,} Start, AEnd, Regions);
 
-  if Screen.ActiveControl = DSTreeView then
+  if (Screen.ActiveControl = DSTreeView) and (DSTreeView.FocusedNode <> nil) then
   begin
     SelDS := GetNodeDS(DSTreeView.FocusedNode);
     if SelDS <> nil then
@@ -635,28 +719,21 @@ begin
 
 end;
 
-procedure TStructFrame.ExpandToNode(Node: PVirtualNode);
-begin
-  while Node <> DSTreeView.RootNode do
-  begin
-    DSTreeView.Expanded[Node] := True;
-    Node := Node.Parent;
-  end;
-end;
+//procedure TStructFrame.ExpandToNode(Node: PVirtualNode);
+//begin
+//  while Node <> DSTreeView.RootNode do
+//  begin
+//    DSTreeView.Expanded[Node] := True;
+//    Node := Node.Parent;
+//  end;
+//end;
 
 procedure TStructFrame.FieldInterpreted(Sender: TObject; DS: TDSField);
 // Called on new DS field initialization
-var
-  AFromData: TEditedData;
 begin
-  AFromData := FEditor.Data;  // Capture for closure
-  // On any DS field change (from GUI or from scripts)
-  DS.OnChanged.Add(procedure(DS: TDSField; Changer: TObject)
-    begin
-      // Update bytes in edited file
-      if DS is TDSSimpleField then
-        AFromData.Change(DS.BufAddr, DS.BufSize, @TDSSimpleField(DS).Data[0]);
-    end);
+  // TODO: create and axpand nodes for fields with errors
+//  if DS.ErrorText <> '' then
+//    ExpandFields.Add(DS);
 end;
 
 procedure TStructFrame.FrameResize(Sender: TObject);
@@ -780,7 +857,7 @@ end;
 function TStructFrame.GetNodeDS(Node: PVirtualNode): TDSField;
 // Returns DSField associated with given tree node
 begin
-  if Node = nil then Exit(nil);
+  if Node = nil then Exit(ShownDS);
   Result := PDSTreeNode(DSTreeView.GetNodeData(Node)).DSField;
 end;
 
@@ -805,7 +882,6 @@ var
   Node: PVirtualNode;
   S: string;
   i: Integer;
-  RootDS: TDSField;
 begin
   Progress.Show(DS.BufAddr - ShownDS.BufAddr, ShownDS.BufSize, 'Showing tree');
 
@@ -816,19 +892,10 @@ begin
     Node := DSTreeView.AddChild(ParentNode);
     PDSTreeNode(Node.GetData).Caption := S;
     PDSTreeNode(Node.GetData).DSField := DS;
-
-    // Update node text when field changes
-    RootDS := ShownDS;  // Capture for closure
-    DS.OnChanged.Add(procedure (DS: TDSField; Changer: TObject)
-      begin
-        if RootDS <> ShownDS then
-          Exit;  // Do not try to update text if another DS is already shown in tree
-        PDSTreeNode(Node.GetData).Caption := DSNodeText(DS);
-        DSTreeView.InvalidateNode(Node);
-      end);
   end
   else  // Don't create separate nodes for nameless fields - e.g. conditional statements
     Node := ParentNode;
+  NodesForDSs.AddOrSetValue(DS, Node);
 
   // For compound field: recursively show fields
   if DS is TDSCompoundField then

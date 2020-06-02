@@ -118,6 +118,7 @@ object StructFrame: TStructFrame
     PopupMenu = DSFieldPopupMenu
     ShowHint = True
     TabOrder = 3
+    TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
     TreeOptions.SelectionOptions = [toRightClickSelect]
     OnBeforeItemErase = DSTreeViewBeforeItemErase
     OnChange = DSTreeViewChange
@@ -126,6 +127,8 @@ object StructFrame: TStructFrame
     OnFreeNode = DSTreeViewFreeNode
     OnGetText = DSTreeViewGetText
     OnGetHint = DSTreeViewGetHint
+    OnInitChildren = DSTreeViewInitChildren
+    OnInitNode = DSTreeViewInitNode
     OnNodeDblClick = DSTreeViewNodeDblClick
     Columns = <>
   end
