@@ -122,6 +122,7 @@ type
     function ToString(): string; override;
     function AddField(Field: TDSField): Integer;
     function GetComWrapper(): TDSComWrapper;
+    function GetFieldAlign(): Integer;
 //    property NamedFieldsCount: Integer read GetNamedFieldsCount;  // See comment in GetNamedFields()
     function NamedFields(): INamedFieldsEnumerable;
     function NamedFieldByIndex(Index: Integer): TDSField;
@@ -156,7 +157,7 @@ type
 
   TDSDirective = class (TDSField)
   // Directive that should be processed during structure population,
-  // for example "addr" and "align".
+  // for example "addr" and "align_pos".
   // TDSDirective is not created for directives which are fully processed
   // during DS description parsing, like "bigendian"
   public
@@ -442,7 +443,7 @@ begin
     Exit;
   end;
 
-  if (SameName(DirName, 'addr')) or (SameName(DirName, 'align')) then
+  if (SameName(DirName, 'addr')) or (SameName(DirName, 'align_pos')) then
   begin
     Value := Trim(ReadLine());
     if Value = '' then
@@ -453,13 +454,13 @@ begin
     Exit;
   end;
 
-  if SameName(DirName, 'fieldalign') then
+  if SameName(DirName, 'align') then
   begin
     Value := Trim(ReadLine());
     if Value = '' then
       raise EDSParserError.Create('Value expected');
     if CurStruct = nil then
-      raise EDSParserError.Create('"#fieldalign" directive not inside structure');
+      raise EDSParserError.Create('"#align" directive not inside structure');
     CurStruct.FieldAlign := TDSInterpretor.CalculateExpressionSimple(Value, nil);
     Exit;
   end;
@@ -946,6 +947,25 @@ begin
     FComWrapper._AddRef();
   end;
   Result := FComWrapper;
+end;
+
+function TDSCompoundField.GetFieldAlign: Integer;
+// Get field alignment. It may be inherited from parent structure.
+var
+  DS: TDSCompoundField;
+begin
+  if FieldAlign > 0 then
+    Exit(FieldAlign);
+  // Find nearest parent with non-zero field alignment.
+  // Save result into FieldAlign of this structure to not search next time.
+  DS := Self;
+  while (DS.FieldAlign <= 0) and (DS.Parent <> nil) do
+    DS := DS.Parent;
+  if DS.FieldAlign = 0 then  // Stopped at Root DS
+    Result := 1
+  else
+    Result := DS.FieldAlign;
+  Self.FieldAlign := Result;
 end;
 
 //function TDSCompoundField.GetNamedFields(Index: Integer): TDSField;
@@ -1559,7 +1579,7 @@ begin
     end;
   end;
   
-  if SameName(DS.Name, 'align') then
+  if SameName(DS.Name, 'align_pos') then
   // Align next field to specified boundary relative to parent structure start
   begin
     Align := CalculateExpression(DS.Value, DS);
@@ -1567,7 +1587,6 @@ begin
       Addr := DS.Parent.BufAddr
     else
       Addr := 0;
-    //Addr := Addr + ((DS.BufAddr - Addr - 1) div Align + 1) * Align;
     Addr := NextAlignBoundary(Addr, DS.BufAddr, Align);
     Seek(Addr);
     DS.BufAddr := Addr;
@@ -1639,18 +1658,22 @@ end;
 
 procedure TDSInterpretor.InterpretSimple(DS: TDSSimpleField);
 var
-  Size: Integer;
+  Size, Align: Integer;
   AlignBoundary: TFilePointer;
 begin
   Size := GetFieldSize(DS);
   // Apply field alignment
-  if (DS.Parent <> nil) and (DS.Parent.FieldAlign > 1) then
+  if (DS.Parent <> nil) then
   begin
-    AlignBoundary := NextAlignBoundary(DS.Parent.BufAddr, FCurAddr, DS.Parent.FieldAlign);
-    if (FCurAddr < AlignBoundary) and (FCurAddr + Size > AlignBoundary) then
+    Align := DS.Parent.GetFieldAlign();
+    if (Align > 1) then
     begin
-      Seek(AlignBoundary);
-      DS.BufAddr := AlignBoundary;
+      AlignBoundary := NextAlignBoundary(DS.Parent.BufAddr, FCurAddr, Align);
+      if (FCurAddr < AlignBoundary) and (FCurAddr + Size > AlignBoundary) then
+      begin
+        Seek(AlignBoundary);
+        DS.BufAddr := AlignBoundary;
+      end;
     end;
   end;
   ReadData(DS.Data, Size);
