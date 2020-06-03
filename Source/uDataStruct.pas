@@ -26,12 +26,19 @@ type
   TDSCompoundField = class;
   TDSComWrapper = class;
 
+  TDSEventSet = class
+  // TODO
+  end;
+
   // Base class for all elements
   TDSField = class
   private
+    FIndex: Integer;
+    FName: string;
     function RootDS(): TDSField;
+  private
+    function GetName: string;
   public
-    Name: string;
     Parent: TDSCompoundField;
     BufAddr: TFilePointer;  // Address and size in original data buffer
     BufSize: TFilePointer;
@@ -44,6 +51,7 @@ type
     constructor Create(); virtual;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); virtual;
+    property Name: string read GetName;
     function Duplicate(): TDSField;
     function ToQuotedString(): string; virtual;
     function FullName(): string;
@@ -112,6 +120,7 @@ type
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
+    function AddField(Field: TDSField): Integer;
     function GetComWrapper(): TDSComWrapper;
 //    property NamedFieldsCount: Integer read GetNamedFieldsCount;  // See comment in GetNamedFields()
     function NamedFields(): INamedFieldsEnumerable;
@@ -439,7 +448,7 @@ begin
     if Value = '' then
       raise EDSParserError.Create('Value expected');
     Result := TDSDirective.Create();
-    Result.Name := DirName;
+    Result.FName := DirName;
     Result.Value := Value;
     Exit;
   end;
@@ -682,7 +691,7 @@ begin
         AInstance := AType.Duplicate();
       end;
 
-      AInstance.Name := AName;
+      AInstance.FName := AName;
       //AInstance.Parent := Result;
       //Result.Fields.Add(AInstance);
       Result := Result + [AInstance];
@@ -729,11 +738,9 @@ begin
       begin
         if PeekLexem() = '}' then Break;
         Fields := ReadStatement();
-    //    if Fields = nil then Break;
         for i:=0 to Length(Fields)-1 do
         begin
-          Fields[i].Parent := Result;
-          Result.Fields.Add(Fields[i]);
+          Result.AddField(Fields[i]);
         end;
       end;
     finally
@@ -893,9 +900,16 @@ end;
 
 { TDSCompoundField }
 
+function TDSCompoundField.AddField(Field: TDSField): Integer;
+begin
+  Field.Parent := Self;
+  Result := Fields.Add(Field);
+  Field.FIndex := Result;
+end;
+
 procedure TDSCompoundField.Assign(Source: TDSField);
 var
-  i, n: Integer;
+  i: Integer;
 begin
   inherited;
   if Source is TDSCompoundField then
@@ -903,8 +917,7 @@ begin
     Fields.Clear();
     for i:=0 to (Source as TDSCompoundField).Fields.Count-1 do
     begin
-      n := Fields.Add( (Source as TDSCompoundField).Fields[i].Duplicate() );
-      Fields[n].Parent := Self;
+      AddField( (Source as TDSCompoundField).Fields[i].Duplicate() );
     end;
     FieldAlign := (Source as TDSCompoundField).FieldAlign;
   end;
@@ -1084,7 +1097,8 @@ end;
 
 procedure TDSField.Assign(Source: TDSField);
 begin
-  Name := Source.Name;
+  FIndex := Source.FIndex;
+  FName := Source.FName;
   Parent := Source.Parent;
   DescrLineNum := Source.DescrLineNum;
 end;
@@ -1092,7 +1106,7 @@ end;
 constructor TDSField.Create;
 begin
   inherited;
-
+  FIndex := -1;
 end;
 
 destructor TDSField.Destroy;
@@ -1136,6 +1150,17 @@ begin
     else
       Result := ParentFullName + '.' + Result;
   end;
+end;
+
+function TDSField.GetName: string;
+begin
+  if FName <> '' then
+    Result := FName
+  else
+    if (Parent <> nil) and (Parent is TDSArray) then
+      Result := IntToStr(FIndex)
+    else
+      Result := '';
 end;
 
 function TDSField.RootDS: TDSField;
@@ -1432,9 +1457,7 @@ begin
       if EndOfData then Break;
     end;
     Element := DS.ElementType.Duplicate();
-    Element.Name := IntToStr(i);
-//    Element.Parent := DS;
-    DS.FCurParsedItem := DS.Fields.Add(Element);
+    DS.FCurParsedItem := DS.AddField(Element);
     InternalInterpret(Element);
     Inc(i);
   end;
@@ -1462,7 +1485,7 @@ begin
     for i:=0 to Length(AFields)-1 do
     begin
       AField := AFields[i].Duplicate();
-      DS.FCurParsedItem := DS.Fields.Add(AField);
+      DS.FCurParsedItem := DS.AddField(AField);
       InternalInterpret(AField);
     end;
   end;
