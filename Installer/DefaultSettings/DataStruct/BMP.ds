@@ -45,5 +45,5 @@
     default: uint8 data[Math.floor((bmiHeader.biWidth*bmiHeader.biBitCount-1)/8)+1];
   }
   // Align rows to 4 bytes
-  #align 4
+  #align_pos 4
 } rows[Math.abs(bmiHeader.biHeight)];

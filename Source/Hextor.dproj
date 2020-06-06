@@ -554,7 +554,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Debug\Hextor.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="..\Build\Win32\Debug\Hextor.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>Hextor.exe</RemoteName>
                         <Overwrite>true</Overwrite>

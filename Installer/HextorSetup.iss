@@ -1,8 +1,9 @@
 #define MyAppName "Hextor"
-#define MyAppVersion "0.3-alpha"
 #define MyAppPublisher "Grigoriy Mylnikov"
 #define MyAppURL "http://www.hextor.net"
 #define MyAppExeName "Hextor.exe"
+
+#include "AppVersionDefine.inc"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -30,10 +31,11 @@ WizardStyle=classic
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 Source: "..\Build\Win32\Release\Hextor.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\Build\Win32\Release\Zydis32.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\DefaultSettings\*"; DestDir: "{app}\DefaultSettings"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion

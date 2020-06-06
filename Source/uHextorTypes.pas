@@ -12,7 +12,7 @@ interface
 
 uses
   SysUtils, Winapi.Windows, Generics.Collections, Vcl.Graphics, System.Math,
-  System.SysConst, superobject, uCallbackList;
+  System.SysConst, System.Variants, superobject, uCallbackList;
 
 const
   KByte = 1024;
@@ -41,6 +41,17 @@ type
     class operator NotEqual(const A, B: TFileRange): Boolean; inline;
     constructor Create(BStart, BEnd: TFilePointer);
   end;
+
+  TVariantRange = record
+    AStart, AEnd: Variant;
+    constructor Create(AStart, AEnd: Variant);
+  end;
+  TVariantRanges = record
+    Ranges: TArray<TVariantRange>;
+    function Contains(const Value: Variant): Boolean;
+  end;
+
+  TValueDisplayNotation = (nnDefault, nnBin, nnOct, nnDec, nnHex, nnAChar, nnWChar);
 
   EInvalidUserInput = class (Exception);
   ENoActiveEditor = class (EAbort);
@@ -129,6 +140,8 @@ function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeBytes(const Buf; BufSize:integer):tBytes; overload;
 function MakeZeroBytes(Size: NativeInt): TBytes;
 procedure InvertByteOrder(var Buf; BufSize:Integer);
+function VariantRange(const AStart, AEnd: Variant): TVariantRange; overload;
+function VariantRange(const AValue: Variant): TVariantRange; overload;
 
 function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
 function TryS2R(s:UnicodeString; var Value:Double):Boolean;
@@ -342,6 +355,18 @@ begin
   end;
 end;
 
+function VariantRange(const AStart, AEnd: Variant): TVariantRange; overload;
+begin
+  Result.AStart := AStart;
+  Result.AEnd := AEnd;
+end;
+
+function VariantRange(const AValue: Variant): TVariantRange; overload;
+begin
+  Result.AStart := AValue;
+  Result.AEnd := AValue;
+end;
+
 function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
 // if S includes '-' or '+', it is treated as relative to OldValue
 begin
@@ -536,6 +561,34 @@ end;
 procedure TFileRange.SetSize(Value: TFilePointer);
 begin
   AEnd := Start + Value;
+end;
+
+{ TVariantRange }
+
+constructor TVariantRange.Create(AStart, AEnd: Variant);
+begin
+  Self.AStart := AStart;
+  Self.AEnd := AEnd;
+end;
+
+{ TVariantRanges }
+
+function TypesCompatible(const v1, v2: Variant): Boolean;
+begin
+  Result := (VarIsNumeric(v1) and VarIsNumeric(v2)) or
+            (VarIsStr(v1) and VarIsStr(v2));
+end;
+
+function TVariantRanges.Contains(const Value: Variant): Boolean;
+var
+  i: Integer;
+begin
+  for i:=0 to Length(Ranges)-1 do
+    if (TypesCompatible(Value, Ranges[i].AStart)) and
+       (TypesCompatible(Value, Ranges[i].AEnd)) and
+       (Value >= Ranges[i].AStart) and (Value <= Ranges[i].AEnd) then
+      Exit(True);
+  Result := False;
 end;
 
 { tJsonRtti }

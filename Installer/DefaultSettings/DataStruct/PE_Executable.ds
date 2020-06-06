@@ -34,7 +34,7 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     ULONG   PointerToSymbolTable;
     ULONG   NumberOfSymbols;
     USHORT  SizeOfOptionalHeader;
-    USHORT  Characteristics;
+    USHORT  Characteristics;  #format hex
 } image_file_header;
 
 // IMAGE_OPTIONAL_HEADER
@@ -54,7 +54,7 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     //
     // NT additional fields.
     //
-    ULONG   ImageBase;
+    ULONG   ImageBase;  #format hex
     ULONG   SectionAlignment;
     ULONG   FileAlignment;
     USHORT  MajorOperatingSystemVersion;
@@ -76,30 +76,33 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     ULONG   LoaderFlags;
     ULONG   NumberOfRvaAndSizes;
     {
-      DWORD VirtualAddress;
+      DWORD VirtualAddress;  #format hex
       DWORD Size;
     } DataDirectory[16/*IMAGE_NUMBEROF_DIRECTORY_ENTRIES*/];
+    if (image_file_header.SizeOfOptionalHeader > 224)
+      byte unknown[image_file_header.SizeOfOptionalHeader-224];
 } image_optional_header;
 
 // IMAGE_SECTION_HEADER
 {
     ansi   Name[8/*IMAGE_SIZEOF_SHORT_NAME*/];
 //    union {
-            ULONG   PhysicalAddress;
+            ULONG   PhysicalAddress;  #format hex
 //            ULONG   VirtualSize;
 //    } Misc;
-    ULONG   VirtualAddress;
+    ULONG   VirtualAddress;  #format hex
     ULONG   SizeOfRawData;
-    ULONG   PointerToRawData;
-    ULONG   PointerToRelocations;
-    ULONG   PointerToLinenumbers;
+    ULONG   PointerToRawData;  #format hex
+    ULONG   PointerToRelocations;  #format hex
+    ULONG   PointerToLinenumbers;  #format hex
     USHORT  NumberOfRelocations;
     USHORT  NumberOfLinenumbers;
-    ULONG   Characteristics;
+    ULONG   Characteristics;  #format hex
 } image_section_header[image_file_header.NumberOfSections];
 
 // Sections
 {
   #addr image_section_header[sections.index].PointerToRawData
-  byte data[image_section_header[sections.index].SizeOfRawData];
+//  char _caption[0];  #display image_section_header[sections.index].Name
+  byte data[image_section_header[sections.index].SizeOfRawData];  #format hex
 } sections[image_file_header.NumberOfSections];

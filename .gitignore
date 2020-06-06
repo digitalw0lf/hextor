@@ -20,3 +20,5 @@
 /PluginSrc/PluginTest/PluginTest.res
 /Source/Hextor.res
 /Installer/Output
+/Installer/AppVersionDefine.inc
+/Source/AppVersion.inc

@@ -40,7 +40,7 @@ type
     procedure BtnCopyClick(Sender: TObject);
     procedure CBElemTypeChange(Sender: TObject);
   public type
-    TNotation = (nnBin, nnOct, nnDec, nnHex, nnAChar, nnWChar);
+    TNotation = TValueDisplayNotation;
     TTwoStrings = array[0..1] of string;
     // Description of export layout (like "C array" or "Comma-separated")
     TExportLayout = class
@@ -50,7 +50,7 @@ type
       LineSeparator,
       Footer: string;
       TypeNames: array of TTwoStrings;  // Type name mapping in form ['int8', 'this_format_type_name']
-      NotationPrefix, NotationSuffix: array[TNotation] of string;  // Number system prefix/suffix for (bin, oct, dec, hex)
+      NotationPrefix, NotationSuffix: array[nnBin..nnWChar] of string;  // Number system prefix/suffix for (bin, oct, dec, hex)
       function ValueToStr(const V: Variant; Notation: TNotation): string; virtual;
       function TranslateType(const TypeName: string): string;
     end;
@@ -81,7 +81,7 @@ procedure TCopyAsForm.BtnCopyClick(Sender: TObject);
 var
   Text: string;
 begin
-  Text := DataToText(Data, CBElemType.Text, TNotation(CBNotation.ItemIndex), CBLayout.Text, StrToIntDef(CBValuesPerLine.Text, -1));
+  Text := DataToText(Data, CBElemType.Text, TNotation(CBNotation.ItemIndex+1), CBLayout.Text, StrToIntDef(CBValuesPerLine.Text, -1));
   Clipboard.AsText := Text;
   ModalResult := mrOk;
 end;
@@ -245,7 +245,7 @@ var
   Text: string;
 begin
   try
-    Text := DataToText(Data, CBElemType.Text, TNotation(CBNotation.ItemIndex), CBLayout.Text, StrToIntDef(CBValuesPerLine.Text, -1), 100);
+    Text := DataToText(Data, CBElemType.Text, TNotation(CBNotation.ItemIndex+1), CBLayout.Text, StrToIntDef(CBValuesPerLine.Text, -1), 100);
     LblPreview.Caption := Text;
   except
     on E: Exception do
@@ -274,6 +274,7 @@ var
   x: Int64;
   Size: Integer;
 begin
+  Result := '';
   if VarIsOrdinal(V) then
   begin
     case VarType(V) of

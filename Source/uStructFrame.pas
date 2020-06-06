@@ -23,6 +23,7 @@ uses
 const
   Color_DSFieldBg = $FFF8F8;
   Color_DSFieldFr = $F8E0E0;
+  Color_ErrDSFieldBg = $B090FF;
   Color_SelDSFieldBg = $FFD0D0;
   Color_SelDSFieldFr = $E0A0A0;
 
@@ -159,6 +160,7 @@ procedure TStructFrame.AddRegionsForFields(DS{, HighlightDS}: TDSField;
 // Add DS and it's childs as visible regions to Regions
 var
   i{, c}: Integer;
+  Bg: TColor;
 begin
   // Check within requested address range
   if (DS.BufAddr >= AEnd) or (DS.BufAddr + DS.BufSize <= Start) then Exit;
@@ -177,8 +179,12 @@ begin
 //    c := 255 - DS.Name.GetHashCode() and $1F;
 //    Bg := RGB(c, c, 255);
 //  end;
+  if DS.ErrorText <> '' then
+    Bg := Color_ErrDSFieldBg
+  else
+    Bg := Color_DSFieldBg;
   // Add this DS
-  Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Color_DSFieldBg, Color_DSFieldFr);
+  Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, Color_DSFieldFr);
   // Add childs
   if DS is TDSCompoundField then
     for i:=0 to TDSCompoundField(DS).Fields.Count-1 do
@@ -192,6 +198,7 @@ var
 //  DS: TDSField;
   AFromData: TEditedData;
   ASavedRootDS: TDSField;
+  Node: PVirtualNode;
 begin
   Progress.TaskStart(Self);
   try
@@ -270,6 +277,13 @@ begin
 //
 //        end,
 //        nil);
+      if (DSTreeView.RootNodeCount = 1) then
+      begin
+        Node := DSTreeView.GetFirstChild(nil);
+        Cnt := DSTreeView.ChildCount[Node];
+        if (Cnt > 0) and (Cnt <= 10000) then
+          DSTreeView.Expanded[Node] := True;
+      end;
 
     finally
       DSTreeView.EndUpdate();
@@ -403,7 +417,7 @@ begin
   DS := GetNodeDS(DSTreeView.FocusedNode);
   if (DS <> nil) and (DS is TDSSimpleField) then
   begin
-    AValue := (DS as TDSSimpleField).ValueAsVariant();
+    AValue := (DS as TDSSimpleField).ToVariant();
     if (VarIsOrdinal(AValue)) and (AValue >= 0) and (AValue < FEditor.GetFileSize()) then
     begin
       Vis := True;
