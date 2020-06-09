@@ -18,7 +18,7 @@ uses
   SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils, Vcl.ToolWin,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
-  uDataStruct, uEditedData, uCallbackList;
+  uDataStruct, uEditedData, uCallbackList, uModuleSettings;
 
 const
   Color_DSFieldBg = $FFF8F8;
@@ -28,6 +28,12 @@ const
   Color_SelDSFieldFr = $E0A0A0;
 
 type
+  TStructInterpretRange = (irFile, irSelection);
+
+  TStructSettings = class (TModuleSettings)
+    Range: TStructInterpretRange;
+  end;
+
   TDSTreeNode = record
     Caption: string;
     DSField: TDSField;
@@ -108,8 +114,6 @@ type
       Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
   private const
     Unnamed_Struct = 'Unnamed';
-  public type
-    TInterpretRange = (irFile, irSelection);
   private
     { Private declarations }
     FParser: TDSParser;
@@ -134,16 +138,17 @@ type
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
     function DSValueAsJsonObject(DS: TDSField): ISuperObject;
     function DSValueAsJson(DS: TDSField): string;
-    procedure SetInterpretRange(const Value: TInterpretRange);
-    function GetInterpretRange: TInterpretRange;
+    procedure SetInterpretRange(const Value: TStructInterpretRange);
+    function GetInterpretRange: TStructInterpretRange;
     procedure FieldInterpreted(Sender: TObject; DS: TDSField);
   public
     { Public declarations }
+    StructSettings: TStructSettings;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure Analyze(Addr, Size: TFilePointer; const Struct: string);
     property ShownDS: TDSField read FShownDS;
-    property InterpretRange: TInterpretRange read GetInterpretRange write SetInterpretRange;
+    property InterpretRange: TStructInterpretRange read GetInterpretRange write SetInterpretRange;
   end;
 
 implementation
@@ -304,9 +309,9 @@ begin
     Result := nil;
 end;
 
-function TStructFrame.GetInterpretRange: TInterpretRange;
+function TStructFrame.GetInterpretRange: TStructInterpretRange;
 begin
-  Result := AppSettings.Struct.Range;
+  Result := StructSettings.Range;
 end;
 
 procedure TStructFrame.BtnCopyValueClick(Sender: TObject);
@@ -388,6 +393,7 @@ end;
 constructor TStructFrame.Create(AOwner: TComponent);
 begin
   inherited;
+  StructSettings := TStructSettings.Create();
 
   FParser := TDSParser.Create();
   FInterpretor := TDSInterpretor.Create();
@@ -403,6 +409,7 @@ begin
   ShownDS.Free;
   FParser.Free;
   FInterpretor.Free;
+  StructSettings.Free;
   inherited;
 end;
 
@@ -453,7 +460,7 @@ end;
 
 function TStructFrame.DSSaveFolder: string;
 begin
-  Result := IncludeTrailingPathDelimiter( TPath.Combine(MainForm.SettingsFolder, 'DataStruct') );
+  Result := IncludeTrailingPathDelimiter( TPath.Combine(StructSettings.SettingsFolder, 'DataStruct') );
 end;
 
 procedure TStructFrame.DSTreeViewBeforeItemErase(Sender: TBaseVirtualTree;
@@ -800,7 +807,7 @@ end;
 
 procedure TStructFrame.MIRangeEntireFileClick(Sender: TObject);
 begin
-  InterpretRange := TInterpretRange((Sender as TMenuItem).Tag);
+  InterpretRange := TStructInterpretRange((Sender as TMenuItem).Tag);
 end;
 
 procedure TStructFrame.MISaveAsClick(Sender: TObject);
@@ -881,11 +888,12 @@ begin
   MIRangeSelection.Checked := (InterpretRange = irSelection);
 end;
 
-procedure TStructFrame.SetInterpretRange(const Value: TInterpretRange);
+procedure TStructFrame.SetInterpretRange(const Value: TStructInterpretRange);
 begin
-  if AppSettings.Struct.Range <> Value then
+  if StructSettings.Range <> Value then
   begin
-    AppSettings.Struct.Range := Value;
+    StructSettings.Range := Value;
+    StructSettings.Changed();
   end;
 end;
 

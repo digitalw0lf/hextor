@@ -159,7 +159,7 @@ object AboutForm: TAboutForm
     ParentFont = False
   end
   object LblBuildDate: TLabel
-    Left = 96
+    Left = 240
     Top = 121
     Width = 102
     Height = 16
@@ -223,6 +223,19 @@ object AboutForm: TAboutForm
     ParentShowHint = False
     ShowHint = True
     OnClick = LblLicenseClick
+  end
+  object LblVersion: TLabel
+    Left = 96
+    Top = 121
+    Width = 106
+    Height = 16
+    Caption = 'Version: 0.0-alpha'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
   end
   object Button1: TButton
     Left = 312

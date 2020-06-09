@@ -14,9 +14,9 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Clipbrd,
   Generics.Collections, System.IOUtils, System.Types, Winapi.ShellAPI,
-  System.StrUtils,
+  System.StrUtils, Vcl.Buttons,
 
-  uHextorTypes, superobject, Vcl.Buttons;
+  uHextorTypes, superobject, uModuleSettings;
 
 type
   TCopyAsForm = class(TForm)
@@ -179,7 +179,7 @@ end;
 
 procedure TCopyAsForm.FormCreate(Sender: TObject);
 begin
-  LayoutsFolder := TPath.Combine(MainForm.SettingsFolder, 'ExportLayouts');
+  LayoutsFolder := TPath.Combine(TModuleSettings.SettingsFolder, 'ExportLayouts');
   Layouts := TObjectList<TExportLayout>.Create(True);
 end;
 

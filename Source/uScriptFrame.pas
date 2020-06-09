@@ -16,9 +16,13 @@ uses
   Vcl.StdCtrls, Vcl.OleCtrls, MSScriptControl_TLB, Vcl.ComCtrls,
   System.Diagnostics, SynEdit,
 
-  uHextorTypes;
+  uHextorTypes, uModuleSettings;
 
 type
+  TScriptSettings = class (TModuleSettings)
+    Text: string;
+  end;
+
   TScriptFrame = class(TFrame)
     ToolPanel: TPanel;
     BtnRun: TSpeedButton;
@@ -38,6 +42,7 @@ type
     procedure PrepareScriptEnv();
   public
     { Public declarations }
+    ScriptSettings: TScriptSettings;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure Init();
@@ -62,8 +67,8 @@ var
 begin
   AText := ScriptEdit.Text;
 
-  AppSettings.Script.Text := AText;
-  MainForm.SaveSettings();
+  ScriptSettings.Text := AText;
+  ScriptSettings.Changed(True);
 
   //t := GetNanosec();
   Timer := TStopwatch.StartNew();
@@ -98,12 +103,14 @@ end;
 constructor TScriptFrame.Create(AOwner: TComponent);
 begin
   inherited;
+  ScriptSettings := TScriptSettings.Create();
   ScriptControl1 := TScriptControl.Create(Self);
   ScriptControl1.Language := 'JScript';
 end;
 
 destructor TScriptFrame.Destroy;
 begin
+  ScriptSettings.Free;
   inherited;
 end;
 
@@ -117,7 +124,7 @@ end;
 
 procedure TScriptFrame.Init;
 begin
-  ScriptEdit.Text := AppSettings.Script.Text;
+  ScriptEdit.Text := ScriptSettings.Text;
 end;
 
 procedure TScriptFrame.PrepareScriptEnv;
@@ -140,7 +147,11 @@ end;
 
 procedure TScriptFrame.Uninit;
 begin
-  AppSettings.Script.Text := ScriptEdit.Text;
+  if ScriptEdit.Text <> ScriptSettings.Text then
+  begin
+    ScriptSettings.Text := ScriptEdit.Text;
+    ScriptSettings.Changed();
+  end;
 end;
 
 end.

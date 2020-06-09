@@ -24,12 +24,15 @@ uses
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
   System.StrUtils, MSScriptControl_TLB, System.IOUtils, Vcl.HtmlHelpViewer,
+  Vcl.StdActns,
 
-  uEditorPane, {uLogFile,} superobject,
+  uEditorPane, {uLogFile,} superobject, uModuleSettings,
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame, uHashFrame, uDataSaver, Vcl.StdActns, uAsmFrame;
+  uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame;
+
+{$I AppVersion.inc}
 
 const
   Color_ChangedByte = $B0FFFF;
@@ -42,26 +45,15 @@ const
 //  MAX_TAB_WIDTH = 200;
 
 type
-  THextorSettings = class
+  TMainFormSettings = class (TModuleSettings)
   public type
     TRecentFileRec = record
       FileName: string;
     end;
   public
-    ScrollWithWheel: Integer;
-    ByteColumns: Integer;  // -1 - auto
     ActiveRightPage: Integer;
     RightPanelWidth: Integer;
-    Struct: record
-      Range: TStructFrame.TInterpretRange;
-    end;
-    Script: record
-      Text: string;
-    end;
     RecentFiles: array of TRecentFileRec;
-//    Colors: record
-//      ValueHighlightBg: TColor;
-//    end;
   end;
 
   [API]
@@ -120,7 +112,6 @@ type
     MIRecentFilesMenu: TMenuItem;
     MIDummyRecentFile: TMenuItem;
     ActionExit: TAction;
-    N3: TMenuItem;
     Exit1: TMenuItem;
     N4: TMenuItem;
     ActionOpenDisk: TAction;
@@ -227,6 +218,14 @@ type
     ActionHelpContents: THelpContents;
     PgAsm: TTabSheet;
     AsmFrame: TAsmFrame;
+    ActionCheckUpdate: TAction;
+    N6: TMenuItem;
+    Checkforupdates1: TMenuItem;
+    ToolButton13: TToolButton;
+    BtnCheckUpdate: TToolButton;
+    N3: TMenuItem;
+    ActionSettings: TAction;
+    Settings1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -292,6 +291,8 @@ type
     procedure Showinfolder1Click(Sender: TObject);
     procedure Fileinfo1Click(Sender: TObject);
     procedure Closeothertabs1Click(Sender: TObject);
+    procedure ActionCheckUpdateExecute(Sender: TObject);
+    procedure ActionSettingsExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -308,7 +309,6 @@ type
     EditorActionShortcuts: TDictionary<TContainedAction, TShortCutSet>;
     EditorForTabMenu: TEditorForm;
     procedure InitDefaultSettings();
-    procedure LoadSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
     procedure WMClipboardUpdate(var Msg: TMessage); message WM_CLIPBOARDUPDATE;
     function GetActiveEditor: TEditorForm;
@@ -324,7 +324,7 @@ type
     procedure ShortCutsWhenEditorActive(const AActions: array of TContainedAction);
   public
     { Public declarations }
-    SettingsFolder, SettingsFile: string;
+    MainFormSettings: TMainFormSettings;
     TempPath: string;
 //    HextorOle: TCoHextor;
     APIEnv: TAPIEnvironment;
@@ -332,7 +332,6 @@ type
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     function OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
-    procedure SaveSettings();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
     procedure UpdateMsgPanel();
@@ -354,6 +353,7 @@ type
     procedure ShowToolFrame(Frame: TFrame);
     procedure DoAfterEvent(Proc: TProc);
     function ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
+    procedure ShowUpdateAvailable(const Version: string);
 
     [API]
     procedure DoTest(x: Integer);
@@ -361,7 +361,6 @@ type
 
 var
   MainForm: TMainForm;
-  AppSettings: THextorSettings;
 
 implementation
 
@@ -373,7 +372,7 @@ uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
   uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm,
-  uFileInfoForm;
+  uFileInfoForm, uUpdaterForm, uSettingsForm;
 
 { TMainForm }
 
@@ -408,6 +407,11 @@ begin
       ChangeBytes(Addr, Buf);
     end;
   end;
+end;
+
+procedure TMainForm.ActionCheckUpdateExecute(Sender: TObject);
+begin
+  UpdaterForm.ShowModal();
 end;
 
 procedure TMainForm.ActionCloseAllExecute(Sender: TObject);
@@ -824,6 +828,12 @@ begin
   end;
 end;
 
+procedure TMainForm.ActionSettingsExecute(Sender: TObject);
+begin
+  SettingsForm.ShowSettings();
+  SettingsForm.ShowModal();
+end;
+
 procedure TMainForm.ActionUndoExecute(Sender: TObject);
 begin
   with ActiveEditor do
@@ -869,8 +879,8 @@ begin
   n := StrToIntDef(EditByteCols.Text, -1);
   if n <> -1 then
     n := BoundValue(n, 1, 16384);
-  AppSettings.ByteColumns := n;
-  SaveSettings();
+  TEditorForm.EditorSettings.ByteColumns := n;
+  TEditorForm.EditorSettings.Changed(False);
   with ActiveEditor do
     ByteColumnsSetting := n;
   DoAfterEvent(UpdateByteColEdit);
@@ -992,7 +1002,6 @@ end;
 function TMainForm.CreateNewEditor: TEditorForm;
 begin
   Result := TEditorForm.Create(Application);
-  Result.ByteColumnsSetting := AppSettings.ByteColumns;
   Result.OnByteColsChanged.Add(procedure (Sender: TEditorForm)
     begin
       if Sender = GetActiveEditorNoEx() then
@@ -1094,7 +1103,6 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 var
-  ws: string;
   i: Integer;
 begin
 //  bWriteLogFile := True;
@@ -1105,17 +1113,9 @@ begin
 
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
-  AppSettings := THextorSettings.Create();
-
-  // Get path to settings folder (AppData\Hextor)
-  SetLength(ws, MAX_PATH);
-  i:=SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @ws[Low(ws)]);
-  if i=0 then  SettingsFolder := IncludeTrailingPathDelimiter(PChar(ws)) + 'Hextor\'
-         else  SettingsFolder := ExtractFilePath(Application.ExeName) + 'Settings\';
-  SettingsFile := SettingsFolder + 'Settings.json';
+  MainFormSettings := TMainFormSettings.Create();
 
   InitDefaultSettings();
-  LoadSettings();
 
   // We will catch drag'n'dropped files
   DragAcceptFiles(Handle, True);
@@ -1124,9 +1124,9 @@ begin
   AddClipboardFormatListener(Handle);
 
   FEditors := TObjectList<TEditorForm>.Create(False);
-  RightPanelPageControl.ActivePageIndex := AppSettings.ActiveRightPage;
-  if AppSettings.RightPanelWidth > 0 then
-    RightPanel.Width := AppSettings.RightPanelWidth;
+  RightPanelPageControl.ActivePageIndex := MainFormSettings.ActiveRightPage;
+  if MainFormSettings.RightPanelWidth > 0 then
+    RightPanel.Width := MainFormSettings.RightPanelWidth;
 
   OldOnActiveControlChange := Screen.OnActiveControlChange;
   Screen.OnActiveControlChange := ActiveControlChanged;
@@ -1153,8 +1153,7 @@ begin
 
   ScriptFrame.Uninit();
 
-  SaveSettings();
-  AppSettings.Free;
+  MainFormSettings.Free;
   EditorActionShortcuts.Free;
   FEditors.Free;
 
@@ -1178,10 +1177,10 @@ begin
   for i:=Menu.Count-1 downto 1 do
     Menu.Items[i].Free;
 
-  for i:=0 to Length(AppSettings.RecentFiles)-1 do
+  for i:=0 to Length(MainFormSettings.RecentFiles)-1 do
   begin
     mi := TMenuItem.Create(Self);
-    mi.Caption := AppSettings.RecentFiles[i].FileName;
+    mi.Caption := MainFormSettings.RecentFiles[i].FileName;
     mi.OnClick := MIDummyRecentFileClick;
     Menu.Add(mi);
   end;
@@ -1238,11 +1237,6 @@ var
   Source, Target: string;
   i: Integer;
 begin
-  AppSettings.ScrollWithWheel := 3;
-  AppSettings.ByteColumns := -1;
-
-//  AppSettings.Colors.ValueHighlightBg := $FFD0A0;
-
   // Copy default configuration from App_Folder\DefaultSettings to AppData
   try
     Source := TPath.Combine(ExtractFilePath(Application.ExeName), 'DefaultSettings');
@@ -1251,7 +1245,7 @@ begin
       Files := TDirectory.GetDirectories(Source, '*', TSearchOption.soTopDirectoryOnly);
       for i:=0 to Length(Files)-1 do
       begin
-        Target := TPath.Combine(SettingsFolder, ExtractFileName(Files[i]));
+        Target := TPath.Combine(TModuleSettings.SettingsFolder, ExtractFileName(Files[i]));
         if not System.SysUtils.DirectoryExists(Target) then
           TDirectory.Copy(Files[i], Target);
       end;
@@ -1279,25 +1273,6 @@ begin
 //  pInit(MainForm.ActiveEditor.Data.Insert);
 
   FreeLibrary(hLib);
-end;
-
-procedure TMainForm.LoadSettings;
-var
-  ctx: TSuperRttiContext;
-  json: ISuperObject;
-  Value: TValue;
-begin
-  if FileExists(SettingsFile) then
-    json := TSuperObject.ParseFile(SettingsFile, False)
-  else
-    json := SO('');
-
-  ctx := TSuperRttiContext.Create;
-  Value := TValue.From<THextorSettings>(AppSettings);
-
-  ctx.FromJson(TypeInfo(THextorSettings), json, Value);
-
-  ctx.Free;
 end;
 
 procedure TMainForm.MDITabsChange(Sender: TObject);
@@ -1444,34 +1419,16 @@ procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
 var
   AFrame: IHextorToolFrame;
 begin
-  AppSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
+  MainFormSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
+  MainFormSettings.Changed();
   if Supports(RightPanelPageControl.ActivePage.Controls[0], IHextorToolFrame, AFrame) then
     AFrame.OnShown();
 end;
 
 procedure TMainForm.RightPanelResize(Sender: TObject);
 begin
-  AppSettings.RightPanelWidth := RightPanel.Width;
-end;
-
-procedure TMainForm.SaveSettings;
-const
-  BOM: array[0..1] of Byte = ($FF, $FE);
-var
-  ctx: TSuperRttiContext;
-  fs: TFileStream;
-begin
-  System.SysUtils.ForceDirectories(SettingsFolder);
-  fs := TFileStream.Create(SettingsFile, fmCreate);
-  try
-    fs.WriteBuffer(BOM, SizeOf(BOM));
-
-    ctx := TSuperRttiContext.Create;
-    ctx.AsJson<THextorSettings>(AppSettings).SaveTo(fs, True, False);
-    ctx.Free;
-  finally
-    fs.Free;
-  end;
+  MainFormSettings.RightPanelWidth := RightPanel.Width;
+  MainFormSettings.Changed();
 end;
 
 procedure TMainForm.SelectionChanged;
@@ -1521,6 +1478,12 @@ begin
 //  for i:=0 to RightPanelPageControl.PageCount-1 do
   if Frame.Parent is TTabSheet then
     RightPanelPageControl.ActivePage := TTabSheet(Frame.Parent);
+end;
+
+procedure TMainForm.ShowUpdateAvailable(const Version: string);
+begin
+  BtnCheckUpdate.Visible := True;
+  BtnCheckUpdate.Hint := 'Update available: ' + Version;
 end;
 
 procedure TMainForm.Something1Click(Sender: TObject);
@@ -1730,5 +1693,23 @@ procedure THextorUtils.Sleep(milliseconds: Cardinal);
 begin
   System.SysUtils.Sleep(milliseconds);
 end;
+
+procedure GenerateSettingsFolderName();
+var
+  ws: string;
+  i: Integer;
+begin
+  // Get path to settings folder (AppData\Hextor)
+  SetLength(ws, MAX_PATH);
+  i:=SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @ws[Low(ws)]);
+  if i=0 then  TModuleSettings.SettingsFolder := IncludeTrailingPathDelimiter(PChar(ws)) + 'Hextor\'
+         else  TModuleSettings.SettingsFolder := ExtractFilePath(Application.ExeName) + 'Settings\';
+end;
+
+{ TMainFormSettings }
+
+initialization
+  GenerateSettingsFolderName();
+finalization
 
 end.

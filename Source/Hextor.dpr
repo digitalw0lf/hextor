@@ -40,7 +40,10 @@ uses
   uSearchResultsTabFrame in 'uSearchResultsTabFrame.pas' {SearchResultsTabFrame: TFrame},
   uFileInfoForm in 'uFileInfoForm.pas' {FileInfoForm},
   uDataSaver in 'uDataSaver.pas',
-  uAsmFrame in 'uAsmFrame.pas' {AsmFrame: TFrame};
+  uAsmFrame in 'uAsmFrame.pas' {AsmFrame: TFrame},
+  uUpdaterForm in 'uUpdaterForm.pas' {UpdaterForm},
+  uSettingsForm in 'uSettingsForm.pas' {SettingsForm},
+  uModuleSettings in 'uModuleSettings.pas';
 
 {$R *.res}
 
@@ -62,5 +65,7 @@ begin
   Application.CreateForm(TModifyWithExpressionForm, ModifyWithExpressionForm);
   Application.CreateForm(TCopyAsForm, CopyAsForm);
   Application.CreateForm(TFileInfoForm, FileInfoForm);
+  Application.CreateForm(TUpdaterForm, UpdaterForm);
+  Application.CreateForm(TSettingsForm, SettingsForm);
   Application.Run;
 end.

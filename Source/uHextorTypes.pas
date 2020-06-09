@@ -23,6 +23,12 @@ const
 
   CharsInvalidInFileName = '/\:*?"<>|';
 
+  cDay = 1.0;
+  cHour = cDay / 24;
+  cMinute = cHour / 60;
+  cSecond = cMinute / 60;
+  cMillisecond = cSecond / 1000;
+
 type
   // Address inside file/data source
   TFilePointer = Int64;

@@ -19,10 +19,17 @@ uses
 
   uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
   uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper,
-  uDataSaver;
+  uDataSaver, uModuleSettings;
 
 type
   TEditorForm = class;
+
+  TEditorSettings = class (TModuleSettings)
+  public
+    ScrollWithWheel: Integer;
+    ByteColumns: Integer;  // -1 - auto
+    procedure InitDefault(); override;
+  end;
 
   TFFSkipSearcher = class(TDataSearcher)
   // Searcher for skipping given byte value
@@ -98,6 +105,7 @@ type
     FFSkipSearcher: TFFSkipSearcher;
     FFSkipBackByte, FFSkipFwdByte: Byte;
     FTextEncoding: Integer;
+    class var FEditorSettings: TEditorSettings;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
     procedure PaneMouseMove(Sender: TObject; IsMouseDown: Boolean; Shift: TShiftState; X, Y: Integer);
@@ -191,6 +199,7 @@ type
     property TextEncoding: Integer read FTextEncoding write SetTextEncoding;
     [API]
     procedure InsertDataFromFile(const FileName: string; Addr: TFilePointer; Overwrite: Boolean);
+    class function EditorSettings(): TEditorSettings;
   end;
 
 procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
@@ -223,14 +232,14 @@ end;
 
 procedure TEditorForm.AddCurrentFileToRecentFiles;
 var
-  Recent: THextorSettings.TRecentFileRec;
+  Recent: TMainFormSettings.TRecentFileRec;
   n, i: Integer;
 begin
   if (DataSource.ClassType <> TFileDataSource) or (ExtractFilePath(DataSource.Path) = '') then Exit;
 
   n := -1;
-  for i:=0 to Length(AppSettings.RecentFiles)-1 do
-    if SameFileName(AppSettings.RecentFiles[i].FileName, DataSource.Path) then
+  for i:=0 to Length(MainForm.MainFormSettings.RecentFiles)-1 do
+    if SameFileName(MainForm.MainFormSettings.RecentFiles[i].FileName, DataSource.Path) then
     begin
       n := i;
       Break;
@@ -241,14 +250,14 @@ begin
   end
   else
   begin
-    Recent := AppSettings.RecentFiles[n];
-    Delete(AppSettings.RecentFiles, n, 1);
+    Recent := MainForm.MainFormSettings.RecentFiles[n];
+    Delete(MainForm.MainFormSettings.RecentFiles, n, 1);
   end;
-  Insert([Recent], AppSettings.RecentFiles, 0);
-  if Length(AppSettings.RecentFiles) > 20 then
-    SetLength(AppSettings.RecentFiles, 20);
+  Insert([Recent], MainForm.MainFormSettings.RecentFiles, 0);
+  if Length(MainForm.MainFormSettings.RecentFiles) > 20 then
+    SetLength(MainForm.MainFormSettings.RecentFiles, 20);
 
-  MainForm.SaveSettings();
+  MainForm.MainFormSettings.Changed(True);
 end;
 
 procedure TEditorForm.AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
@@ -427,6 +436,7 @@ begin
   UndoStack.OnActionCreating.Add(UndoActionCreating);
   UndoStack.OnActionReverted.Add(UndoActionReverted);
 
+  ByteColumnsSetting := EditorSettings.ByteColumns;
   CalculateByteColumns();
   FFSkipSearcher := TFFSkipSearcher.Create();
   OnGetTaggedRegions.Add(EditorGetTaggedRegions);
@@ -668,7 +678,7 @@ end;
 procedure TEditorForm.PaneHexMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 begin
-  TopVisibleRow := TopVisibleRow - WheelDelta div 120 * AppSettings.ScrollWithWheel;
+  TopVisibleRow := TopVisibleRow - WheelDelta div 120 * EditorSettings.ScrollWithWheel;
 end;
 
 function TEditorForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
@@ -1237,6 +1247,14 @@ begin
   end;
 end;
 
+class function TEditorForm.EditorSettings: TEditorSettings;
+// Returns single Settings instance for all editor forms
+begin
+  if FEditorSettings = nil then
+    FEditorSettings := TEditorSettings.Create();
+  Result := FEditorSettings;
+end;
+
 procedure TEditorForm.EndUpdatePanes;
 begin
   if FUpdating=0 then Exit;
@@ -1625,5 +1643,18 @@ begin
     Result := False;
 end;
 
+{ TEditorSettings }
+
+procedure TEditorSettings.InitDefault;
+begin
+  inherited;
+  ScrollWithWheel := 3;
+  ByteColumns := -1;
+end;
+
+initialization
+
+finalization
+  FreeAndNil(TEditorForm.FEditorSettings);
 end.
 

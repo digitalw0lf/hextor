@@ -29,6 +29,7 @@ type
     Label4: TLabel;
     LicenseMemo: TMemo;
     LblLicense: TLabel;
+    LblVersion: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure LblUrlClick(Sender: TObject);
     procedure LblLicenseClick(Sender: TObject);
@@ -43,12 +44,17 @@ var
 
 implementation
 
+uses
+  uMainForm;
+
 {$R *.dfm}
 
 procedure TAboutForm.FormCreate(Sender: TObject);
 var
   S: string;
 begin
+  S := AppVersion;
+  LblVersion.Caption := 'Version: ' + S;
   DateTimeToString(S, 'yyyy-mm-dd', GetAppBuildTime());
   LblBuildDate.Caption := 'Build: ' + S;
 end;
