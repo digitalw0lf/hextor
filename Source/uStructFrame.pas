@@ -143,7 +143,7 @@ type
     procedure FieldInterpreted(Sender: TObject; DS: TDSField);
   public
     { Public declarations }
-    StructSettings: TStructSettings;
+    Settings: TStructSettings;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure Analyze(Addr, Size: TFilePointer; const Struct: string);
@@ -311,7 +311,7 @@ end;
 
 function TStructFrame.GetInterpretRange: TStructInterpretRange;
 begin
-  Result := StructSettings.Range;
+  Result := Settings.Range;
 end;
 
 procedure TStructFrame.BtnCopyValueClick(Sender: TObject);
@@ -393,7 +393,7 @@ end;
 constructor TStructFrame.Create(AOwner: TComponent);
 begin
   inherited;
-  StructSettings := TStructSettings.Create();
+  Settings := TStructSettings.Create();
 
   FParser := TDSParser.Create();
   FInterpretor := TDSInterpretor.Create();
@@ -409,7 +409,7 @@ begin
   ShownDS.Free;
   FParser.Free;
   FInterpretor.Free;
-  StructSettings.Free;
+  Settings.Free;
   inherited;
 end;
 
@@ -460,7 +460,7 @@ end;
 
 function TStructFrame.DSSaveFolder: string;
 begin
-  Result := IncludeTrailingPathDelimiter( TPath.Combine(StructSettings.SettingsFolder, 'DataStruct') );
+  Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.SettingsFolder, 'DataStruct') );
 end;
 
 procedure TStructFrame.DSTreeViewBeforeItemErase(Sender: TBaseVirtualTree;
@@ -890,10 +890,10 @@ end;
 
 procedure TStructFrame.SetInterpretRange(const Value: TStructInterpretRange);
 begin
-  if StructSettings.Range <> Value then
+  if Settings.Range <> Value then
   begin
-    StructSettings.Range := Value;
-    StructSettings.Changed();
+    Settings.Range := Value;
+    Settings.Changed();
   end;
 end;
 

@@ -45,7 +45,7 @@ type
     procedure CheckUpdateAvailable();
   public
     { Public declarations }
-    UpdaterSettings: TUpdaterSettings;
+    Settings: TUpdaterSettings;
   end;
 
 var
@@ -268,12 +268,12 @@ begin
   mxWebUpdate1.ProductInfo.Version := AppVersion;
   mxWebUpdate1.ProductInfo.URL := UpdateInfoURL;
 
-  UpdaterSettings := TUpdaterSettings.Create();
+  Settings := TUpdaterSettings.Create();
 end;
 
 procedure TUpdaterForm.FormDestroy(Sender: TObject);
 begin
-  UpdaterSettings.Free;
+  Settings.Free;
 end;
 
 procedure TUpdaterForm.FormShow(Sender: TObject);
@@ -348,11 +348,11 @@ begin
   Timer1.Interval := 30000;
   try
     if (FCheckNow) or
-       ((UpdaterSettings.CheckInterval > 0) and
-        (Now() - UpdaterSettings.LastCheck >= UpdaterSettings.CheckInterval * cDay)) then
+       ((Settings.CheckInterval > 0) and
+        (Now() - Settings.LastCheck >= Settings.CheckInterval * cDay)) then
     begin
-      UpdaterSettings.LastCheck := Now();
-      UpdaterSettings.Changed(False);
+      Settings.LastCheck := Now();
+      Settings.Changed(False);
       FCheckNow := False;
       FShouldCloseForm := True;
       if Visible then

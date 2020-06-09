@@ -41,11 +41,11 @@ uses
 procedure TSettingsForm.ApplySettings;
 begin
   case CBUpdateCheckInterval.ItemIndex of
-    0: UpdaterForm.UpdaterSettings.CheckInterval := 7;
-    1: UpdaterForm.UpdaterSettings.CheckInterval := 30;
-    2: UpdaterForm.UpdaterSettings.CheckInterval := 0;
+    0: UpdaterForm.Settings.CheckInterval := 7;
+    1: UpdaterForm.Settings.CheckInterval := 30;
+    2: UpdaterForm.Settings.CheckInterval := 0;
   end;
-  UpdaterForm.UpdaterSettings.Changed(True);
+  UpdaterForm.Settings.Changed(True);
 end;
 
 procedure TSettingsForm.BtnOKClick(Sender: TObject);
@@ -62,10 +62,10 @@ end;
 
 procedure TSettingsForm.ShowSettings;
 begin
-  if UpdaterForm.UpdaterSettings.CheckInterval = 0 then
+  if UpdaterForm.Settings.CheckInterval = 0 then
     CBUpdateCheckInterval.ItemIndex := 2
   else
-  if UpdaterForm.UpdaterSettings.CheckInterval <= 7 then
+  if UpdaterForm.Settings.CheckInterval <= 7 then
     CBUpdateCheckInterval.ItemIndex := 0
   else
     CBUpdateCheckInterval.ItemIndex := 1;

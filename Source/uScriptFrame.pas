@@ -42,7 +42,7 @@ type
     procedure PrepareScriptEnv();
   public
     { Public declarations }
-    ScriptSettings: TScriptSettings;
+    Settings: TScriptSettings;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure Init();
@@ -67,8 +67,8 @@ var
 begin
   AText := ScriptEdit.Text;
 
-  ScriptSettings.Text := AText;
-  ScriptSettings.Changed(True);
+  Settings.Text := AText;
+  Settings.Changed(True);
 
   //t := GetNanosec();
   Timer := TStopwatch.StartNew();
@@ -103,14 +103,14 @@ end;
 constructor TScriptFrame.Create(AOwner: TComponent);
 begin
   inherited;
-  ScriptSettings := TScriptSettings.Create();
+  Settings := TScriptSettings.Create();
   ScriptControl1 := TScriptControl.Create(Self);
   ScriptControl1.Language := 'JScript';
 end;
 
 destructor TScriptFrame.Destroy;
 begin
-  ScriptSettings.Free;
+  Settings.Free;
   inherited;
 end;
 
@@ -124,7 +124,7 @@ end;
 
 procedure TScriptFrame.Init;
 begin
-  ScriptEdit.Text := ScriptSettings.Text;
+  ScriptEdit.Text := Settings.Text;
 end;
 
 procedure TScriptFrame.PrepareScriptEnv;
@@ -147,10 +147,10 @@ end;
 
 procedure TScriptFrame.Uninit;
 begin
-  if ScriptEdit.Text <> ScriptSettings.Text then
+  if ScriptEdit.Text <> Settings.Text then
   begin
-    ScriptSettings.Text := ScriptEdit.Text;
-    ScriptSettings.Changed();
+    Settings.Text := ScriptEdit.Text;
+    Settings.Changed();
   end;
 end;
 

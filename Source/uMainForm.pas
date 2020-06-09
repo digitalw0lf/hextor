@@ -324,7 +324,7 @@ type
     procedure ShortCutsWhenEditorActive(const AActions: array of TContainedAction);
   public
     { Public declarations }
-    MainFormSettings: TMainFormSettings;
+    Settings: TMainFormSettings;
     TempPath: string;
 //    HextorOle: TCoHextor;
     APIEnv: TAPIEnvironment;
@@ -879,8 +879,8 @@ begin
   n := StrToIntDef(EditByteCols.Text, -1);
   if n <> -1 then
     n := BoundValue(n, 1, 16384);
-  TEditorForm.EditorSettings.ByteColumns := n;
-  TEditorForm.EditorSettings.Changed(False);
+  TEditorForm.Settings.ByteColumns := n;
+  TEditorForm.Settings.Changed(False);
   with ActiveEditor do
     ByteColumnsSetting := n;
   DoAfterEvent(UpdateByteColEdit);
@@ -1113,7 +1113,7 @@ begin
 
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
-  MainFormSettings := TMainFormSettings.Create();
+  Settings := TMainFormSettings.Create();
 
   InitDefaultSettings();
 
@@ -1124,9 +1124,9 @@ begin
   AddClipboardFormatListener(Handle);
 
   FEditors := TObjectList<TEditorForm>.Create(False);
-  RightPanelPageControl.ActivePageIndex := MainFormSettings.ActiveRightPage;
-  if MainFormSettings.RightPanelWidth > 0 then
-    RightPanel.Width := MainFormSettings.RightPanelWidth;
+  RightPanelPageControl.ActivePageIndex := Settings.ActiveRightPage;
+  if Settings.RightPanelWidth > 0 then
+    RightPanel.Width := Settings.RightPanelWidth;
 
   OldOnActiveControlChange := Screen.OnActiveControlChange;
   Screen.OnActiveControlChange := ActiveControlChanged;
@@ -1153,7 +1153,7 @@ begin
 
   ScriptFrame.Uninit();
 
-  MainFormSettings.Free;
+  Settings.Free;
   EditorActionShortcuts.Free;
   FEditors.Free;
 
@@ -1177,10 +1177,10 @@ begin
   for i:=Menu.Count-1 downto 1 do
     Menu.Items[i].Free;
 
-  for i:=0 to Length(MainFormSettings.RecentFiles)-1 do
+  for i:=0 to Length(Settings.RecentFiles)-1 do
   begin
     mi := TMenuItem.Create(Self);
-    mi.Caption := MainFormSettings.RecentFiles[i].FileName;
+    mi.Caption := Settings.RecentFiles[i].FileName;
     mi.OnClick := MIDummyRecentFileClick;
     Menu.Add(mi);
   end;
@@ -1419,16 +1419,16 @@ procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
 var
   AFrame: IHextorToolFrame;
 begin
-  MainFormSettings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
-  MainFormSettings.Changed();
+  Settings.ActiveRightPage := RightPanelPageControl.ActivePageIndex;
+  Settings.Changed();
   if Supports(RightPanelPageControl.ActivePage.Controls[0], IHextorToolFrame, AFrame) then
     AFrame.OnShown();
 end;
 
 procedure TMainForm.RightPanelResize(Sender: TObject);
 begin
-  MainFormSettings.RightPanelWidth := RightPanel.Width;
-  MainFormSettings.Changed();
+  Settings.RightPanelWidth := RightPanel.Width;
+  Settings.Changed();
 end;
 
 procedure TMainForm.SelectionChanged;
