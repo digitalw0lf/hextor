@@ -330,9 +330,9 @@ procedure TUpdaterForm.mxWebUpdate1UpdateAvailable(Sender: TObject;
 begin
   if Visible then
   begin
-    CanUpdate := MessageDlg( Format( 'New version is available: %s' + sLineBreak +
+    CanUpdate := MessageDlg( Format( 'New version is available:  %s' + sLineBreak +
       sLineBreak +
-      'You are using: %s' + sLineBreak +
+      'You are using:  %s' + sLineBreak +
       sLineBreak +
       'Do you want to update now?', [ NewVersion, ActualVersion ] ), mtInformation, [ mbYes, mbNo ], 0 ) = mrYes;
   end

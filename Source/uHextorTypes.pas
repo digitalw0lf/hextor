@@ -11,8 +11,10 @@ unit uHextorTypes;
 interface
 
 uses
-  SysUtils, Winapi.Windows, Generics.Collections, Vcl.Graphics, System.Math,
-  System.SysConst, System.Variants, superobject, uCallbackList;
+  Winapi.Windows, Winapi.ShLwApi, SysUtils, Generics.Collections, Vcl.Graphics,
+  System.Math, System.SysConst, System.Variants, superobject,
+
+  uCallbackList;
 
 const
   KByte = 1024;
@@ -138,6 +140,8 @@ function Data2String(const Data: TBytes; CodePage: Integer = 0): string; overloa
 function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overload;
 
 function MakeValidFileName(const S: string): string;
+function CanonicalizePath(const Path: string): string;
+function PathIsInside(const InnerPath, OuterPath: string): Boolean;
 function RemUnprintable(const s:UnicodeString; NewChar: WideChar='.'):UnicodeString;
 function DivRoundUp(A, B: Int64): Int64; inline;
 function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
@@ -288,6 +292,28 @@ end;
 function MakeValidFileName(const S: string): string;
 begin
   Result := ReplaceAllChars(S, CharsInvalidInFileName, '_');
+end;
+
+function CanonicalizePath(const Path: string): string;
+// Simplifies a path by removing navigation elements
+// such as "." and ".." to produce a direct, well-formed path
+var
+  S: string;
+begin
+  SetLength(S, MAX_PATH);
+  PathCanonicalize(PChar(S), PChar(Path));
+  Result := PChar(S);
+end;
+
+function PathIsInside(const InnerPath, OuterPath: string): Boolean;
+// Check if InnerPath describes a file/directory inside OuterPath
+// (does not checks file/dir existance)
+var
+  Inner, Outer: string;
+begin
+  Inner := IncludeTrailingPathDelimiter(CanonicalizePath(InnerPath));
+  Outer := IncludeTrailingPathDelimiter(CanonicalizePath(OuterPath));
+  Result := SameFileName(Outer, Copy(Inner, Low(Inner), Length(Outer)));
 end;
 
 function RemUnprintable(const s: string; NewChar: Char='.'): string;

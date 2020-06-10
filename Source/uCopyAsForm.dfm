@@ -80,6 +80,7 @@ object CopyAsForm: TCopyAsForm
       BF6262B9A3A2CEF7F6F5F7F6F5F7F6F5F7F6F5F7F6F5F7F6F5F7F6F5F7F6F5F7
       F6F5F7F6F5F7F6F5F7F6F5F7F6F5F7F6F5CAC9E3F7F6F5F7F6F5}
     ParentShowHint = False
+    PopupMenu = OpenLayoutFolderMenu
     ShowHint = True
     OnClick = BtnEditLayoutsClick
   end
@@ -200,6 +201,18 @@ object CopyAsForm: TCopyAsForm
       ExplicitTop = 24
       ExplicitWidth = 31
       ExplicitHeight = 13
+    end
+  end
+  object OpenLayoutFolderMenu: TPopupMenu
+    Left = 304
+    Top = 128
+    object MIUserLayoutsFolder: TMenuItem
+      Caption = 'Open User layouts folder'
+      OnClick = MIUserLayoutsFolderClick
+    end
+    object MIBuiltInLayoutsFolder: TMenuItem
+      Caption = 'Open Built-In layouts folder'
+      OnClick = MIUserLayoutsFolderClick
     end
   end
 end

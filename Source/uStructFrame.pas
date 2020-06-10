@@ -15,7 +15,8 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Generics.Collections,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
   Vcl.Buttons, Vcl.Menus, System.Types, Math, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils, Vcl.ToolWin,
+  SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils,
+  Vcl.ToolWin, Winapi.ShellAPI,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
   uDataStruct, uEditedData, uCallbackList, uModuleSettings;
@@ -26,6 +27,8 @@ const
   Color_ErrDSFieldBg = $B090FF;
   Color_SelDSFieldBg = $FFD0D0;
   Color_SelDSFieldFr = $E0A0A0;
+
+  ImageIndex_Folder = 23;  // Index in  MainForm.ImageList16
 
 type
   TStructInterpretRange = (irFile, irSelection);
@@ -69,6 +72,7 @@ type
     MICopyFieldName: TMenuItem;
     MICopyFieldFullName: TMenuItem;
     MICopyFieldValue: TMenuItem;
+    MIOrganizeFiles: TMenuItem;
     procedure BtnInterpretClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
     procedure PnlButtonBar2MouseDown(Sender: TObject; Button: TMouseButton;
@@ -112,6 +116,7 @@ type
       Node: PVirtualNode; var ChildCount: Cardinal);
     procedure DSTreeViewInitNode(Sender: TBaseVirtualTree; ParentNode,
       Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
+    procedure MIOrganizeFilesClick(Sender: TObject);
   private const
     Unnamed_Struct = 'Unnamed';
   private
@@ -125,10 +130,13 @@ type
     EditedDS: TDSSimpleField;
     MIGotoAddr_DestAddr: TFilePointer;
     NodesForDSs: TDictionary<TDSField, PVirtualNode>;
+    FilesForMenuItems: TDictionary<Integer, string>;  // MenuItem.Tag -> File name
+    CurDSFileName: string;
     function DSNodeText(DS: TDSField): string;
     procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
 //    procedure ExpandToNode(Node: PVirtualNode);
-    function DSSaveFolder(): string;
+    function UserDSFolder(): string;
+    function BuiltInDSFolder(): string;
     function GetNodeDS(Node: PVirtualNode): TDSField;
     function GetDSNode(DS: TDSField): PVirtualNode;
     procedure EditorClosed(Sender: TEditorForm);
@@ -141,6 +149,7 @@ type
     procedure SetInterpretRange(const Value: TStructInterpretRange);
     function GetInterpretRange: TStructInterpretRange;
     procedure FieldInterpreted(Sender: TObject; DS: TDSField);
+    procedure LoadDescrListToMenu(const Path: string; ParentMenu: TMenuItem);
   public
     { Public declarations }
     Settings: TStructSettings;
@@ -366,20 +375,30 @@ end;
 
 procedure TStructFrame.BtnLoadDescrClick(Sender: TObject);
 var
-  fl: TStringDynArray;
-  i: Integer;
   mi: TMenuItem;
 begin
   SavedDescrsMenu.Items.Clear();
+  FilesForMenuItems.Clear();
 
-  fl := TDirectory.GetFiles(DSSaveFolder(), '*.ds');
-  for i:=0 to Length(fl)-1 do
-  begin
-    mi := TMenuItem.Create(Application);
-    mi.Caption := ChangeFileExt(ExtractFileName(fl[i]), '');
-    mi.OnClick := MIDummyDataStructClick;
-    SavedDescrsMenu.Items.Add(mi);
-  end;
+  // Submenu for Built-in DSs
+  mi := TMenuItem.Create(Application);
+  mi.Caption := 'Built-in';
+  mi.ImageIndex := ImageIndex_Folder;
+  SavedDescrsMenu.Items.Add(mi);
+  LoadDescrListToMenu(BuiltInDSFolder(), mi);
+
+  // User DSs
+  LoadDescrListToMenu(UserDSFolder(), SavedDescrsMenu.Items);
+
+  // "Organize descriptions"
+  mi := TMenuItem.Create(Application);
+  mi.Caption := '-';
+  SavedDescrsMenu.Items.Add(mi);
+
+  mi := TMenuItem.Create(Application);
+  mi.Caption := 'Organize descriptions';
+  mi.OnClick := MIOrganizeFilesClick;
+  SavedDescrsMenu.Items.Add(mi);
 
   PopupFromControl(SavedDescrsMenu, BtnLoadDescr);
 end;
@@ -388,12 +407,19 @@ procedure TStructFrame.BtnNewDescrClick(Sender: TObject);
 begin
   DSDescrEdit.Clear();
   LblStructName.Caption := '    ' + Unnamed_Struct;
+  CurDSFileName := '';
+end;
+
+function TStructFrame.BuiltInDSFolder: string;
+begin
+  Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.BuiltInSettingsFolder, 'DataStruct') );
 end;
 
 constructor TStructFrame.Create(AOwner: TComponent);
 begin
   inherited;
   Settings := TStructSettings.Create();
+  FilesForMenuItems := TDictionary<Integer, string>.Create();
 
   FParser := TDSParser.Create();
   FInterpretor := TDSInterpretor.Create();
@@ -409,6 +435,7 @@ begin
   ShownDS.Free;
   FParser.Free;
   FInterpretor.Free;
+  FilesForMenuItems.Free;
   Settings.Free;
   inherited;
 end;
@@ -458,7 +485,7 @@ begin
   Result := Result + ': ' + DS.ToString();
 end;
 
-function TStructFrame.DSSaveFolder: string;
+function TStructFrame.UserDSFolder: string;
 begin
   Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.SettingsFolder, 'DataStruct') );
 end;
@@ -791,11 +818,15 @@ end;
 
 procedure TStructFrame.MIDummyDataStructClick(Sender: TObject);
 var
-  fn: string;
+  n: Integer;
+  fn, name: string;
 begin
-  fn := (Sender as TMenuItem).Caption;
-  DSDescrEdit.Lines.LoadFromFile(TPath.Combine(DSSaveFolder, fn + '.ds'));
-  LblStructName.Caption := '    ' + fn;
+  n := (Sender as TMenuItem).Tag;
+  if not FilesForMenuItems.TryGetValue(n, fn) then Exit;
+  name := (Sender as TMenuItem).Caption;
+  DSDescrEdit.Lines.LoadFromFile(fn);
+  LblStructName.Caption := '    ' + name;
+  CurDSFileName := fn;
 end;
 
 procedure TStructFrame.MIGotoAddrClick(Sender: TObject);
@@ -803,6 +834,12 @@ begin
   if (MIGotoAddr_DestAddr < 0) or (MIGotoAddr_DestAddr >= FEditor.GetFileSize()) then Exit;
 
   FEditor.SelectAndShow(MIGotoAddr_DestAddr, MIGotoAddr_DestAddr);
+end;
+
+procedure TStructFrame.MIOrganizeFilesClick(Sender: TObject);
+begin
+  ForceDirectories(UserDSFolder());
+  ShellExecute(0, '', PChar(UserDSFolder()), '', '', SW_SHOWNORMAL);
 end;
 
 procedure TStructFrame.MIRangeEntireFileClick(Sender: TObject);
@@ -815,32 +852,35 @@ procedure TStructFrame.MISaveAsClick(Sender: TObject);
 var
   fn: string;
 begin
-  ForceDirectories(DSSaveFolder());
-//  fn := TPath.Combine(DSSaveFolder(), LblStructName.Caption + '.ds');
-  fn := Trim(LblStructName.Caption);
+  ForceDirectories(UserDSFolder());
+  fn := CurDSFileName;
 
   // If "Save as" pressed or file name still not specified - show "Save as" dialog.
   // Files can be saved only to special folder
-  if (Sender = MISaveAs) or (fn = Unnamed_Struct) then
+  if (Sender = MISaveAs) or (fn = '') or (not PathIsInside(fn, UserDSFolder())) then
   begin
-    if (fn = Unnamed_Struct) then
-      fn := 'Struct1';
-    SaveDialog1.InitialDir := DSSaveFolder();
+    if (fn = '') then
+      fn := 'Struct1'
+    else
+    if not PathIsInside(fn, UserDSFolder()) then
+      fn := ChangeFileExt(ExtractFileName(fn), '');
+    SaveDialog1.InitialDir := UserDSFolder();
     SaveDialog1.FileName := fn{ + '.ds'};
 
     if not SaveDialog1.Execute() then Exit;
     fn := SaveDialog1.FileName;
-    if not SameFileName(ExtractFilePath(fn), DSSaveFolder()) then
-      raise EInvalidUserInput.Create('Cannot save structure description outside of default folder');
+    if not PathIsInside(fn, UserDSFolder()) then
+      raise EInvalidUserInput.Create('Cannot save structure description outside of default user settings folder');
   end
   else
-    fn := TPath.Combine(DSSaveFolder(), fn + '.ds');
+    fn := CurDSFileName;
 
-//  ForceDirectories(ExtractFilePath(fn));
+  ForceDirectories(ExtractFilePath(fn));
   DSDescrEdit.Lines.SaveToFile(fn);
   DSDescrEdit.MarkModifiedLinesAsSaved();
   // '    ' is added so vertical line, added by toolbar, does not overlaps caption
   LblStructName.Caption := '    ' + ChangeFileExt(ExtractFileName(fn), '');
+  CurDSFileName := fn;
 end;
 
 procedure TStructFrame.MISelectInEditorClick(Sender: TObject);
@@ -886,6 +926,40 @@ procedure TStructFrame.InterpretRangeMenuPopup(Sender: TObject);
 begin
   MIRangeEntireFile.Checked := (InterpretRange = irFile);
   MIRangeSelection.Checked := (InterpretRange = irSelection);
+end;
+
+procedure TStructFrame.LoadDescrListToMenu(const Path: string;
+  ParentMenu: TMenuItem);
+// Populate menu with list of files and folders in specified folder  
+var
+  fl: TStringDynArray;
+  i: Integer;
+  mi: TMenuItem;
+begin
+  if not System.SysUtils.DirectoryExists(Path) then Exit;
+
+  // Subdirectories
+  fl := TDirectory.GetDirectories(Path);
+  for i:=0 to Length(fl)-1 do
+  begin
+    mi := TMenuItem.Create(Application);
+    mi.Caption := ExtractFileName(fl[i]);
+    mi.ImageIndex := ImageIndex_Folder;
+    ParentMenu.Add(mi);
+    LoadDescrListToMenu(fl[i], mi);
+  end;
+
+  // DS description files
+  fl := TDirectory.GetFiles(Path, '*.ds');
+  for i:=0 to Length(fl)-1 do
+  begin
+    mi := TMenuItem.Create(Application);
+    mi.Caption := ChangeFileExt(ExtractFileName(fl[i]), '');
+    mi.OnClick := MIDummyDataStructClick;
+    mi.Tag := FilesForMenuItems.Count;
+    FilesForMenuItems.AddOrSetValue(mi.Tag, fl[i]);
+    ParentMenu.Add(mi);
+  end;
 end;
 
 procedure TStructFrame.SetInterpretRange(const Value: TStructInterpretRange);

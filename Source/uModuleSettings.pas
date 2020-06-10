@@ -8,6 +8,7 @@ uses
   uHextorTypes;
 
 type
+  // Settings for single module. Stored in separate json file.
   TModuleSettings = class
   protected
     FChanged: Boolean;
@@ -15,7 +16,8 @@ type
     procedure Save();
     function GetFileName(): string;
   public
-    class var SettingsFolder: string;
+    class var SettingsFolder: string;         // Folder for user settings, templates etc.
+    class var BuiltInSettingsFolder: string;  // Folder with built-in templates etc.
     constructor Create();
     destructor Destroy(); override;
     procedure Changed(SaveNow: Boolean = False);

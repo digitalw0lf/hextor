@@ -198,11 +198,16 @@ object StructFrame: TStructFrame
   end
   object SavedDescrsMenu: TPopupMenu
     AutoHotkeys = maManual
+    Images = MainForm.ImageList16
     Left = 40
     Top = 104
     object MIDummyDataStruct: TMenuItem
       Caption = 'MIDummyDataStruct'
       OnClick = MIDummyDataStructClick
+    end
+    object MIOrganizeFiles: TMenuItem
+      Caption = 'MIOrganizeFiles'
+      OnClick = MIOrganizeFilesClick
     end
   end
   object SaveDialog1: TSaveDialog

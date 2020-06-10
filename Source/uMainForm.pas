@@ -17,7 +17,8 @@ unit uMainForm;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Winapi.Windows, Winapi.Messages, System.SysUtils,
+  System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Menus,
   System.Math, Generics.Collections, Clipbrd, System.Actions, Vcl.ActnList,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
@@ -308,7 +309,6 @@ type
     OldOnActiveControlChange: TNotifyEvent;
     EditorActionShortcuts: TDictionary<TContainedAction, TShortCutSet>;
     EditorForTabMenu: TEditorForm;
-    procedure InitDefaultSettings();
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
     procedure WMClipboardUpdate(var Msg: TMessage); message WM_CLIPBOARDUPDATE;
     function GetActiveEditor: TEditorForm;
@@ -1115,8 +1115,6 @@ begin
 
   Settings := TMainFormSettings.Create();
 
-  InitDefaultSettings();
-
   // We will catch drag'n'dropped files
   DragAcceptFiles(Handle, True);
 
@@ -1229,29 +1227,6 @@ begin
   if DSType = TDiskDataSource then  Result := 4
   else if DSType = TProcMemDataSource then  Result := 5
   else Result := 7;
-end;
-
-procedure TMainForm.InitDefaultSettings;
-var
-  Files: TStringDynArray;
-  Source, Target: string;
-  i: Integer;
-begin
-  // Copy default configuration from App_Folder\DefaultSettings to AppData
-  try
-    Source := TPath.Combine(ExtractFilePath(Application.ExeName), 'DefaultSettings');
-    if System.SysUtils.DirectoryExists(Source) then
-    begin
-      Files := TDirectory.GetDirectories(Source, '*', TSearchOption.soTopDirectoryOnly);
-      for i:=0 to Length(Files)-1 do
-      begin
-        Target := TPath.Combine(TModuleSettings.SettingsFolder, ExtractFileName(Files[i]));
-        if not System.SysUtils.DirectoryExists(Target) then
-          TDirectory.Copy(Files[i], Target);
-      end;
-    end;
-  except
-  end;
 end;
 
 type
@@ -1696,14 +1671,25 @@ end;
 
 procedure GenerateSettingsFolderName();
 var
-  ws: string;
+  ExePath, ws: string;
   i: Integer;
 begin
+  ExePath := ExtractFilePath(Application.ExeName);
+
+  // Folder with Built-in templates etc.
+  ws := CanonicalizePath(ExePath + '..\..\..\Installer\DefaultSettings');
+  if System.SysUtils.DirectoryExists(ws) then
+    // If running from cloned source folder, use DefaultSetings from repo
+    TModuleSettings.BuiltInSettingsFolder := ws + PathDelim
+  else
+    // In usual installation, use DefaultSettings from installed executable folder
+    TModuleSettings.BuiltInSettingsFolder := ExePath + 'DefaultSettings' + PathDelim;
+
   // Get path to settings folder (AppData\Hextor)
   SetLength(ws, MAX_PATH);
   i:=SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @ws[Low(ws)]);
-  if i=0 then  TModuleSettings.SettingsFolder := IncludeTrailingPathDelimiter(PChar(ws)) + 'Hextor\'
-         else  TModuleSettings.SettingsFolder := ExtractFilePath(Application.ExeName) + 'Settings\';
+  if i=0 then  TModuleSettings.SettingsFolder := IncludeTrailingPathDelimiter(PChar(ws)) + 'Hextor' + PathDelim
+         else  TModuleSettings.SettingsFolder := ExePath + 'Settings' + PathDelim;
 end;
 
 { TMainFormSettings }

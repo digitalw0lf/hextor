@@ -14,9 +14,9 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Clipbrd,
   Generics.Collections, System.IOUtils, System.Types, Winapi.ShellAPI,
-  System.StrUtils, Vcl.Buttons,
+  System.StrUtils, Vcl.Buttons, Vcl.Menus,
 
-  uHextorTypes, superobject, uModuleSettings;
+  uHextorTypes, superobject, uModuleSettings, uHextorGUI;
 
 type
   TCopyAsForm = class(TForm)
@@ -33,12 +33,16 @@ type
     GroupBox1: TGroupBox;
     LblPreview: TLabel;
     BtnEditLayouts: TSpeedButton;
+    OpenLayoutFolderMenu: TPopupMenu;
+    MIBuiltInLayoutsFolder: TMenuItem;
+    MIUserLayoutsFolder: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure BtnEditLayoutsClick(Sender: TObject);
     procedure BtnCopyClick(Sender: TObject);
     procedure CBElemTypeChange(Sender: TObject);
+    procedure MIUserLayoutsFolderClick(Sender: TObject);
   public type
     TNotation = TValueDisplayNotation;
     TTwoStrings = array[0..1] of string;
@@ -56,8 +60,9 @@ type
     end;
   private
     { Private declarations }
-    LayoutsFolder: string;
+    BuiltinLayoutsFolder, UserLayoutsFolder: string;
     Layouts: TObjectList<TExportLayout>;
+    procedure LoadLayoutsFoder(const Path: string);
     procedure LoadLayouts();
     function GetLayout(Name: string; var Layout: TExportLayout): Boolean;
     procedure ShowPreview();
@@ -88,7 +93,7 @@ end;
 
 procedure TCopyAsForm.BtnEditLayoutsClick(Sender: TObject);
 begin
-  ShellExecute(0, '', PChar(LayoutsFolder), '', '', SW_SHOWNORMAL);
+  PopupFromControl(nil, Sender as TControl);
 end;
 
 procedure TCopyAsForm.CBElemTypeChange(Sender: TObject);
@@ -179,7 +184,8 @@ end;
 
 procedure TCopyAsForm.FormCreate(Sender: TObject);
 begin
-  LayoutsFolder := TPath.Combine(TModuleSettings.SettingsFolder, 'ExportLayouts');
+  BuiltInLayoutsFolder := TPath.Combine(TModuleSettings.BuiltInSettingsFolder, 'ExportLayouts');
+  UserLayoutsFolder := TPath.Combine(TModuleSettings.SettingsFolder, 'ExportLayouts');
   Layouts := TObjectList<TExportLayout>.Create(True);
 end;
 
@@ -210,19 +216,12 @@ end;
 
 procedure TCopyAsForm.LoadLayouts();
 var
-  fl: TStringDynArray;
   i: Integer;
-  Layout: TExportLayout;
   sel, name: string;
 begin
-  // Load layout descriptions from settings folder
   Layouts.Clear();
-  fl := TDirectory.GetFiles(LayoutsFolder, '*.json');
-  for i:=0 to Length(fl)-1 do
-  begin
-    Layout := tJsonRtti.StrToObject<TExportLayout>(TFile.ReadAllText(fl[i]));
-    Layouts.Add(Layout);
-  end;
+  LoadLayoutsFoder(UserLayoutsFolder);
+  LoadLayoutsFoder(BuiltinLayoutsFolder);
 
   // Show layouts list
   sel := CBLayout.Text;
@@ -238,6 +237,33 @@ begin
   CBLayout.ItemIndex := CBLayout.Items.IndexOf(sel);
   if (CBLayout.ItemIndex < 0) and (CBLayout.Items.Count > 0) then
     CBLayout.ItemIndex := 0;
+end;
+
+procedure TCopyAsForm.LoadLayoutsFoder(const Path: string);
+var
+  fl: TStringDynArray;
+  i: Integer;
+  Layout: TExportLayout;
+begin
+  // Load layout descriptions from settings folder
+  if not System.SysUtils.DirectoryExists(Path) then Exit;
+  fl := TDirectory.GetFiles(Path, '*.json');
+  for i:=0 to Length(fl)-1 do
+  begin
+    Layout := tJsonRtti.StrToObject<TExportLayout>(TFile.ReadAllText(fl[i]));
+    Layouts.Add(Layout);
+  end;
+end;
+
+procedure TCopyAsForm.MIUserLayoutsFolderClick(Sender: TObject);
+var
+  Path: string;
+begin
+  if Sender = MIUserLayoutsFolder then
+    Path := UserLayoutsFolder
+  else
+    Path := BuiltInLayoutsFolder;
+  ShellExecute(0, '', PChar(Path), '', '', SW_SHOWNORMAL);
 end;
 
 procedure TCopyAsForm.ShowPreview;
