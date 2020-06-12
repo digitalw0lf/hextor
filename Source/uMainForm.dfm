@@ -18,6 +18,7 @@ object MainForm: TMainForm
   WindowState = wsMaximized
   OnClose = FormClose
   OnCreate = FormCreate
+  OnDblClick = FormDblClick
   OnDestroy = FormDestroy
   OnShow = FormShow
   PixelsPerInch = 96
@@ -111,7 +112,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -197,6 +198,7 @@ object MainForm: TMainForm
     Align = alTop
     DoubleBuffered = True
     Images = ImageList16
+    MultiLine = True
     ParentDoubleBuffered = False
     TabOrder = 1
     OnChange = MDITabsChange
@@ -307,6 +309,9 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+          end
+          inherited SavedDescrsMenu: TPopupMenu
+            Images = nil
           end
         end
       end
@@ -1155,7 +1160,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010118004001700310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010118004001800310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

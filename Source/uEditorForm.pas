@@ -84,7 +84,7 @@ type
   private
     { Private declarations }
     FData: TEditedData;
-    FDestroyed: Boolean;  // Some events (e.g. FormResize) are oddly called after form destruction
+    FClosed: Boolean;  // Some events (e.g. FormResize) are oddly called after form destruction
     FCaretPos: TFilePointer;
     FSelStart, FSelLength: TFilePointer;
     SelDragStart, SelDragEnd: TFilePointer;
@@ -399,7 +399,6 @@ end;
 
 destructor TEditorForm.Destroy;
 begin
-  FDestroyed := True;
   MainForm.RemoveEditor(Self);
   UndoStack.Free;
   Data.Free;
@@ -410,16 +409,16 @@ end;
 
 procedure TEditorForm.FormActivate(Sender: TObject);
 begin
+  if FClosed then Exit;
   if DataSource <> nil then
     MainForm.ActiveEditorChanged();
 end;
 
 procedure TEditorForm.FormClose(Sender: TObject; var Action: TCloseAction);
-// Keep in mind this is not called when main form closes. Main form
-// directly calls OnClosed instead.
 begin
   Action := caFree;
   OnClosed.Call(Self);
+  FClosed := True;
 end;
 
 procedure TEditorForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -446,13 +445,13 @@ end;
 
 procedure TEditorForm.FormDeactivate(Sender: TObject);
 begin
-  if FDestroyed then Exit;
+  if FClosed then Exit;
   UpdatePanesCarets();  // Gray caret
 end;
 
 procedure TEditorForm.FormResize(Sender: TObject);
 begin
-  if FDestroyed then Exit;
+  if FClosed then Exit;
   BeginUpdatePanes();
   try
     CalculateByteColumns();

@@ -115,7 +115,7 @@ end;
 procedure TProgressForm.ProgressTaskEnd(Sender: TProgressTracker;
   Task: TProgressTracker.TTask);
 begin
-  if Sender.CurrentTaskLevel() = 0 then
+  if Sender.CurrentTaskLevel() = 1 then
   begin
     // Hide progress window when top-level task finishes
     Close();

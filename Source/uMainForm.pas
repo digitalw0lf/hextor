@@ -294,6 +294,7 @@ type
     procedure Closeothertabs1Click(Sender: TObject);
     procedure ActionCheckUpdateExecute(Sender: TObject);
     procedure ActionSettingsExecute(Sender: TObject);
+    procedure FormDblClick(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -309,6 +310,8 @@ type
     OldOnActiveControlChange: TNotifyEvent;
     EditorActionShortcuts: TDictionary<TContainedAction, TShortCutSet>;
     EditorForTabMenu: TEditorForm;
+    FEditorsAddingCounter: Integer;
+    FNeedUpdateMDITabs: Boolean;
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
     procedure WMClipboardUpdate(var Msg: TMessage); message WM_CLIPBOARDUPDATE;
     function GetActiveEditor: TEditorForm;
@@ -322,6 +325,10 @@ type
     procedure UpdateByteColEdit();
     procedure ActiveControlChanged(Sender: TObject);
     procedure ShortCutsWhenEditorActive(const AActions: array of TContainedAction);
+    function GetActiveEditorWindowState(): TWindowState;
+    procedure AdjustMDITabsHeight();
+    procedure ProgressTaskStart(Sender: TProgressTracker; Task: TProgressTracker.TTask);
+    procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
   public
     { Public declarations }
     Settings: TMainFormSettings;
@@ -354,6 +361,8 @@ type
     procedure DoAfterEvent(Proc: TProc);
     function ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
     procedure ShowUpdateAvailable(const Version: string);
+    procedure BeginAddEditors();
+    procedure EndAddEditors();
 
     [API]
     procedure DoTest(x: Integer);
@@ -418,8 +427,16 @@ procedure TMainForm.ActionCloseAllExecute(Sender: TObject);
 var
   i: Integer;
 begin
-  for i:=EditorCount-1 downto 0 do
-    Editors[i].Close();
+  Progress.TaskStart(Self);
+  try
+    for i:=EditorCount-1 downto 0 do
+    begin
+      Editors[i].Close();
+      Progress.Show(EditorCount - i, EditorCount);
+    end;
+  finally
+    Progress.TaskEnd();
+  end;
 end;
 
 procedure TMainForm.ActionCloseExecute(Sender: TObject);
@@ -588,8 +605,16 @@ var
 begin
   if not OpenDialog1.Execute() then Exit;
 
-  for i:=0 to OpenDialog1.Files.Count-1 do
-    OpenFile(TFileDataSource, OpenDialog1.Files[i]);
+  Progress.TaskStart(Self);
+  try
+    for i:=0 to OpenDialog1.Files.Count-1 do
+    begin
+      Progress.Show(i, OpenDialog1.Files.Count);
+      OpenFile(TFileDataSource, OpenDialog1.Files[i]);
+    end;
+  finally
+    Progress.TaskEnd();
+  end;
 end;
 
 procedure TMainForm.ActionOpenProcMemoryExecute(Sender: TObject);
@@ -871,6 +896,19 @@ begin
 //  Tabs will be updated when editor changes caption
 end;
 
+procedure TMainForm.AdjustMDITabsHeight();
+// Auto-size MDI tabs panel height to fit all tab rows
+var
+  i, H: Integer;
+begin
+  H := 0;
+  for i:=0 to MDITabs.Tabs.Count-1 do
+    with MDITabs.TabRect(i) do
+      if Bottom > H then
+        H := Bottom;
+  MDITabs.Height := H + 5;
+end;
+
 procedure TMainForm.ApplyByteColEdit;
 // Apply byte column count from edit field
 var
@@ -884,6 +922,21 @@ begin
   with ActiveEditor do
     ByteColumnsSetting := n;
   DoAfterEvent(UpdateByteColEdit);
+end;
+
+var
+  ActiveEditorWndState: TWindowState = wsMaximized;
+
+procedure TMainForm.BeginAddEditors;
+// Call BeginAddEditors/EndAddEditors when adding a lot of editor forms at once.
+// This is also called automatically when Progress.TaskStart/TaskEnd is called,
+// just in case task will contain editor creations
+begin
+  if FEditorsAddingCounter = 0 then
+  begin
+    ActiveEditorWndState := GetActiveEditorWindowState();
+  end;
+  Inc(FEditorsAddingCounter);
 end;
 
 procedure TMainForm.CheckEnabledActions;
@@ -1000,8 +1053,22 @@ begin
 end;
 
 function TMainForm.CreateNewEditor: TEditorForm;
+var
+  WndState: TWindowState;
+  PrevActiveEditor: TEditorForm;
 begin
+  PrevActiveEditor := GetActiveEditorNoEx();
+  WndState := GetActiveEditorWindowState();
+  // Bunch of editors will open faster if they are created not maximized, and only last
+  // editor will be maximized in EndAddEditors()
+  if (FEditorsAddingCounter > 0) and (PrevActiveEditor <> nil) then
+    // New MDI childs are created by VCL with same WindowState as current active child
+    PrevActiveEditor.WindowState := wsNormal;
+
   Result := TEditorForm.Create(Application);
+
+  if FEditorsAddingCounter = 0 then
+    Result.WindowState := WndState;
   Result.OnByteColsChanged.Add(procedure (Sender: TEditorForm)
     begin
       if Sender = GetActiveEditorNoEx() then
@@ -1095,10 +1162,14 @@ end;
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 var
   i: Integer;
+  AAction: TCloseAction;
 begin
   // MDI childs' FormClose event is not called by VCL when main form closes
   for i:=EditorCount-1 downto 0 do
-    Editors[i].OnClosed.Call(Editors[i]);
+  begin
+    AAction := caFree;
+    Editors[i].FormClose(Editors[i], AAction);
+  end;
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -1110,6 +1181,8 @@ begin
   Progress := TProgressTracker.Create();
   Progress.OnDisplay.Add(ProgressForm.ProgressDisplay);
   Progress.OnTaskEnd.Add(ProgressForm.ProgressTaskEnd);
+  Progress.OnTaskStart.Add(Self.ProgressTaskStart);
+  Progress.OnTaskEnd.Add(Self.ProgressTaskEnd);
 
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
@@ -1143,6 +1216,11 @@ begin
   APIEnv := TAPIEnvironment.Create();
 
   ScriptFrame.Init();
+end;
+
+procedure TMainForm.FormDblClick(Sender: TObject);
+begin
+  ActionNewExecute(Sender);
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -1201,6 +1279,17 @@ begin
     Result := TEditorForm(Frm)
   else
     Result := nil;
+end;
+
+function TMainForm.GetActiveEditorWindowState: TWindowState;
+var
+  AEditor: TEditorForm;
+begin
+  AEditor := GetActiveEditorNoEx();
+  if AEditor <> nil then
+    Result := AEditor.WindowState
+  else
+    Result := wsMaximized;
 end;
 
 function TMainForm.GetEditor(Index: Integer): TEditorForm;
@@ -1370,6 +1459,20 @@ begin
     Result := OldValue + Rel * Result;
 end;
 
+procedure TMainForm.ProgressTaskEnd(Sender: TProgressTracker;
+  Task: TProgressTracker.TTask);
+begin
+  if Sender.CurrentTaskLevel() = 1 then
+    EndAddEditors();  // Just in case
+end;
+
+procedure TMainForm.ProgressTaskStart(Sender: TProgressTracker;
+  Task: TProgressTracker.TTask);
+begin
+  if Sender.CurrentTaskLevel() = 1 then
+    BeginAddEditors();  // Just in case
+end;
+
 procedure TMainForm.RecentFilesMenuPopup(Sender: TObject);
 begin
   GenerateRecentFilesMenu(RecentFilesMenu.Items);
@@ -1481,6 +1584,21 @@ begin
   ApplyByteColEdit();
 end;
 
+procedure TMainForm.EndAddEditors;
+var
+  AEditor: TEditorForm;
+begin
+  Dec(FEditorsAddingCounter);
+  if FEditorsAddingCounter = 0 then
+  begin
+    if FNeedUpdateMDITabs then
+      UpdateMDITabs();
+    AEditor := GetActiveEditorNoEx();
+    if AEditor <> nil then
+      AEditor.WindowState := ActiveEditorWndState;
+  end;
+end;
+
 procedure TMainForm.AfterEventTimerTimer(Sender: TObject);
 var
   i: Integer;
@@ -1569,6 +1687,13 @@ var
   st: TStringList;
   s: string;
 begin
+  if FEditorsAddingCounter > 0 then
+  begin
+    FNeedUpdateMDITabs := True;
+    Exit;
+  end;
+  FNeedUpdateMDITabs := False;
+
   Current := -1;
   st := TStringList.Create();
   for i:=0 to EditorCount-1 do
@@ -1583,6 +1708,7 @@ begin
 
   MDITabs.Tabs.Assign(st);
   st.Free;
+  AdjustMDITabsHeight();
 
   MDITabs.TabIndex := Current;
 
@@ -1640,19 +1766,26 @@ var
   i:Integer;
   Catcher: TDropFileCatcher;
   s:string;
+//  t: Cardinal;
 begin
   inherited;
 //  StartTimeMeasure();
+//  t := GetTickCount();
   Catcher := TDropFileCatcher.Create(Msg.Drop);
+  Progress.TaskStart(Self);
   try
     for I := 0 to Catcher.FileCount-1 do
     begin
+      Progress.Show(I, Catcher.FileCount);
       s:=Catcher.Files[i];
       if FileExists(s) then OpenFile(TFileDataSource, s);
     end;
   finally
+    Progress.TaskEnd();
     Catcher.Free;
   end;
+//  t := GetTickCount() - t;
+//  WriteLog(Format('Drop: %d ms',[t]));
 //  EndTimeMeasure('DropFiles', True);
   Msg.Result := 0;
 end;

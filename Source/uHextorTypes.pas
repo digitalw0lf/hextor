@@ -11,8 +11,8 @@ unit uHextorTypes;
 interface
 
 uses
-  Winapi.Windows, Winapi.ShLwApi, SysUtils, Generics.Collections, Vcl.Graphics,
-  System.Math, System.SysConst, System.Variants, superobject,
+  Winapi.Windows, Winapi.ShLwApi, SysUtils, System.Classes, Generics.Collections,
+  Vcl.Graphics, System.Math, System.SysConst, System.Variants, superobject,
 
   uCallbackList;
 
@@ -117,8 +117,8 @@ type
     FDisplayInterval: Cardinal;
     function GetCurrentTask(): TTask;
   public
-    OnTaskStart: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;
-    OnTaskEnd: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;
+    OnTaskStart: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;  // Called with Task already in stack
+    OnTaskEnd: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;    // Called with Task still in stack
     OnDisplay: TCallbackListP3<{Sender: }TProgressTracker, {TotalProgress: }Double, {Text: }string>;
     constructor Create();
     destructor Destroy(); override;
@@ -163,6 +163,8 @@ function FileSize2Str(s:Int64; FracDigits:integer=1):UnicodeString;
 function Str2FileSize(const s:UnicodeString):Int64;
 
 function GetAppBuildTime(Instance:THandle = 0):TDateTime;
+procedure WriteLog(const LogSrc, Text: string); overload;
+procedure WriteLog(const Text: string); overload;
 
 const
   EntireFile: TFileRange = (Start: 0; AEnd: -1);
@@ -552,6 +554,39 @@ begin
   end;
 end;
 
+procedure WriteLog(const LogSrc, Text: string); overload;
+var
+  fn, ws: string;
+  S: AnsiString;
+  Now_: TDateTime;
+  fs: TFileStream;
+begin
+  Now_ := Now();
+
+  DateTimeToString(fn, 'yymmdd', Now_);
+  fn := ExtractFilePath(ParamStr(0)) + 'Log\' + fn + '\' + LogSrc + '.log';
+
+  DateTimeToString(ws, 'hh:nn:ss.zzz', Now_);
+  S := AnsiString(ws) + ' | ' + AnsiString(Text) + sLineBreak;
+
+  ForceDirectories(ExtractFilePath(fn));
+  if FileExists(fn) then
+    fs := TFileStream.Create(fn, fmOpenReadWrite)
+  else
+    fs := TFileStream.Create(fn, fmCreate);
+  try
+    fs.Seek(0, soEnd);
+    fs.WriteBuffer(S[Low(S)], Length(S) * SizeOf(S[Low(S)]));
+  finally
+    fs.Free;
+  end;
+end;
+
+procedure WriteLog(const Text: string); overload;
+begin
+  WriteLog('Log', Text);
+end;
+
 { TFileRange }
 
 constructor TFileRange.Create(BStart, BEnd: TFilePointer);
@@ -775,9 +810,9 @@ begin
     Exit;
   end;
   Show({CurrentTask.Worker,} 1.0);
-  Task := TaskStack.Extract();
+  Task := TaskStack.Peek();
   OnTaskEnd.Call(Self, Task);
-  Task.Free;
+  TaskStack.Pop();
 end;
 
 procedure TProgressTracker.TaskStart(Worker: TObject; PortionOfParent: Double = 1.0);
