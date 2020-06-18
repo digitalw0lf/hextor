@@ -178,8 +178,8 @@ type
   // DS wrapper for scripts
   TDSComWrapper = class(TInterfacedObject, IDispatch)
   private const
-    DISPID_INDEX  = 1000001;  // "index" pseudo-field of arrays
-    DISPID_LENGTH = 1000002;  // "length" pseudo-field of arrays
+    DISPID_INDEX  = -1;  // "index" pseudo-field of arrays
+    DISPID_LENGTH = -2;  // "length" pseudo-field of arrays
   private
     DSField: TDSField;
   public
@@ -1102,8 +1102,16 @@ end;
 //end;
 
 function TDSCompoundField.NamedFieldByIndex(Index: Integer): TDSField;
-// Slow
+// Slow for non-arrays
 begin
+  if (Self is TDSArray) then
+  begin
+    if (Index >= 0) and (Index < Fields.Count) then
+      Result := Fields[Index]
+    else
+      Result := nil;
+    Exit;
+  end;
   for Result in NamedFields do
   begin
     Dec(Index);
@@ -1669,7 +1677,7 @@ type
   PNames = ^TNames;
   TNames = array[0..100] of POleStr;
   PDispIDs = ^TDispIDs;
-  TDispIDs = array[0..100] of Cardinal;
+  TDispIDs = array[0..100] of Integer;
 var
   i: Integer;
   AName: string;
@@ -1681,13 +1689,18 @@ begin
     if SameText('index', AName) then
     // ArrayName.index = current index in array
     begin
-      PCardinal(DispIDs)^ := DISPID_INDEX;
+      PInteger(DispIDs)^ := DISPID_INDEX;
       Exit(S_OK);
     end;
     if SameText('length', AName) then
     // ArrayName.length = length of array
     begin
-      PCardinal(DispIDs)^ := DISPID_LENGTH;
+      PInteger(DispIDs)^ := DISPID_LENGTH;
+      Exit(S_OK);
+    end;
+    if (TryStrToInt(AName, i)) and (i >= 0) and (i < (DSField as TDSArray).Fields.Count) then
+    begin
+      PInteger(DispIDs)^ := i;
       Exit(S_OK);
     end;
   end;
@@ -1699,7 +1712,7 @@ begin
       begin
         if SameText(Child.Name, AName) then
         begin
-          PCardinal(DispIDs)^ := i;
+          PInteger(DispIDs)^ := i;
           Exit(S_OK);
         end;
         Inc(i);
@@ -1765,11 +1778,13 @@ begin
     end;
 
     // Unknown DispID
-    if (DispID < 0) or (DispID >=(DSField as TDSCompoundField).Fields.Count) then
+    if (DispID < 0) then
       Exit(DISP_E_MEMBERNOTFOUND);
 
     Result := S_OK;
     Field := (DSField as TDSCompoundField).NamedFieldByIndex(DispID);
+    if Field = nil then
+      Exit(DISP_E_MEMBERNOTFOUND);
     LoggedName := Field.FullName();
 
     if Field is TDSCompoundField then

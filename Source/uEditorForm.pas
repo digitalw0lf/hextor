@@ -94,7 +94,9 @@ type
     FHasUnsavedChanges: Boolean;
     FTopVisibleRow: TFilePointer;
     FUpdating: Integer;
-    FNeedUpdatePanes: Boolean;
+    FNeedUpdatePanes: Boolean;          // We need to call UpdatePanes() when long operation ends
+    FNeedCallSomeDataChanged: Boolean;  // We need to call SomeDataChanged() when long operation ends
+    FNeedCallSelectionChanged: Boolean; // We need to call SelectionChanged() when long operation ends
     FByteColumns: Integer;
     FLinesPerScrollBarTick: Integer;
     FInsertMode: Boolean;
@@ -982,6 +984,13 @@ end;
 
 procedure TEditorForm.SelectionChanged;
 begin
+  if FUpdating>0 then
+  begin
+    FNeedCallSelectionChanged := True;
+    Exit;
+  end;
+  FNeedCallSelectionChanged := False;
+
   ShowSelectionInfo();
   OnSelectionChanged.Call(Self);
   if Self = MainForm.GetActiveEditorNoEx() then
@@ -1215,6 +1224,13 @@ end;
 
 procedure TEditorForm.SomeDataChanged;
 begin
+  if FUpdating>0 then
+  begin
+    FNeedCallSomeDataChanged := True;
+    Exit;
+  end;
+  FNeedCallSomeDataChanged := False;
+
   HasUnsavedChanges := Data.HasChanges();
   UpdateScrollBars();
   UpdatePanes();
@@ -1262,6 +1278,10 @@ begin
   begin
     if FNeedUpdatePanes then
       UpdatePanes();
+    if FNeedCallSomeDataChanged then
+      SomeDataChanged();
+    if FNeedCallSelectionChanged then
+      SelectionChanged();
   end;
 
   PaneAddr.EndUpdate();
