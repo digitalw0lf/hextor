@@ -11,9 +11,10 @@ unit uHextorGUI;
 interface
 
 uses
-  System.Classes, Vcl.Controls, Vcl.Menus, Vcl.Forms, System.Types,
-  Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls, WinApi.Messages, Vcl.Graphics,
-  Winapi.Windows, System.Math, Winapi.ShellAPI,
+  System.Classes, System.SysUtils, System.IOUtils, Vcl.Controls, Vcl.Menus,
+  Vcl.Forms, System.Types, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls,
+  WinApi.Messages, Vcl.Graphics, Winapi.Windows, System.Math, Winapi.ShellAPI,
+  Generics.Collections,
 
   uFormattedTextDraw;
 
@@ -91,6 +92,9 @@ function CreateFormWithContent(Content:TWinControl; BorderStyle:TFormBorderStyle
 function MakeFormWithContent(Content:TWinControl; BorderStyle:TFormBorderStyle; const Caption:string=''):TForm;
 function FmtHint(): TFmtHintWindow;
 procedure AddComboBoxHistory(CB: TComboBox; Text: string = sTextFromControl; MaxCount: Integer = 20);
+function PopulateMenuWithFileList(Menu: TMenuItem; AfterItem, BeforeItem: TMenuItem;
+  Template: TMenuItem; FolderImageIndex: Integer; const Path, Mask: string;
+  FilesForMenuItems: TDictionary<Integer, string>): Integer;
 
 procedure Register;
 
@@ -181,6 +185,55 @@ begin
   // Workaround: when moving item equal to current input box text,
   // TComboBox clears it's contents
   CB.Text := ControlText;
+end;
+
+function PopulateMenuWithFileList(Menu: TMenuItem; AfterItem, BeforeItem: TMenuItem;
+  Template: TMenuItem; FolderImageIndex: Integer; const Path, Mask: string;
+  FilesForMenuItems: TDictionary<Integer, string>): Integer;
+// Populate menu with list of files and folders in specified folder
+var
+  i1, i2, i, n: Integer;
+  fl: TStringDynArray;
+  mi: TMenuItem;
+begin
+  Result := 0;
+  // Delete old items
+  if AfterItem  <> nil then i1 := AfterItem.MenuIndex + 1
+                       else i1 := 0;
+  if BeforeItem <> nil then i2 := BeforeItem.MenuIndex - 1
+                       else i2 := Menu.Count - 1;
+  for i:=i2 downto i1 do
+    Menu.Items[i].Free;
+
+  if not System.SysUtils.DirectoryExists(Path) then Exit;
+  n := i1;
+
+  // Process subdirectories
+  fl := TDirectory.GetDirectories(Path);
+  for i:=0 to Length(fl)-1 do
+  begin
+    mi := TMenuItem.Create(Application);
+    mi.Caption := ExtractFileName(fl[i]);
+    mi.ImageIndex := FolderImageIndex;
+    Menu.Insert(n, mi);
+    Inc(n);
+    Inc(Result, PopulateMenuWithFileList(mi, nil, nil, Template, FolderImageIndex, fl[i], Mask, FilesForMenuItems));
+  end;
+
+  // Create items for files
+  fl := TDirectory.GetFiles(Path, Mask);
+  for i:=0 to Length(fl)-1 do
+  begin
+    mi := TMenuItem.Create(Application);
+    mi.Caption := ChangeFileExt(ExtractFileName(fl[i]), '');
+    mi.ImageIndex := Template.ImageIndex;
+    mi.OnClick := Template.OnClick;
+    mi.Tag := FilesForMenuItems.Count;
+    FilesForMenuItems.AddOrSetValue(mi.Tag, fl[i]);
+    Menu.Insert(n, mi);
+    Inc(n);
+    Inc(Result);
+  end;
 end;
 
 { tFmtHintWindow }

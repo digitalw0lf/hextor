@@ -201,13 +201,21 @@ object StructFrame: TStructFrame
     Images = MainForm.ImageList16
     Left = 40
     Top = 104
-    object MIDummyDataStruct: TMenuItem
-      Caption = 'MIDummyDataStruct'
-      OnClick = MIDummyDataStructClick
+    object MIBuiltinDSMenu: TMenuItem
+      Caption = 'Built-in'
+      ImageIndex = 23
+    end
+    object MIAfterDSItems: TMenuItem
+      Caption = '-'
     end
     object MIOrganizeFiles: TMenuItem
-      Caption = 'MIOrganizeFiles'
+      Caption = 'Organize descriptions'
       OnClick = MIOrganizeFilesClick
+    end
+    object MIDummyDataStruct: TMenuItem
+      Caption = 'MIDummyDataStruct'
+      Visible = False
+      OnClick = MIDummyDataStructClick
     end
   end
   object SaveDialog1: TSaveDialog

@@ -15,51 +15,6 @@ object ScriptFrame: TScriptFrame
     ResizeStyle = rsUpdate
     ExplicitTop = 504
   end
-  object ToolPanel: TPanel
-    Left = 0
-    Top = 0
-    Width = 401
-    Height = 33
-    Align = alTop
-    TabOrder = 0
-    object BtnRun: TSpeedButton
-      Left = 4
-      Top = 4
-      Width = 26
-      Height = 26
-      Hint = 'Run script'
-      Glyph.Data = {
-        36030000424D3603000000000000360000002800000010000000100000000100
-        1800000000000003000000000000000000000000000000000000FFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFF158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1587211EB73D158721FF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFF15872128C14E23BC461EB73D158721FFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF15872128C14E23BC461F
-        B83E158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFF15872128C14E23BC4620B940158721FFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF15872128
-        C14E23BC4620B940158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF15872128C14E23BC4620B940158721FFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFF15872128C14E23BC4620B940158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1587212BC45728C14E23BC461587
-        21FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF15
-        872133CC662FC85F2BC457158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFF15872138D16B35CE6833CC66158721FFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF15872140D9733C
-        D56F38D16B158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFF15872147E07A44DD7740D973158721FFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF15872150E9834CE57F47E07A15
-        8721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFF15872150E983158721FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF158721FFFFFFFF
-        FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}
-      ParentShowHint = False
-      ShowHint = True
-      OnClick = BtnRunClick
-    end
-  end
   object OutputPanel: TPanel
     Left = 0
     Top = 512
@@ -67,7 +22,7 @@ object ScriptFrame: TScriptFrame
     Height = 132
     Align = alBottom
     BevelOuter = bvNone
-    TabOrder = 2
+    TabOrder = 1
     object MemoOutput: TRichEdit
       Left = 0
       Top = 20
@@ -109,16 +64,16 @@ object ScriptFrame: TScriptFrame
   end
   object ScriptEdit: TSynEdit
     Left = 0
-    Top = 33
+    Top = 26
     Width = 401
-    Height = 475
+    Height = 482
     Align = alClient
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
-    TabOrder = 1
+    TabOrder = 0
     CodeFolding.GutterShapeSize = 11
     CodeFolding.CollapsedLineColor = clGrayText
     CodeFolding.FolderBarLinesColor = clGrayText
@@ -133,11 +88,127 @@ object ScriptFrame: TScriptFrame
     Gutter.Font.Height = -11
     Gutter.Font.Name = 'Courier New'
     Gutter.Font.Style = []
+    Gutter.LeftOffset = 0
     Gutter.ShowLineNumbers = True
+    Gutter.ShowModification = True
+    Highlighter = SynJScriptSyn1
+    MaxScrollWidth = 512
+    Options = [eoAutoIndent, eoAutoSizeMaxScrollWidth, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoSmartTabs, eoTabIndent, eoTabsToSpaces, eoTrimTrailingSpaces]
+    TabWidth = 2
+    WantTabs = True
     FontSmoothing = fsmNone
+    ExplicitTop = 24
+  end
+  object ToolBar1: TToolBar
+    Left = 0
+    Top = 0
+    Width = 401
+    Height = 26
+    AutoSize = True
+    ButtonHeight = 26
+    ButtonWidth = 26
+    Caption = 'ToolBar1'
+    Images = MainForm.ImageList16
+    TabOrder = 2
+    object BtnNew: TToolButton
+      Left = 0
+      Top = 0
+      Hint = 'New script'
+      Caption = 'BtnNew'
+      ImageIndex = 0
+      ParentShowHint = False
+      ShowHint = True
+      OnClick = BtnNewClick
+    end
+    object BtnLoad: TToolButton
+      Left = 26
+      Top = 0
+      Hint = 'Open script'
+      Caption = 'BtnLoad'
+      ImageIndex = 1
+      ParentShowHint = False
+      ShowHint = True
+      OnClick = BtnLoadClick
+    end
+    object BtnSave: TToolButton
+      Left = 52
+      Top = 0
+      Hint = 'Save script'
+      Caption = 'BtnSave'
+      DropdownMenu = SaveAsMenu
+      ImageIndex = 2
+      ParentShowHint = False
+      ShowHint = True
+      Style = tbsDropDown
+      OnClick = MISaveAsClick
+    end
+    object BtnRun: TToolButton
+      Left = 93
+      Top = 0
+      Hint = 'Run'
+      Caption = 'BtnRun'
+      ImageIndex = 8
+      ParentShowHint = False
+      ShowHint = True
+      OnClick = BtnRunClick
+    end
+    object LblScriptName: TLabel
+      Left = 119
+      Top = 0
+      Width = 57
+      Height = 26
+      Caption = '    Unnamed'
+      Transparent = True
+      Layout = tlCenter
+    end
   end
   object Timer1: TTimer
     Left = 104
     Top = 288
+  end
+  object SynJScriptSyn1: TSynJScriptSyn
+    Options.AutoDetectEnabled = False
+    Options.AutoDetectLineLimit = 0
+    Options.Visible = False
+    Left = 104
+    Top = 184
+  end
+  object SavedScriptsMenu: TPopupMenu
+    AutoHotkeys = maManual
+    Images = MainForm.ImageList16
+    Left = 40
+    Top = 104
+    object MIBuiltinItemsMenu: TMenuItem
+      Caption = 'Built-in'
+      ImageIndex = 23
+    end
+    object MIAfterFileItems: TMenuItem
+      Caption = '-'
+    end
+    object MIOrganizeFiles: TMenuItem
+      Caption = 'Organize scripts'
+      OnClick = MIOrganizeFilesClick
+    end
+    object MIDummyScript: TMenuItem
+      Caption = 'MIDummyScript'
+      Visible = False
+      OnClick = MIDummyScriptClick
+    end
+  end
+  object SaveAsMenu: TPopupMenu
+    Left = 128
+    Top = 104
+    object MISaveAs: TMenuItem
+      Caption = 'Save as...'
+      OnClick = MISaveAsClick
+    end
+  end
+  object SaveDialog1: TSaveDialog
+    DefaultExt = 'ds'
+    Filter = 'All files|*|Scripts (*.js)|*.js'
+    FilterIndex = 2
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
+    Left = 40
+    Top = 168
   end
 end

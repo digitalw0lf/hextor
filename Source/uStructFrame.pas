@@ -73,6 +73,8 @@ type
     MICopyFieldFullName: TMenuItem;
     MICopyFieldValue: TMenuItem;
     MIOrganizeFiles: TMenuItem;
+    MIBuiltinDSMenu: TMenuItem;
+    MIAfterDSItems: TMenuItem;
     procedure BtnInterpretClick(Sender: TObject);
     procedure MIDummyDataStructClick(Sender: TObject);
     procedure PnlButtonBar2MouseDown(Sender: TObject; Button: TMouseButton;
@@ -149,7 +151,6 @@ type
     procedure SetInterpretRange(const Value: TStructInterpretRange);
     function GetInterpretRange: TStructInterpretRange;
     procedure FieldInterpreted(Sender: TObject; DS: TDSField);
-    procedure LoadDescrListToMenu(const Path: string; ParentMenu: TMenuItem);
   public
     { Public declarations }
     Settings: TStructSettings;
@@ -374,31 +375,16 @@ begin
 end;
 
 procedure TStructFrame.BtnLoadDescrClick(Sender: TObject);
-var
-  mi: TMenuItem;
 begin
-  SavedDescrsMenu.Items.Clear();
+
+
   FilesForMenuItems.Clear();
-
-  // Submenu for Built-in DSs
-  mi := TMenuItem.Create(Application);
-  mi.Caption := 'Built-in';
-  mi.ImageIndex := ImageIndex_Folder;
-  SavedDescrsMenu.Items.Add(mi);
-  LoadDescrListToMenu(BuiltInDSFolder(), mi);
-
+  // Built-in DSs
+  PopulateMenuWithFileList(MIBuiltinDSMenu, nil, nil,
+    MIDummyDataStruct, ImageIndex_Folder, BuiltInDSFolder(), '*.ds', FilesForMenuItems);
   // User DSs
-  LoadDescrListToMenu(UserDSFolder(), SavedDescrsMenu.Items);
-
-  // "Organize descriptions"
-  mi := TMenuItem.Create(Application);
-  mi.Caption := '-';
-  SavedDescrsMenu.Items.Add(mi);
-
-  mi := TMenuItem.Create(Application);
-  mi.Caption := 'Organize descriptions';
-  mi.OnClick := MIOrganizeFilesClick;
-  SavedDescrsMenu.Items.Add(mi);
+  PopulateMenuWithFileList(SavedDescrsMenu.Items, MIBuiltinDSMenu, MIAfterDSItems,
+    MIDummyDataStruct, ImageIndex_Folder, UserDSFolder(), '*.ds', FilesForMenuItems);
 
   PopupFromControl(SavedDescrsMenu, BtnLoadDescr);
 end;
@@ -926,40 +912,6 @@ procedure TStructFrame.InterpretRangeMenuPopup(Sender: TObject);
 begin
   MIRangeEntireFile.Checked := (InterpretRange = irFile);
   MIRangeSelection.Checked := (InterpretRange = irSelection);
-end;
-
-procedure TStructFrame.LoadDescrListToMenu(const Path: string;
-  ParentMenu: TMenuItem);
-// Populate menu with list of files and folders in specified folder  
-var
-  fl: TStringDynArray;
-  i: Integer;
-  mi: TMenuItem;
-begin
-  if not System.SysUtils.DirectoryExists(Path) then Exit;
-
-  // Subdirectories
-  fl := TDirectory.GetDirectories(Path);
-  for i:=0 to Length(fl)-1 do
-  begin
-    mi := TMenuItem.Create(Application);
-    mi.Caption := ExtractFileName(fl[i]);
-    mi.ImageIndex := ImageIndex_Folder;
-    ParentMenu.Add(mi);
-    LoadDescrListToMenu(fl[i], mi);
-  end;
-
-  // DS description files
-  fl := TDirectory.GetFiles(Path, '*.ds');
-  for i:=0 to Length(fl)-1 do
-  begin
-    mi := TMenuItem.Create(Application);
-    mi.Caption := ChangeFileExt(ExtractFileName(fl[i]), '');
-    mi.OnClick := MIDummyDataStructClick;
-    mi.Tag := FilesForMenuItems.Count;
-    FilesForMenuItems.AddOrSetValue(mi.Tag, fl[i]);
-    ParentMenu.Add(mi);
-  end;
 end;
 
 procedure TStructFrame.SetInterpretRange(const Value: TStructInterpretRange);

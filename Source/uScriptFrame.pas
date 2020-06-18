@@ -14,9 +14,14 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Buttons,
   Vcl.StdCtrls, Vcl.OleCtrls, MSScriptControl_TLB, Vcl.ComCtrls,
-  System.Diagnostics, SynEdit,
+  System.Diagnostics, SynEdit, SynEditHighlighter, SynEditCodeFolding,
+  SynHighlighterJScript, Generics.Collections, Vcl.ToolWin, System.IOUtils,
+  Vcl.Menus, Winapi.ShellAPI,
 
-  uHextorTypes, uModuleSettings;
+  uHextorTypes, uHextorGUI, uModuleSettings;
+
+const
+  ImageIndex_Folder = 23;  // Index in  MainForm.ImageList16
 
 type
   TScriptSettings = class (TModuleSettings)
@@ -24,8 +29,6 @@ type
   end;
 
   TScriptFrame = class(TFrame)
-    ToolPanel: TPanel;
-    BtnRun: TSpeedButton;
 //    ScriptControl1: TScriptControl;
     Timer1: TTimer;
     Splitter1: TSplitter;
@@ -34,12 +37,36 @@ type
     OutputToolPanel: TPanel;
     BtnClearOutput: TSpeedButton;
     ScriptEdit: TSynEdit;
+    SynJScriptSyn1: TSynJScriptSyn;
+    ToolBar1: TToolBar;
+    BtnNew: TToolButton;
+    BtnLoad: TToolButton;
+    BtnSave: TToolButton;
+    LblScriptName: TLabel;
+    BtnRun: TToolButton;
+    SavedScriptsMenu: TPopupMenu;
+    MIBuiltinItemsMenu: TMenuItem;
+    MIDummyScript: TMenuItem;
+    MIAfterFileItems: TMenuItem;
+    MIOrganizeFiles: TMenuItem;
+    SaveAsMenu: TPopupMenu;
+    MISaveAs: TMenuItem;
+    SaveDialog1: TSaveDialog;
     procedure BtnRunClick(Sender: TObject);
     procedure BtnClearOutputClick(Sender: TObject);
+    procedure BtnNewClick(Sender: TObject);
+    procedure BtnLoadClick(Sender: TObject);
+    procedure MISaveAsClick(Sender: TObject);
+    procedure MIOrganizeFilesClick(Sender: TObject);
+    procedure MIDummyScriptClick(Sender: TObject);
   private
     { Private declarations }
     ScriptControl1: TScriptControl;
+    CurScriptFileName: string;
+    FilesForMenuItems: TDictionary<Integer, string>;  // MenuItem.Tag -> File name
     procedure PrepareScriptEnv();
+    function UserScriptsFolder(): string;
+    function BuiltInScriptsFolder(): string;
   public
     { Public declarations }
     Settings: TScriptSettings;
@@ -56,6 +83,26 @@ uses
   uMainForm, uDataStruct;
 
 {$R *.dfm}
+
+procedure TScriptFrame.BtnLoadClick(Sender: TObject);
+begin
+  FilesForMenuItems.Clear();
+  // Built-in DSs
+  PopulateMenuWithFileList(MIBuiltinItemsMenu, nil, nil,
+    MIDummyScript, ImageIndex_Folder, BuiltInScriptsFolder(), '*.js', FilesForMenuItems);
+  // User DSs
+  PopulateMenuWithFileList(SavedScriptsMenu.Items, MIBuiltinItemsMenu, MIAfterFileItems,
+    MIDummyScript, ImageIndex_Folder, UserScriptsFolder(), '*.js', FilesForMenuItems);
+
+  PopupFromControl(SavedScriptsMenu, Sender as TControl);
+end;
+
+procedure TScriptFrame.BtnNewClick(Sender: TObject);
+begin
+  ScriptEdit.Clear();
+  LblScriptName.Caption := '    ' + 'Unnamed';
+  CurScriptFileName := '';
+end;
 
 procedure TScriptFrame.BtnRunClick(Sender: TObject);
 var
@@ -100,16 +147,24 @@ begin
   SendMessage(MemoOutput.Handle, WM_VSCROLL, SB_BOTTOM, 0);
 end;
 
+function TScriptFrame.BuiltInScriptsFolder: string;
+begin
+  Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.BuiltInSettingsFolder, 'Scripts') );
+end;
+
 constructor TScriptFrame.Create(AOwner: TComponent);
 begin
   inherited;
   Settings := TScriptSettings.Create();
+  FilesForMenuItems := TDictionary<Integer, string>.Create();
+
   ScriptControl1 := TScriptControl.Create(Self);
   ScriptControl1.Language := 'JScript';
 end;
 
 destructor TScriptFrame.Destroy;
 begin
+  FilesForMenuItems.Free;
   Settings.Free;
   inherited;
 end;
@@ -125,6 +180,60 @@ end;
 procedure TScriptFrame.Init;
 begin
   ScriptEdit.Text := Settings.Text;
+end;
+
+procedure TScriptFrame.MIDummyScriptClick(Sender: TObject);
+var
+  n: Integer;
+  fn, name: string;
+begin
+  n := (Sender as TMenuItem).Tag;
+  if not FilesForMenuItems.TryGetValue(n, fn) then Exit;
+  name := (Sender as TMenuItem).Caption;
+  ScriptEdit.Lines.LoadFromFile(fn);
+  CurScriptFileName := fn;
+  LblScriptName.Caption := '    ' + name;
+end;
+
+procedure TScriptFrame.MIOrganizeFilesClick(Sender: TObject);
+begin
+  ForceDirectories(UserScriptsFolder());
+  ShellExecute(0, '', PChar(UserScriptsFolder()), '', '', SW_SHOWNORMAL);
+end;
+
+procedure TScriptFrame.MISaveAsClick(Sender: TObject);
+// Save script
+var
+  fn: string;
+begin
+  ForceDirectories(UserScriptsFolder());
+  fn := CurScriptFileName;
+
+  // If "Save as" pressed or file name still not specified - show "Save as" dialog.
+  if (Sender = MISaveAs) or (fn = '') or (PathIsInside(fn, BuiltInScriptsFolder())) then
+  begin
+    if (fn = '') then
+      fn := 'Script1'
+    else
+    if PathIsInside(fn, BuiltInScriptsFolder()) then
+      fn := ChangeFileExt(ExtractFileName(fn), '');
+    SaveDialog1.InitialDir := UserScriptsFolder();
+    SaveDialog1.FileName := fn;
+
+    if not SaveDialog1.Execute() then Exit;
+    fn := SaveDialog1.FileName;
+    if not PathIsInside(fn, UserScriptsFolder()) then
+      if Application.MessageBox(PChar('If you save this script outside of default user settings folder, it will not be available in menu. Continue?'), PChar('Save warning'), MB_OKCANCEL) <> IDOK then Exit;
+  end
+  else
+    fn := CurScriptFileName;
+
+  ForceDirectories(ExtractFilePath(fn));
+  ScriptEdit.Lines.SaveToFile(fn);
+  ScriptEdit.MarkModifiedLinesAsSaved();
+  CurScriptFileName := fn;
+  // '    ' is added so vertical line, added by toolbar, does not overlaps caption
+  LblScriptName.Caption := '    ' + ChangeFileExt(ExtractFileName(CurScriptFileName), '');
 end;
 
 procedure TScriptFrame.PrepareScriptEnv;
@@ -152,6 +261,11 @@ begin
     Settings.Text := ScriptEdit.Text;
     Settings.Changed();
   end;
+end;
+
+function TScriptFrame.UserScriptsFolder: string;
+begin
+  Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.SettingsFolder, 'Scripts') );
 end;
 
 end.

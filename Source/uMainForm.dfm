@@ -221,7 +221,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 547
-      ActivePage = PgHash
+      ActivePage = PgStruct
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -376,10 +376,6 @@ object MainForm: TMainForm
             ExplicitTop = 387
             ExplicitWidth = 412
           end
-          inherited ToolPanel: TPanel
-            Width = 412
-            ExplicitWidth = 412
-          end
           inherited OutputPanel: TPanel
             Top = 387
             Width = 412
@@ -400,9 +396,18 @@ object MainForm: TMainForm
           end
           inherited ScriptEdit: TSynEdit
             Width = 412
-            Height = 350
+            Height = 357
+            ExplicitTop = 26
             ExplicitWidth = 412
-            ExplicitHeight = 350
+            ExplicitHeight = 357
+          end
+          inherited ToolBar1: TToolBar
+            Width = 412
+            Images = nil
+            ExplicitWidth = 412
+          end
+          inherited SavedScriptsMenu: TPopupMenu
+            Images = nil
           end
         end
       end
@@ -490,10 +495,6 @@ object MainForm: TMainForm
             Height = 195
             ExplicitWidth = 412
             ExplicitHeight = 195
-            inherited StaticText1: TStaticText
-              Width = 406
-              ExplicitWidth = 406
-            end
             inherited ResultListView: TListView
               Width = 412
               Height = 172
@@ -1160,7 +1161,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010118004001800310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C0101180040018C0310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
