@@ -6,10 +6,11 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SynEditHighlighter,
   SynHighlighterAsm, SynEdit, Vcl.ExtCtrls, Vcl.Buttons, Generics.Collections,
+  Vcl.StdCtrls,
 
   Zydis, Zydis.Exception, Zydis.Decoder, Zydis.Formatter,
 
-  uEditorForm, uHextorTypes, Vcl.StdCtrls;
+  uEditorForm, uHextorTypes, uEditedData;
 
 const
   Color_InstructionBg = $F0F8FC;
@@ -35,17 +36,18 @@ type
     procedure EditorSelectionChanged(Sender: TEditorForm);
     procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+    procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     function InstructionAtAddress(Addr: TFilePointer): Integer;
   public type
     TDisasmArchitecture = (daI386, daAMD64);
-    TInstructionInFile = record
+    TInstructionInFile = class
       Range: TFileRange;
       Decoded: Boolean;
       Instruction: TZydisDecodedInstruction;
     end;
   public
     { Public declarations }
-    Instructions: TList<TInstructionInFile>;
+    Instructions: TObjectList<TInstructionInFile>;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure UpdateInfo();
@@ -76,8 +78,17 @@ end;
 constructor TAsmFrame.Create(AOwner: TComponent);
 begin
   inherited;
-  Instructions := TList<TInstructionInFile>.Create();
+  Instructions := TObjectList<TInstructionInFile>.Create(True);
   MainForm.OnSelectionChanged.Add(EditorSelectionChanged);
+end;
+
+procedure TAsmFrame.DataChanged(Sender: TEditedData; Addr, OldSize,
+  NewSize: TFilePointer; Value: PByteArray);
+begin
+  if BtnLockDisasm.Down then
+  begin
+    AdjustPositionInData(FShownRange, Addr, OldSize, NewSize);
+  end;
 end;
 
 destructor TAsmFrame.Destroy;
@@ -144,6 +155,7 @@ begin
       // Decode instructions in Data
       while Offset < Length(Data) do
       begin
+        Instruction := TInstructionInFile.Create();
         try
           Decoder.DecodeBuffer(@Data[Offset], Length(Data) - Offset, InstructionPointer,
             Instruction.Instruction);
@@ -257,6 +269,7 @@ begin
     begin
       FEditor.OnGetTaggedRegions.Remove(Self);
       FEditor.OnClosed.Remove(Self);
+      FEditor.Data.OnDataChanged.Remove(Self);
     end;
 
     FEditor := AActiveEditor;
@@ -264,6 +277,7 @@ begin
     begin
       FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
       FEditor.OnClosed.Add(EditorClosed, Self);
+      FEditor.Data.OnDataChanged.Add(DataChanged, Self);
     end
     else
     begin

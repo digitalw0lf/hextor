@@ -62,7 +62,7 @@ type
     Resizable: Boolean;
     Parts: TDataPartSkipList;  // Treat as private except for saving to file
     // Data changed event. "Value" may be nil if fired as a result on Undo
-    OnDataChanged: TCallbackListP4<{Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer, {Value:}PByteArray>;
+    OnDataChanged: TCallbackListP5<{Sender:}TEditedData, {Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer, {Value:}PByteArray>;
     // Event for Undo stack
     OnBeforePartsReplace: TCallbackListP3<{Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer>;
     constructor Create();
@@ -395,7 +395,7 @@ begin
     AValue := @NewParts[0].Data[0]
   else
     AValue := nil;
-  OnDataChanged.Call(Addr, OldSize, NewSize, AValue);
+  OnDataChanged.Call(Self, Addr, OldSize, NewSize, AValue);
 end;
 
 procedure TEditedData.ResetParts;

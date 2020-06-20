@@ -50,9 +50,11 @@ type
     procedure EditorClosed(Sender: TEditorForm);
     procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+    procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     procedure LinkNodeToEditor(Node: PVirtualNode; AEditor: TEditorForm);
     procedure UnlinkFromEditor(AEditor: TEditorForm);
     function GetEditorNode(AEditor: TEditorForm): PVirtualNode;
+    function GetNodeForData(AData: TEditedData): PVirtualNode;
     function IsGroupNode(Node: PVirtualNode): Boolean;
   public
     { Public declarations }
@@ -143,6 +145,23 @@ begin
   inherited;
   ResultsList.NodeDataSize := SizeOf(TResultTreeNode);
 
+end;
+
+procedure TSearchResultsTabFrame.DataChanged(Sender: TEditedData; Addr, OldSize,
+  NewSize: TFilePointer; Value: PByteArray);
+var
+  EditorNode, ItemNode: PVirtualNode;
+begin
+  // Adjust position of found items if file data changed (bytes inserted/removed)
+  if NewSize = OldSize then Exit;
+  EditorNode := GetNodeForData(Sender);
+  if EditorNode <> nil then
+  begin
+    for ItemNode in ResultsList.ChildNodes(EditorNode) do
+    begin
+      AdjustPositionInData(PResultTreeNode(ItemNode.GetData()).Range, Addr, OldSize, NewSize);
+    end;
+  end;
 end;
 
 procedure TSearchResultsTabFrame.DeleteListGroup(AGroupNode: Pointer);
@@ -243,6 +262,24 @@ begin
   end;
 end;
 
+function TSearchResultsTabFrame.GetNodeForData(
+  AData: TEditedData): PVirtualNode;
+// Find tree node corresponding to given EditedData object.
+// Works only if AData belongs to some editor which is linked to us.
+var
+  Node: PVirtualNode;
+  RNode: PResultTreeNode;
+begin
+  Result := nil;
+  if AData = nil then Exit;
+  for Node in ResultsList.ChildNodes(ResultsList.RootNode) do
+  begin
+    RNode := Node.GetData;
+    if (RNode.FEditor <> nil) and (RNode.FEditor.Data = AData) then
+      Exit(Node);
+  end;
+end;
+
 function TSearchResultsTabFrame.IsGroupNode(Node: PVirtualNode): Boolean;
 // True if given node is for file. False if it is for found item.
 begin
@@ -269,6 +306,7 @@ begin
   begin
     AEditor.OnClosed.Add(EditorClosed, Self);
     AEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
+    AEditor.Data.OnDataChanged.Add(DataChanged, Self);
   end;
 end;
 
@@ -401,6 +439,7 @@ begin
   // Remove editor event handlers
   AEditor.OnClosed.Remove(Self);
   AEditor.OnGetTaggedRegions.Remove(Self);
+  AEditor.Data.OnDataChanged.Remove(Self);
   AEditor.UpdatePanes();
 end;
 

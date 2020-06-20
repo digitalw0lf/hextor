@@ -121,9 +121,8 @@ type
     procedure AddCurrentFileToRecentFiles();
     procedure SelectionChanged();
     procedure SetInsertMode(Value: Boolean);
-    function AdjustPositionInData(var Pos: TFilePointer; OpAddr, OpSize: TFilePointer): Boolean;
-    procedure AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
-    procedure DataChanged(Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
+    procedure AdjustPointersPositions(Addr, OldSize, NewSize: TFilePointer);
+    procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     procedure SomeDataChanged();
     procedure UndoActionCreating(Action: TUndoStackAction);
     procedure UndoActionReverted(Action: TUndoStackAction; Direction: TUndoStack.TUndoDirection);
@@ -262,29 +261,19 @@ begin
   MainForm.Settings.Changed(True);
 end;
 
-procedure TEditorForm.AdjustPointersPositions(OpAddr, OpSize: TFilePointer);
+procedure TEditorForm.AdjustPointersPositions(Addr, OldSize, NewSize: TFilePointer);
 // Adjust Caret position, bookmarks etc. after operation that inserted or deleted data
 var
   ASelEnd: TFilePointer;
 begin
-  AdjustPositionInData(FCaretPos, OpAddr, OpSize);
+  AdjustPositionInData(FCaretPos, Addr, OldSize, NewSize);
   ASelEnd := SelStart + SelLength;
-  AdjustPositionInData(FSelStart, OpAddr, OpSize);
-  AdjustPositionInData(ASelEnd, OpAddr, OpSize);
+  AdjustPositionInData(FSelStart, Addr, OldSize, NewSize);
+  AdjustPositionInData(ASelEnd, Addr, OldSize, NewSize);
   FSelLength := ASelEnd - FSelStart;
 
-  AdjustPositionInData(SelDragStart, OpAddr, OpSize);
-  AdjustPositionInData(SelDragEnd, OpAddr, OpSize);
-end;
-
-function TEditorForm.AdjustPositionInData(var Pos: TFilePointer; OpAddr,
-  OpSize: TFilePointer): Boolean;
-// Adjust position Pos according to operation that inserted or deleted data at position OpAddr.
-// OpSize < 0 for deletion
-begin
-  if Pos < OpAddr then Exit(False);
-  Pos := Max(Pos + OpSize, OpAddr);  // Works for both deletion and insertion
-  Result := True;
+  AdjustPositionInData(SelDragStart, Addr, OldSize, NewSize);
+  AdjustPositionInData(SelDragEnd, Addr, OldSize, NewSize);
 end;
 
 function TEditorForm.AskSaveChanges: TModalResult;
@@ -381,11 +370,11 @@ begin
   FreeAndNil(DataSource);
 end;
 
-procedure TEditorForm.DataChanged(Addr: TFilePointer; OldSize,
+procedure TEditorForm.DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize,
   NewSize: TFilePointer; Value: PByteArray);
 begin
   if OldSize <> NewSize then
-    AdjustPointersPositions(Addr, NewSize - OldSize);
+    AdjustPointersPositions(Addr, OldSize, NewSize);
 
   SomeDataChanged();
   if (Addr <= SelStart + SelLength) and (Addr + Max(OldSize, NewSize) >= SelStart) then
@@ -1351,6 +1340,26 @@ var
   FileSize: TFilePointer;
   IncludesFileEnd: Boolean;
   ws: string;
+
+  function ToDisplayedString(Buf: RawByteString): string;
+  var
+    i: Integer;
+  begin
+    for i:=Low(Buf) to High(Buf) do
+    begin
+      if ((Buf[i] < ' ') {and (Buf[i] <> #$0A) and (Buf[i] <> #$0D)}) or
+         (Buf[i] = #$7F) or (Buf[i] = #$98) then
+        Buf[i] := '.';
+    end;
+    Result := string(Buf);
+//    // Carriage return symbols
+//    for i:=Low(Result) to High(Result) do
+//    begin
+//      if (Result[i] = #$000D) or (Result[i] = #$000A) then
+//        Result[i] := #$21B5;
+//    end;
+  end;
+
 begin
   if FUpdating>0 then
   begin
@@ -1424,20 +1433,19 @@ begin
     len := 0;
     for i:=0 to Length(AData)-1 do
     begin
-      if (AData[i] < Ord(' ')) or (AData[i] = $7F) or (AData[i] = $98) then
-        c := '.'
-      else
-        c := AnsiChar(AData[i]);
+      c := AnsiChar(AData[i]);
       s[Low(s) + len] := c;
       Inc(len);
-      if ((i+1) mod ByteColumns)=0 then
+      if (((i+1) mod ByteColumns) = 0) or
+         (i = Length(AData)-1) then
       begin
-        Lines.Add(string(Copy(s, Low(s), len)));
+        Lines.Add(ToDisplayedString(Copy(s, Low(s), len)));
         len := 0;
       end;
     end;
-    if (len>0) or (IncludesFileEnd) then
-      Lines.Add(string(Copy(s, Low(s), len)));
+    if (IncludesFileEnd) and
+       ((Lines.Count = 0) or (Length(Lines[Lines.Count-1]) = ByteColumns)) then
+      Lines.Add('');
     PaneText.HorzScrollPos := HorzScrollPos;
 //    EndTimeMeasure('Text', True);
 

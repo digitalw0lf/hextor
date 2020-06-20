@@ -146,6 +146,8 @@ function RemUnprintable(const s:UnicodeString; NewChar: WideChar='.'):UnicodeStr
 function DivRoundUp(A, B: Int64): Int64; inline;
 function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
+function AdjustPositionInData(var Pos: TFilePointer; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;
+function AdjustPositionInData(var Range: TFileRange; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;
 function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeBytes(const Buf; BufSize:integer):tBytes; overload;
 function MakeZeroBytes(Size: NativeInt): TBytes;
@@ -354,6 +356,28 @@ begin
   end;
   if Result<MinX then Result:=MinX;
   if Result>MaxX then Result:=MaxX;
+end;
+
+function AdjustPositionInData(var Pos: TFilePointer; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;
+// Adjust position Pos according to operation that changed block of data at position Addr
+// from size OldSize to NewSize.
+var
+  OpSize: TFilePointer;
+begin
+  if NewSize = OldSize then Exit(False);
+  if Pos < Addr then Exit(False);
+  OpSize := NewSize - OldSize;
+  Pos := Max(Pos + OpSize, Addr);  // Works for both deletion and insertion
+  Result := True;
+end;
+
+function AdjustPositionInData(var Range: TFileRange; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;
+// Adjust start and end of Range according to operation that changed block of data at position Addr
+// from size OldSize to NewSize.
+begin
+  if NewSize = OldSize then Exit(False);
+  Result := AdjustPositionInData(Range.Start, Addr, OldSize, NewSize);
+  Result := AdjustPositionInData(Range.AEnd, Addr, OldSize, NewSize) or Result;
 end;
 
 function DataEqual(const Data1, Data2: TBytes): Boolean;

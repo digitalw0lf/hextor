@@ -121,6 +121,8 @@ type
     procedure MIOrganizeFilesClick(Sender: TObject);
   private const
     Unnamed_Struct = 'Unnamed';
+  private type
+    TFieldEnumProc = reference to function(DS: TDSField): Boolean;
   private
     { Private declarations }
     FParser: TDSParser;
@@ -142,15 +144,16 @@ type
     function GetNodeDS(Node: PVirtualNode): TDSField;
     function GetDSNode(DS: TDSField): PVirtualNode;
     procedure EditorClosed(Sender: TEditorForm);
-    procedure AddRegionsForFields(DS{, HighlightDS}: TDSField; Start,
-      AEnd: TFilePointer; Regions: TTaggedDataRegionList);
     procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+    procedure DataChanged(Sender: TEditedData; Addr: TFilePointer;
+      OldSize, NewSize: TFilePointer; Value: PByteArray);
     function DSValueAsJsonObject(DS: TDSField): ISuperObject;
     function DSValueAsJson(DS: TDSField): string;
     procedure SetInterpretRange(const Value: TStructInterpretRange);
     function GetInterpretRange: TStructInterpretRange;
     procedure FieldInterpreted(Sender: TObject; DS: TDSField);
+    function EnumerateFields(DS: TDSField; const Range: TFileRange; Proc: TFieldEnumProc): Integer;
   public
     { Public declarations }
     Settings: TStructSettings;
@@ -169,42 +172,6 @@ uses
 {$R *.dfm}
 
 { TStructFrame }
-
-procedure TStructFrame.AddRegionsForFields(DS{, HighlightDS}: TDSField;
-  Start, AEnd: TFilePointer; Regions: TTaggedDataRegionList);
-// Add DS and it's childs as visible regions to Regions
-var
-  i{, c}: Integer;
-  Bg: TColor;
-begin
-  // Check within requested address range
-  if (DS.BufAddr >= AEnd) or (DS.BufAddr + DS.BufSize <= Start) then Exit;
-  // Do not show directives
-  if DS is TDSDirective then Exit;
-  // Do not add separate regions for 1-byte elements of arrays
-  if (DS is TDSSimpleField) and (DS.BufSize = 1) and
-     (DS.Parent <> nil) and (DS.Parent is TDSArray) then
-    Exit;
-
-  // Background color
-//  if DS = HighlightDS then
-//    Bg := Color_ValueHighlightBg
-//  else
-//  begin
-//    c := 255 - DS.Name.GetHashCode() and $1F;
-//    Bg := RGB(c, c, 255);
-//  end;
-  if DS.ErrorText <> '' then
-    Bg := Color_ErrDSFieldBg
-  else
-    Bg := Color_DSFieldBg;
-  // Add this DS
-  Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, Color_DSFieldFr);
-  // Add childs
-  if DS is TDSCompoundField then
-    for i:=0 to TDSCompoundField(DS).Fields.Count-1 do
-      AddRegionsForFields(TDSCompoundField(DS).Fields[i], {HighlightDS,} Start, AEnd, Regions);
-end;
 
 procedure TStructFrame.Analyze(Addr, Size: TFilePointer; {const Data: TBytes;}
   const Struct: string);
@@ -343,10 +310,12 @@ begin
   begin
     FEditor.OnClosed.Remove(Self);
     FEditor.OnGetTaggedRegions.Remove(Self);
+    FEditor.Data.OnDataChanged.Remove(Self);
   end;
   FEditor := MainForm.ActiveEditor;
   FEditor.OnClosed.Add(EditorClosed, Self);
   FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
+  FEditor.Data.OnDataChanged.Add(DataChanged, Self);
 
   Addr := 0; Size := 0;
   with FEditor do
@@ -413,6 +382,26 @@ begin
 
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
   NodesForDSs := TDictionary<TDSField, PVirtualNode>.Create();
+end;
+
+procedure TStructFrame.DataChanged(Sender: TEditedData; Addr, OldSize,
+  NewSize: TFilePointer; Value: PByteArray);
+begin
+  // Adjust shown DS fields positions in data
+
+  if NewSize = OldSize then Exit;
+
+  EnumerateFields(ShownDS, TFileRange.Create(Addr, High(TFilePointer)),
+    function (DS: TDSField): Boolean
+    var
+      AEnd: TFilePointer;
+    begin
+      AEnd := DS.BufAddr + DS.BufSize;
+      AdjustPositionInData(DS.BufAddr, Addr, OldSize, NewSize);
+      AdjustPositionInData(AEnd, Addr, OldSize, NewSize);
+      DS.BufSize := AEnd - DS.BufAddr;
+      Result := True;
+    end);
 end;
 
 destructor TStructFrame.Destroy;
@@ -742,15 +731,58 @@ var
 begin
   if ShownDS = nil then Exit;
 
-  AddRegionsForFields(ShownDS, {SelDS,} Start, AEnd, Regions);
+  // Add ShownDS and it's childs as visible regions to Regions
+  EnumerateFields(ShownDS, TFileRange.Create(Start, AEnd),
+    function (DS: TDSField): Boolean
+    var
+      Bg: TColor;
+    begin
+      // Do not show directives
+      if DS is TDSDirective then Exit(False);
+      // Do not add separate regions for 1-byte elements of arrays
+      if (DS is TDSSimpleField) and (DS.BufSize = 1) and
+         (DS.Parent <> nil) and (DS.Parent is TDSArray) then
+        Exit(False);
 
+      // Background color
+      if DS.ErrorText <> '' then
+        Bg := Color_ErrDSFieldBg
+      else
+        Bg := Color_DSFieldBg;
+      // Add this DS
+      Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, Color_DSFieldFr);
+
+      Result := True;
+    end);
+
+  // Highlight focused field
   if (Screen.ActiveControl = DSTreeView) and (DSTreeView.FocusedNode <> nil) then
   begin
     SelDS := GetNodeDS(DSTreeView.FocusedNode);
     if SelDS <> nil then
       Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, Color_SelDSFieldBg, Color_SelDSFieldFr);
   end;
+end;
 
+function TStructFrame.EnumerateFields(DS: TDSField; const Range: TFileRange;
+  Proc: TFieldEnumProc): Integer;
+// Pass DS and its childs recuresively to procedure Proc.
+// Only process fields which intersect specified range.
+var
+  i: Integer;
+begin
+  Result := 0;
+  // Check within requested address range
+  if Range <> EntireFile then
+    if (DS.BufAddr >= Range.AEnd) or (DS.BufAddr + DS.BufSize <= Range.Start) then Exit;
+
+  if not Proc(DS) then Exit;
+  Result := 1;
+
+  // Add childs
+  if DS is TDSCompoundField then
+    for i:=0 to TDSCompoundField(DS).Fields.Count-1 do
+      Inc(Result, EnumerateFields(TDSCompoundField(DS).Fields[i], Range, Proc));
 end;
 
 //procedure TStructFrame.ExpandToNode(Node: PVirtualNode);

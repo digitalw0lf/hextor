@@ -70,6 +70,7 @@ type
     procedure EditorClosed(Sender: TEditorForm);
     procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+    procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
   public
     { Public declarations }
     Editors: array[0..1] of TEditorForm;
@@ -142,6 +143,24 @@ begin
   for i:=0 to PageControl1.PageCount-1 do
     PageControl1.Pages[i].TabVisible := False;
   PageControl1.ActivePage := InitialTab;
+end;
+
+procedure TCompareFrame.DataChanged(Sender: TEditedData; Addr, OldSize,
+  NewSize: TFilePointer; Value: PByteArray);
+// Adjust regions positions
+//var
+//  i: Integer;
+//  Range: TFileRange;
+begin
+  // TODO: implement this when there will be support for Diffs with different positions in compared files
+
+//  if NewSize = OldSize then Exit;
+//  for i:=0 to Diffs.Count-1 do
+//  begin
+//    Range := Diffs[i];
+//    AdjustPositionInData(Range, Addr, OldSize, NewSize);
+//    Diffs[i] := Range;
+//  end;
 end;
 
 destructor TCompareFrame.Destroy;
@@ -417,6 +436,7 @@ begin
     Editors[i].OnVisibleRangeChanged.Add(EditorVisRangeChanged, Self);
     Editors[i].OnByteColsChanged.Add(EditorByteColsChanged, Self);
     Editors[i].OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
+    Editors[i].Data.OnDataChanged.Add(DataChanged, Self);
   end;
 
   Size1 := Editors[0].Data.GetSize();
@@ -482,6 +502,7 @@ begin
   Editor.OnVisibleRangeChanged.Remove(Self);
   Editor.OnByteColsChanged.Remove(Self);
   Editor.OnGetTaggedRegions.Remove(Self);
+  Editor.Data.OnDataChanged.Remove(Self);
 end;
 
 procedure TCompareFrame.UpdateInfo;
