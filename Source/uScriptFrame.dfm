@@ -97,7 +97,6 @@ object ScriptFrame: TScriptFrame
     TabWidth = 2
     WantTabs = True
     FontSmoothing = fsmNone
-    ExplicitTop = 24
   end
   object ToolBar1: TToolBar
     Left = 0

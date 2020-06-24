@@ -31,13 +31,18 @@ type
   TDSDataGetProc = procedure (DataContext: Pointer; Addr, Size: TFilePointer; var Data: TBytes) of Object;
   TDSDataChangeProc = procedure (DataContext: Pointer; Addr, OldSize, NewSize: TFilePointer; Value: PByteArray) of Object;
   TDSChangedCallback = TCallbackListP3<{DataContext:}Pointer, {DS:}TDSField, {Changer:}TObject>;
+  TDSInterpretedCallback = TCallbackListP2<{DataContext:}Pointer, {DS:}TDSField>;
+  TDSDestroyCallback = TCallbackListP2<{DataContext:}Pointer, {DS:}TDSField>;
 
   // Callbacks which link DataStruct with underlying EditedData and GUI
   TDSEventSet = class
-    DataContext: Pointer;               // TEditedData
-    DataGetProc: TDSDataGetProc;        // Read data from source
-    DataChangeProc: TDSDataChangeProc;  // Write data to source
-    OnChanged: TDSChangedCallback;      // General-purpose callback
+  public
+    DataContext: Pointer;                   // TEditedData
+    DataGetProc: TDSDataGetProc;            // Read data from source
+    DataChangeProc: TDSDataChangeProc;      // Write data to source
+    OnChanged: TDSChangedCallback;          // General-purpose callback, called after DS changed
+    OnInterpreted: TDSInterpretedCallback;  // Called on every DS field interpreted from data
+    OnDestroy: TDSDestroyCallback;          // Called on DS field destruction
   end;
 
   // Base class for all elements
@@ -68,6 +73,7 @@ type
     function FullName(): string;
     property EventSet: TDSEventSet read GetEventSet write FEventSet;  // Callbacks which link DataStruct with underlying EditedData and GUI
     procedure DoChanged(Changer: TObject);
+    function GetFixedSize(): TFilePointer; virtual;
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -92,6 +98,7 @@ type
     function ToQuotedString(): string; override;
     procedure SetFromVariant(const V: Variant; AChanger: TObject = nil); virtual;
     function GetInterpretor(RaiseException: Boolean = True): TValueInterpretor;
+    function GetFixedSize(): TFilePointer; override;
   end;
 
   // For arrays and structures
@@ -149,11 +156,14 @@ type
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
     function ToQuotedString(): string; override;
+    function GetFixedSize(): TFilePointer; override;
+    procedure SetLength(NewLength: Integer);
   end;
 
   TDSStruct = class (TDSCompoundField)
   public
     constructor Create(); override;
+    function GetFixedSize(): TFilePointer; override;
   end;
 
   TDSConditional = class (TDSCompoundField)
@@ -182,6 +192,7 @@ type
   public
     Value: string;
     procedure Assign(Source: TDSField); override;
+    function GetFixedSize(): TFilePointer; override;
   end;
 
   // DS wrapper for scripts
@@ -238,7 +249,6 @@ type
   // Class for populating DataStructure from binary buffer
   TDSInterpretor = class
   private
-    FRootDS: TDSField;         // Root of DS that is parsed now
     FStartAddr, FMaxSize: TFilePointer;  // Starting address of analysed struct in original file
     FCurAddr: TFilePointer;    // Current
     EndOfData: Boolean;        // End of input data reached
@@ -253,7 +263,6 @@ type
     procedure InternalInterpret(DS: TDSField);
     procedure ValidateField(DS: TDSSimpleField);
   public
-    OnFieldInterpreted: TCallbackListP2<{Sender:}TObject, {DS:}TDSField>;  // Called after each field populated with data from source
     procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
     constructor Create();
     destructor Destroy(); override;
@@ -945,6 +954,17 @@ begin
     DataGetProc(DataContext, BufAddr, BufSize, Result);
 end;
 
+function TDSSimpleField.GetFixedSize: TFilePointer;
+var
+  Intr: TValueInterpretor;
+begin
+  Intr := GetInterpretor();
+  if Intr = nil then
+    Result := -1
+  else
+    Result := Intr.MinSize;
+end;
+
 function TDSSimpleField.GetInterpretor(
   RaiseException: Boolean): TValueInterpretor;
 begin
@@ -1203,6 +1223,75 @@ begin
   inherited;
 end;
 
+function TDSArray.GetFixedSize: TFilePointer;
+// Array data size is fixed if it has fixed length and fixed-size elements
+var
+  V: Variant;
+  Len: Integer;
+  Sz: TFilePointer;
+begin
+  V := TDSExprEvaluator.EvalConst(ACount);
+  if VarIsOrdinal(V) then Len := V
+                     else Exit(-1);
+  Sz := ElementType.GetFixedSize();
+  if Sz < 0 then Exit(-1);
+  Result := Sz * Len;
+end;
+
+procedure TDSArray.SetLength(NewLength: Integer);
+// Insert/remove bytes in underlying data buffer according to new array size
+var
+  Sz: TFilePointer;
+  OldLength, i: Integer;
+  Buf: TBytes;
+  Interpretor: TDSInterpretor;
+  Element: TDSField;
+begin
+  if NewLength < 0 then
+    raise EDSParserError.Create('Invalid array length');
+  OldLength := Fields.Count;
+  if NewLength = OldLength then Exit;
+  Sz := ElementType.GetFixedSize();
+  if Sz < 0 then
+    raise EDSParserError.Create('Cannot resize array with variable-sized elements');
+
+  if NewLength < OldLength then
+  begin  // Delete elements
+    Fields.Count := NewLength;
+    with EventSet do
+      DataChangeProc(DataContext, BufAddr + Sz * NewLength, Sz * (OldLength - NewLength), 0, nil);
+  end
+  else
+  begin  // Add elements, filled with zero
+    // Insert block of zero bytes to underlying data
+    System.SetLength(Buf, (NewLength - OldLength) * Sz);
+    with EventSet do
+      DataChangeProc(DataContext, BufAddr + Sz * OldLength, 0, Length(Buf), @Buf[0]);
+    // Initialyze elements from this data
+    Fields.Capacity := NewLength;
+    Interpretor := TDSInterpretor.Create();
+    Progress.TaskStart(Self);
+    try
+      Interpretor.FStartAddr := BufAddr + Sz * OldLength;
+      Interpretor.FMaxSize := Length(Buf);
+      Interpretor.FCurAddr := Interpretor.FStartAddr;
+      Interpretor.EndOfData := (Interpretor.FMaxSize = 0);
+
+      for i:=OldLength to NewLength-1 do
+      begin
+        Element := ElementType.Duplicate();
+        FCurParsedItem := AddField(Element);
+        Interpretor.InternalInterpret(Element);
+      end;
+    finally
+      Progress.TaskEnd();
+      Interpretor.Free;
+    end;
+  end;
+
+  DoChanged(nil);
+end;
+
 function TDSArray.ToQuotedString(): string;
 begin
   Result := ToString();
@@ -1242,6 +1331,21 @@ begin
 
 end;
 
+function TDSStruct.GetFixedSize: TFilePointer;
+// Structure size is defined if all child fields are fixed size
+var
+  i: Integer;
+  Sz: TFilePointer;
+begin
+  Result := 0;
+  for i:=0 to Fields.Count-1 do
+  begin
+    Sz := Fields[i].GetFixedSize();
+    if Sz < 0 then Exit(-1);
+    Result := Result + Sz;
+  end;
+end;
+
 { TDSField }
 
 procedure TDSField.Assign(Source: TDSField);
@@ -1262,6 +1366,9 @@ end;
 
 destructor TDSField.Destroy;
 begin
+  if EventSet <> nil then
+    with EventSet do
+      OnDestroy.Call(DataContext, Self);
   // Root DS is responsible for freeing EventSet
   if Parent = nil then
     FreeAndNil(FEventSet);
@@ -1301,6 +1408,13 @@ begin
     else
       Result := ParentFullName + '.' + Result;
   end;
+end;
+
+function TDSField.GetFixedSize: TFilePointer;
+// For fixed-size fields, returns estimated size
+// For variable-size fields (e.g. conditional or variable-length arrays), returns -1
+begin
+  Result := -1;
 end;
 
 function TDSField.GetEventSet: TDSEventSet;
@@ -1521,14 +1635,12 @@ begin
     Inc(FieldsProcessed);
   end;
 
-  OnFieldInterpreted.Call(Self, DS);
+  with DS.EventSet do
+    OnInterpreted.Call(DataContext, DS);
 end;
 
 procedure TDSInterpretor.Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
 begin
-//  CheckParent(DS);
-
-  FRootDS := DS;
   FStartAddr := Addr;
   FMaxSize := MaxSize;
   FCurAddr := Addr;
@@ -1776,7 +1888,7 @@ function TDSComWrapper.Invoke(DispID: Integer; const IID: TGUID;
 var
   Field: TDSField;
   SimpleField: TDSSimpleField;
-  LoggedName, LoggedValue: string;
+  LoggedName{, LoggedValue}: string;
   Put: Boolean;
   V: Variant;
 begin
@@ -1790,7 +1902,7 @@ begin
 
   Put := ((Flags and (DISPATCH_PROPERTYPUT or DISPATCH_PROPERTYPUTREF)) <> 0);
 
-  LoggedValue := '';
+//  LoggedValue := '';
   try
     // "index" pseudo-field = current index in array
     if DispID = DISPID_INDEX then
@@ -1808,10 +1920,11 @@ begin
     begin
       if not (DSField is TDSArray) then
         Exit(DISP_E_MEMBERNOTFOUND);
-      if Put then
-        Exit(DISP_E_BADVARTYPE);
       LoggedName := 'length';
-      POleVariant(VarResult)^ := (DSField as TDSArray).Fields.Count;
+      if Put then
+        (DSField as TDSArray).SetLength(Variant(TDispParams(Params).rgvarg[0]))
+      else
+        POleVariant(VarResult)^ := (DSField as TDSArray).Fields.Count;
       Exit(S_OK);
     end;
 
@@ -1831,7 +1944,7 @@ begin
       if Put then
         Exit(DISP_E_BADVARTYPE);
       POleVariant(VarResult)^ := (Field as TDSCompoundField).GetComWrapper() as IDispatch;
-      LoggedValue := Field.ToString();
+//      LoggedValue := Field.ToString();
     end
     else
     if Field is TDSSimpleField then
@@ -1853,8 +1966,8 @@ begin
   finally
     if (Result = S_OK) and (not Put) then
     begin
-      if LoggedValue = '' then
-        LoggedValue := string(POleVariant(VarResult)^);
+//      if LoggedValue = '' then
+//        LoggedValue := string(POleVariant(VarResult)^);
 //      WriteLogF('Struct_Intepret', LoggedName + ' = ' + LoggedValue);
     end;
   end;
@@ -1869,6 +1982,12 @@ begin
   begin
     Value := (Source as TDSDirective).Value;
   end;
+end;
+
+function TDSDirective.GetFixedSize: TFilePointer;
+// For now, assume that any persistent directive inside structure makes its size not-fixed
+begin
+  Result := -1;
 end;
 
 { TDSCompoundField.TNamedFieldsEnumerator }

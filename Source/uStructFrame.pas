@@ -156,10 +156,9 @@ type
     function DSValueAsJson(DS: TDSField): string;
     procedure SetInterpretRange(const Value: TStructInterpretRange);
     function GetInterpretRange: TStructInterpretRange;
-    procedure FieldInterpreted(Sender: TObject; DS: TDSField);
     function EnumerateFields(DS: TDSField; const Range: TFileRange; Proc: TFieldEnumProc): Integer;
     procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
-    procedure UpdateNodeText(Node: PVirtualNode);
+    procedure UpdateNode(Node: PVirtualNode);
   public
     { Public declarations }
     Settings: TStructSettings;
@@ -242,9 +241,23 @@ begin
           if Node <> nil then
           begin
             if Progress.CurrentTaskLevel() = 0 then
-              UpdateNodeText(Node)
+              UpdateNode(Node)
             else
               NodesToUpdate.AddOrSetValue(Node, True);
+          end;
+        end);
+      // Delete tree node when field is deleted (e.g. by script)
+      EventSet.OnDestroy.Add(procedure (DataContext: Pointer; DS: TDSField)
+        var
+          Node: PVirtualNode;
+        begin
+          if ShownDS <> ASavedRootDS then
+            Exit;  // Do not try to update if another DS is already shown in tree
+          Node := GetDSNode(DS);
+          if Node <> nil then
+          begin
+            DSTreeView.DeleteNode(Node);
+            NodesForDSs.Remove(DS);
           end;
         end);
 
@@ -380,7 +393,6 @@ begin
 
   FParser := TDSParser.Create();
   FInterpretor := TDSInterpretor.Create();
-  FInterpretor.OnFieldInterpreted.Add(FieldInterpreted);
 
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
   NodesForDSs := TDictionary<TDSField, PVirtualNode>.Create();
@@ -514,10 +526,24 @@ begin
   Result := Result + ': ' + DS.ToString();
 end;
 
-procedure TStructFrame.UpdateNodeText(Node: PVirtualNode);
+procedure TStructFrame.UpdateNode(Node: PVirtualNode);
+var
+  DS: TDSField;
 begin
+  // Update node text
   with PDSTreeNode(Node.GetData)^ do
+  begin
     Caption := DSNodeText(DSField);
+    DS := DSField;
+  end;
+
+  // When array length changes, update node childs
+  if (DS is TDSArray) and (DSTreeView.ChildrenInitialized[Node]) and
+     (DSTreeView.ChildCount[Node] <> Cardinal((DS as TDSArray).Fields.Count)) then
+  begin
+    DSTreeView.ReinitChildren(Node, False);
+  end;
+
   DSTreeView.InvalidateNode(Node);
 end;
 
@@ -609,6 +635,7 @@ begin
   begin
     Sender.BeginUpdate();
     try
+      Sender.DeleteChildren(Node);
       for ChildDS in (DS as TDSCompoundField).NamedFields do
       begin
         ChildNode := Sender.AddChild(Node);
@@ -856,14 +883,6 @@ end;
 //  end;
 //end;
 
-procedure TStructFrame.FieldInterpreted(Sender: TObject; DS: TDSField);
-// Called on new DS field initialization
-begin
-  // TODO: create and axpand nodes for fields with errors
-//  if DS.ErrorText <> '' then
-//    ExpandFields.Add(DS);
-end;
-
 procedure TStructFrame.FrameResize(Sender: TObject);
 begin
   DSDescrEdit.Constraints.MaxHeight := DSDescrEdit.Height + DSTreeView.Height - 20;
@@ -1004,7 +1023,7 @@ begin
   if NodesToUpdate.Count > 0 then
   begin
     for Node in NodesToUpdate.Keys do
-      UpdateNodeText(Node);
+      UpdateNode(Node);
     NodesToUpdate.Clear();
   end;
 end;

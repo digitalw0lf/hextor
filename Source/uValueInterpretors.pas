@@ -22,11 +22,13 @@ const
   SAME_AS_MIN_SIZE = -2;
 
 type
+  TValueInterpretors = class;
   TDataToVariantFunc = reference to function(const Data; Size: Integer): Variant;
   TVariantToDataFunc = reference to procedure(const V: Variant; var Data; Size: Integer);  // Raises EConvertError if failed
 
   TValueInterpretor = class
   private
+    FOwner: TValueInterpretors;
     function GetName: string;
   public
     Names: TStringList;
@@ -34,7 +36,7 @@ type
 //    Greedy: Boolean;
     ToVariant: TDataToVariantFunc;
     FromVariant: TVariantToDataFunc;
-    constructor Create();
+    constructor Create(AOwner: TValueInterpretors);
     destructor Destroy(); override;
     property Name: string read GetName;
     function AddNames(const ANames: array of string): TValueInterpretor;
@@ -42,6 +44,7 @@ type
 
   TValueInterpretors = class (TObjectList<TValueInterpretor>)
   protected
+    ByName: TDictionary<string, TValueInterpretor>;
     procedure RegisterBuiltinInterpretors();
   public
     function RegisterInterpretor(const ANames: array of string; AToVariant: TDataToVariantFunc;
@@ -279,11 +282,17 @@ var
 begin
   for i:=0 to Length(ANames)-1 do
     Names.Add(ANames[i]);
+
+  for i:=0 to Length(ANames)-1 do
+    FOwner.ByName.AddOrSetValue(UpperCase(ANames[i]), Self);
+
   Result := Self;
 end;
 
-constructor TValueInterpretor.Create;
+constructor TValueInterpretor.Create(AOwner: TValueInterpretors);
 begin
+  inherited Create();
+  FOwner := AOwner;
   Names := TStringList.Create();
   Names.CaseSensitive := False;
 end;
@@ -308,7 +317,7 @@ function TValueInterpretors.RegisterInterpretor(const ANames: array of string; A
   AFromVariant: TVariantToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{;
   AGreedy: Boolean = False}): TValueInterpretor;
 begin
-  Result := TValueInterpretor.Create();
+  Result := TValueInterpretor.Create(Self);
   Result.AddNames(ANames);
   Result.MinSize := AMinSize;
   if AMaxSize = SAME_AS_MIN_SIZE then
@@ -324,22 +333,25 @@ end;
 constructor TValueInterpretors.Create;
 begin
   inherited Create(True);
+  ByName := TDictionary<string, TValueInterpretor>.Create();
   RegisterBuiltinInterpretors();
 end;
 
 destructor TValueInterpretors.Destroy;
 begin
-
+  ByName.Free;
   inherited;
 end;
 
 function TValueInterpretors.FindInterpretor(const AName: string): TValueInterpretor;
-var
-  i: Integer;
+//var
+//  i: Integer;
 begin
-  for i:=0 to Count-1 do
-    if Items[i].Names.IndexOf(AName) >= 0 then Exit(Items[i]);
-  Result := nil;
+//  for i:=0 to Count-1 do
+//    if Items[i].Names.IndexOf(AName) >= 0 then Exit(Items[i]);
+//  Result := nil;
+  if not ByName.TryGetValue(UpperCase(AName), Result) then
+    Result := nil;
 end;
 
 procedure TValueInterpretors.RegisterBuiltinInterpretors;

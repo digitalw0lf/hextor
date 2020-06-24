@@ -125,11 +125,13 @@ begin
     MainForm.Editors[i].UndoStack.BeginAction('Script_'+IntToStr(Random(1000000)), 'Scripted change');
     MainForm.Editors[i].BeginUpdatePanes();
   end;
+  Progress.TaskStart(Self);
   try
 
     Res := Eval(AText);  // <--
 
   finally
+    Progress.TaskEnd();
     for i:=0 to MainForm.EditorCount-1 do
     begin
       MainForm.Editors[i].EndUpdatePanes();
