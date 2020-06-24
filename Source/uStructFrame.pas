@@ -136,6 +136,8 @@ type
     NodesForDSs: TDictionary<TDSField, PVirtualNode>;
     FilesForMenuItems: TDictionary<Integer, string>;  // MenuItem.Tag -> File name
     CurDSFileName: string;
+    FDSChanging: Integer;  // To prevent double calling of callbacks when DS's data changes
+    NodesToUpdate: TDictionary<PVirtualNode, Boolean>;  // Set of nodes which need to be updated after the end of current operation
     function DSNodeText(DS: TDSField): string;
     procedure ShowStructTree(DS: TDSField; ParentNode: PVirtualNode);
 //    procedure ExpandToNode(Node: PVirtualNode);
@@ -148,12 +150,16 @@ type
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
     procedure DataChanged(Sender: TEditedData; Addr: TFilePointer;
       OldSize, NewSize: TFilePointer; Value: PByteArray);
+    procedure DSDataGet(DataContext: Pointer; Addr, Size: TFilePointer; var Data: TBytes);
+    procedure DSDataChange(DataContext: Pointer; Addr, OldSize, NewSize: TFilePointer; Value: PByteArray);
     function DSValueAsJsonObject(DS: TDSField): ISuperObject;
     function DSValueAsJson(DS: TDSField): string;
     procedure SetInterpretRange(const Value: TStructInterpretRange);
     function GetInterpretRange: TStructInterpretRange;
     procedure FieldInterpreted(Sender: TObject; DS: TDSField);
     function EnumerateFields(DS: TDSField; const Range: TFileRange; Proc: TFieldEnumProc): Integer;
+    procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
+    procedure UpdateNodeText(Node: PVirtualNode);
   public
     { Public declarations }
     Settings: TStructSettings;
@@ -177,10 +183,9 @@ procedure TStructFrame.Analyze(Addr, Size: TFilePointer; {const Data: TBytes;}
   const Struct: string);
 var
   Cnt: Cardinal;
-//  DS: TDSField;
-  AFromData: TEditedData;
   ASavedRootDS: TDSField;
   Node: PVirtualNode;
+  EventSet: TDSEventSet;
 begin
   Progress.TaskStart(Self);
   try
@@ -193,11 +198,14 @@ begin
     // Parse structure description
     FShownDS := FParser.ParseStruct(Struct);
 
+    // Prepare callbacks for interpretator
+    EventSet := TDSEventSet.Create();
+    EventSet.DataContext := FEditor.Data;
+    EventSet.DataGetProc := DSDataGet;
+    EventSet.DataChangeProc := DSDataChange;
+    FShownDS.EventSet := EventSet;
+
     // Populate structure fields
-    FInterpretor.OnGetMoreData := procedure (AAddr, ASize: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean})
-      begin
-        Data := FEditor.Data.Get(AAddr, ASize);
-      end;
 
     Progress.TaskStart(Self, 0.9);
     try
@@ -212,14 +220,6 @@ begin
       Progress.TaskEnd();
     end;
 
-    AFromData := FEditor.Data;  // Capture for closure
-    ShownDS.OnChanged.Add(procedure(DS: TDSField; Changer: TObject)
-      begin
-        // Update bytes in edited file when DS changes
-        if DS is TDSSimpleField then
-          AFromData.Change(DS.BufAddr, DS.BufSize, @TDSSimpleField(DS).Data[0]);
-      end);
-
     // Redraw editor to show structure
     FEditor.UpdatePanes();
 
@@ -232,7 +232,7 @@ begin
 
       // Update node text when field changes
       ASavedRootDS := ShownDS;  // Capture for closure
-      ShownDS.OnChanged.Add(procedure (DS: TDSField; Changer: TObject)
+      EventSet.OnChanged.Add(procedure (DataContext: Pointer; DS: TDSField; Changer: TObject)
         var
           Node: PVirtualNode;
         begin
@@ -241,8 +241,10 @@ begin
           Node := GetDSNode(DS);
           if Node <> nil then
           begin
-            PDSTreeNode(Node.GetData).Caption := DSNodeText(DS);
-            DSTreeView.InvalidateNode(Node);
+            if Progress.CurrentTaskLevel() = 0 then
+              UpdateNodeText(Node)
+            else
+              NodesToUpdate.AddOrSetValue(Node, True);
           end;
         end);
 
@@ -382,30 +384,63 @@ begin
 
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
   NodesForDSs := TDictionary<TDSField, PVirtualNode>.Create();
+  NodesToUpdate := TDictionary<PVirtualNode, Boolean>.Create();
+
+  Progress.OnTaskEnd.Add(ProgressTaskEnd);
 end;
 
 procedure TStructFrame.DataChanged(Sender: TEditedData; Addr, OldSize,
   NewSize: TFilePointer; Value: PByteArray);
+// Called on any edited data change (caused by DS or any other tool)
+var
+  ChangedFields: TList<TDSField>;
+  i: Integer;
 begin
-  // Adjust shown DS fields positions in data
-
-  if NewSize = OldSize then Exit;
-
-  EnumerateFields(ShownDS, TFileRange.Create(Addr, High(TFilePointer)),
-    function (DS: TDSField): Boolean
-    var
-      AEnd: TFilePointer;
+  ChangedFields := TList<TDSField>.Create();
+  try
+    // Get a list of fields whose data was changed
+    if FDSChanging = 0 then
     begin
-      AEnd := DS.BufAddr + DS.BufSize;
-      AdjustPositionInData(DS.BufAddr, Addr, OldSize, NewSize);
-      AdjustPositionInData(AEnd, Addr, OldSize, NewSize);
-      DS.BufSize := AEnd - DS.BufAddr;
-      Result := True;
-    end);
+      EnumerateFields(ShownDS, TFileRange.Create(Addr, Addr + OldSize),
+        function (DS: TDSField): Boolean
+        begin
+          if DS is TDSSimpleField then
+            ChangedFields.Add(DS);
+          Result := True;
+        end);
+    end;
+
+    // When data is inserted/removed, adjust positions in data for shown DS fields after Addr
+    if NewSize <> OldSize then
+    begin
+      EnumerateFields(ShownDS, TFileRange.Create(Addr, High(TFilePointer)),
+        function (DS: TDSField): Boolean
+        var
+          AEnd: TFilePointer;
+        begin
+          AEnd := DS.BufAddr + DS.BufSize;
+          AdjustPositionInData(DS.BufAddr, Addr, OldSize, NewSize);
+          AdjustPositionInData(AEnd, Addr, OldSize, NewSize);
+          DS.BufSize := AEnd - DS.BufAddr;
+          Result := True;
+        end);
+    end;
+
+    // If this data change is not caused by DS itself, invoke callbacks to
+    // update changed fields in tree
+    if FDSChanging = 0 then
+    begin
+      for i:=0 to ChangedFields.Count-1 do
+        ChangedFields[i].DoChanged(nil);
+    end;
+  finally
+    ChangedFields.Free;
+  end;
 end;
 
 destructor TStructFrame.Destroy;
 begin
+  NodesToUpdate.Free;
   NodesForDSs.Free;
   ShownDS.Free;
   FParser.Free;
@@ -413,6 +448,25 @@ begin
   FilesForMenuItems.Free;
   Settings.Free;
   inherited;
+end;
+
+procedure TStructFrame.DSDataChange(DataContext: Pointer; Addr, OldSize,
+  NewSize: TFilePointer; Value: PByteArray);
+// This is how DS writes changed data to edited buffer
+begin
+  Inc(FDSChanging);
+  try
+    TEditedData(DataContext).Change(Addr, OldSize, NewSize, Value);
+  finally
+    Dec(FDSChanging);
+  end;
+end;
+
+procedure TStructFrame.DSDataGet(DataContext: Pointer; Addr, Size: TFilePointer;
+  var Data: TBytes);
+// This is how DS gets data from edited buffer
+begin
+  Data := TEditedData(DataContext).Get(Addr, Size);
 end;
 
 procedure TStructFrame.DSFieldPopupMenuPopup(Sender: TObject);
@@ -460,6 +514,13 @@ begin
   Result := Result + ': ' + DS.ToString();
 end;
 
+procedure TStructFrame.UpdateNodeText(Node: PVirtualNode);
+begin
+  with PDSTreeNode(Node.GetData)^ do
+    Caption := DSNodeText(DSField);
+  DSTreeView.InvalidateNode(Node);
+end;
+
 function TStructFrame.UserDSFolder: string;
 begin
   Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.SettingsFolder, 'DataStruct') );
@@ -486,6 +547,7 @@ begin
   try
     if EditFieldValue.Visible then
       EditFieldValueExit(Sender);
+    // When user clicks DS node in tree, scroll editor to its data
     if (GetNodeDS(Node) <> nil) then
       FEditor.ScrollToShow(GetNodeDS(Node).BufAddr, -1, -1);
     FEditor.UpdatePanes();
@@ -931,6 +993,20 @@ procedure TStructFrame.PnlButtonBar2MouseUp(Sender: TObject;
 begin
   if Button = mbLeft then
     MPos := Point(-1, -1);
+end;
+
+procedure TStructFrame.ProgressTaskEnd(Sender: TProgressTracker;
+  Task: TProgressTracker.TTask);
+var
+  Node: PVirtualNode;
+begin
+  // At the end of long operation, update DS nodes which where changed
+  if NodesToUpdate.Count > 0 then
+  begin
+    for Node in NodesToUpdate.Keys do
+      UpdateNodeText(Node);
+    NodesToUpdate.Clear();
+  end;
 end;
 
 function TStructFrame.GetNodeDS(Node: PVirtualNode): TDSField;

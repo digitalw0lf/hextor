@@ -867,7 +867,8 @@ begin
 end;
 
 initialization
-
+  Progress := TProgressTracker.Create();
 finalization
+  FreeAndNil(Progress);
   FreeAndNil(EncodingsCache);
 end.

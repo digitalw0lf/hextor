@@ -29,7 +29,6 @@ object FillBytesForm: TFillBytesForm
     TabIndex = 0
     OnChange = TabControl1Change
     OnChanging = TabControl1Changing
-    ExplicitHeight = 313
     object LblCount: TLabel
       Left = 16
       Top = 168

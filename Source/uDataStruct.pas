@@ -24,11 +24,20 @@ const
 type
   EDSParserError = class (Exception);
   TDSSimpleDataType = string;  // e.g. 'uint16'
+  TDSField = class;
   TDSCompoundField = class;
   TDSComWrapper = class;
 
+  TDSDataGetProc = procedure (DataContext: Pointer; Addr, Size: TFilePointer; var Data: TBytes) of Object;
+  TDSDataChangeProc = procedure (DataContext: Pointer; Addr, OldSize, NewSize: TFilePointer; Value: PByteArray) of Object;
+  TDSChangedCallback = TCallbackListP3<{DataContext:}Pointer, {DS:}TDSField, {Changer:}TObject>;
+
+  // Callbacks which link DataStruct with underlying EditedData and GUI
   TDSEventSet = class
-  // TODO
+    DataContext: Pointer;               // TEditedData
+    DataGetProc: TDSDataGetProc;        // Read data from source
+    DataChangeProc: TDSDataChangeProc;  // Write data to source
+    OnChanged: TDSChangedCallback;      // General-purpose callback
   end;
 
   // Base class for all elements
@@ -36,29 +45,28 @@ type
   private
     FIndex: Integer;
     FName: string;
-    function RootDS(): TDSField;
-  private
+    FParent: TDSCompoundField;
+//    function RootDS(): TDSField;
+    FEventSet: TDSEventSet;
     function GetName: string;
+    procedure SetParent(const Value: TDSCompoundField);
+    function GetEventSet(): TDSEventSet;
   public
-    Parent: TDSCompoundField;
-    BufAddr: TFilePointer;  // Address and size in original data buffer
+    BufAddr: TFilePointer;   // Address and size in original data buffer
     BufSize: TFilePointer;
-    DescrLineNum: Integer;  // Line number in structure description text
-    ErrorText: string;      // Parsing error (e.g. "End of buffer" or "Value out of range")
+    DescrLineNum: Integer;   // Line number in structure description text
+    ErrorText: string;       // Parsing error (e.g. "End of buffer" or "Value out of range")
     DisplayFormat: TValueDisplayNotation;
-    // When field is modified e.g. in SetFromVariant(), only it's internal
-    // Data buffer if changed. Original file data should be updated in
-    // OnChanged event - it is defined only in root field to save memory, but called by all fields
-    OnChanged: TCallbackListP2<{DS:}TDSField, {Changer:}TObject>;
     constructor Create(); virtual;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); virtual;
     property Name: string read GetName;
+    property Parent: TDSCompoundField read FParent write SetParent;
     function Duplicate(): TDSField;
     function ToString(): string; reintroduce; virtual;
     function ToQuotedString(): string; virtual;
     function FullName(): string;
-  private
+    property EventSet: TDSEventSet read GetEventSet write FEventSet;  // Callbacks which link DataStruct with underlying EditedData and GUI
     procedure DoChanged(Changer: TObject);
   end;
   TDSFieldClass = class of TDSField;
@@ -68,13 +76,17 @@ type
   TDSSimpleField = class (TDSField)
   private
     FInterpretor: TValueInterpretor;
+    function GetData: TBytes;
+    procedure SetData(const Value: TBytes; AChanger: TObject = nil);
   public
     DataType: TDSSimpleDataType;
     BigEndian: Boolean;
     ValidationStr: string;
-    Data: TBytes;
     constructor Create(); override;
     procedure Assign(Source: TDSField); override;
+    // Data for field is requested from underlying buffer every time it is needed,
+    // using callbacks in EventSet
+    property Data: TBytes read GetData;
     function ToVariant(): Variant;
     function ToString(): string; override;
     function ToQuotedString(): string; override;
@@ -113,9 +125,7 @@ type
   private
     FComWrapper: TDSComWrapper;
     FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
-//    function GetNamedFieldsCount: Integer;
-//    function GetNamedFields(Index: Integer): TDSField;
-//    function GetNamedFieldsInternal(var Index: Integer): TDSField;
+
   public
     Fields: TObjectList<TDSField>;
     FieldAlign: Integer;  // Alignment of fields relative to structure start
@@ -126,7 +136,6 @@ type
     function AddField(Field: TDSField): Integer;
     function GetComWrapper(): TDSComWrapper;
     function GetFieldAlign(): Integer;
-//    property NamedFieldsCount: Integer read GetNamedFieldsCount;  // See comment in GetNamedFields()
     function NamedFields(): INamedFieldsEnumerable;
     function NamedFieldByIndex(Index: Integer): TDSField;
   end;
@@ -230,13 +239,10 @@ type
   TDSInterpretor = class
   private
     FRootDS: TDSField;         // Root of DS that is parsed now
-//    BufStart: Pointer;
     FStartAddr, FMaxSize: TFilePointer;  // Starting address of analysed struct in original file
     FCurAddr: TFilePointer;    // Current
     EndOfData: Boolean;        // End of input data reached
     FieldsProcessed: Integer;  // To show some progress
-//    DSStack: TStack<TDSField>; // Current stack of nested structures
-    procedure ReadData(var Data: TBytes; Size: Integer);
     procedure Seek(Addr: TFilePointer);
     function GetFieldSize(DS: TDSSimpleField): Integer;
     procedure InterpretSimple(DS: TDSSimpleField);
@@ -247,7 +253,6 @@ type
     procedure InternalInterpret(DS: TDSField);
     procedure ValidateField(DS: TDSSimpleField);
   public
-    OnGetMoreData: TOnDSInterpretorGetData;
     OnFieldInterpreted: TCallbackListP2<{Sender:}TObject, {DS:}TDSField>;  // Called after each field populated with data from source
     procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
     constructor Create();
@@ -924,7 +929,6 @@ begin
     DataType := (Source as TDSSimpleField).DataType;
     BigEndian := (Source as TDSSimpleField).BigEndian;
     ValidationStr := (Source as TDSSimpleField).ValidationStr;
-    Data := Copy((Source as TDSSimpleField).Data);
     ErrorText := (Source as TDSSimpleField).ErrorText;
   end;
 end;
@@ -932,6 +936,13 @@ end;
 constructor TDSSimpleField.Create;
 begin
   inherited;
+end;
+
+function TDSSimpleField.GetData: TBytes;
+// Get field data from underlying data source (edited file buffer)
+begin
+  with EventSet do
+    DataGetProc(DataContext, BufAddr, BufSize, Result);
 end;
 
 function TDSSimpleField.GetInterpretor(
@@ -944,13 +955,29 @@ begin
     raise EDSParserError.Create('Unknown type name: ' + DataType);
 end;
 
+procedure TDSSimpleField.SetData(const Value: TBytes; AChanger: TObject = nil);
+// Write new field data to underlying data source (edited file buffer)
+begin
+  if Length(Value) <> BufSize then
+    raise EDSParserError.Create('Cannot change field size');
+  with EventSet do
+    DataChangeProc(DataContext, BufAddr, BufSize, BufSize, @Value[0]);
+  // Notify subscribed listeners
+  DoChanged(AChanger);
+end;
+
 procedure TDSSimpleField.SetFromVariant(const V: Variant; AChanger: TObject = nil);
 var
   Intr: TValueInterpretor;
+  AData: TBytes;
 begin
   Intr := GetInterpretor();
-  Intr.FromVariant(V, Data[0], Length(Data));
-  DoChanged(AChanger);
+  if BufSize <> Intr.MinSize then
+    // Field size may have been changed by manually changing data in file
+    raise EDSParserError.Create('Invalid field size');
+  SetLength(AData, BufSize);
+  Intr.FromVariant(V, AData[0], Length(AData));
+  SetData(AData, AChanger);
 end;
 
 function TDSSimpleField.ToQuotedString(): string;
@@ -963,31 +990,34 @@ end;
 function TDSSimpleField.ToString(): string;
 var
   Value: Variant;
-  Intr: TValueInterpretor;
 begin
-  if Data = nil then Exit('');
-  Intr := GetInterpretor(False);
-  if Intr = nil then
-    Result := string(Data2Hex(Data))
-  else
+  Value := ToVariant();
+  if VarIsOrdinal(Value) then
   begin
-    Value := Intr.ToVariant(Data[0], Length(Data));
-    if VarIsOrdinal(Value) then
-    begin
-      // Apply format specifier
-      case DisplayFormat of
-        nnBin: Exit('0b' + IntToBin(Value, Length(Data) * 8));
-        nnDec: Exit(IntToStr(Value));
-        nnHex: Exit('0x' + IntToHex(Value, 1));
-      end;
+    // Apply format specifier
+    case DisplayFormat of
+      nnBin: Exit('0b' + IntToBin(Value, {Length(AData)}BufSize * 8));
+      nnDec: Exit(IntToStr(Value));
+      nnHex: Exit('0x' + IntToHex(Value, 1));
     end;
-    Result := Value;
   end;
+  Result := Value;
 end;
 
 function TDSSimpleField.ToVariant: Variant;
+var
+  AData: TBytes;
+  Intr: TValueInterpretor;
 begin
-  Result := GetInterpretor(True).ToVariant(Data[0], Length(Data));
+  AData := Data;
+  Intr := GetInterpretor(True);
+  if BufSize <> Intr.MinSize then
+  // Field size may have been changed by manually changing data in file
+  begin
+    VarClear(Result);
+    Exit;
+  end;
+  Result := Intr.ToVariant(AData[0], Length(AData));
 end;
 
 { TDSCompoundField }
@@ -1221,6 +1251,7 @@ begin
   Parent := Source.Parent;
   DescrLineNum := Source.DescrLineNum;
   DisplayFormat := Source.DisplayFormat;
+  FEventSet := Source.FEventSet;
 end;
 
 constructor TDSField.Create;
@@ -1231,16 +1262,16 @@ end;
 
 destructor TDSField.Destroy;
 begin
-
+  // Root DS is responsible for freeing EventSet
+  if Parent = nil then
+    FreeAndNil(FEventSet);
   inherited;
 end;
 
 procedure TDSField.DoChanged(Changer: TObject);
-var
-  ARootDS: TDSField;
 begin
-  ARootDS := RootDS();
-  ARootDS.OnChanged.Call(Self, Changer);
+  with EventSet do
+    OnChanged.Call(DataContext, Self, Changer);
   if Parent <> nil then
     Parent.DoChanged(Changer);
 end;
@@ -1272,6 +1303,21 @@ begin
   end;
 end;
 
+function TDSField.GetEventSet: TDSEventSet;
+// Get Event set. It may be inherited from parent structure.
+var
+  DS: TDSField;
+begin
+  // Find nearest parent with defined event set.
+  DS := Self;
+  while (DS.FEventSet = nil) and (DS.Parent <> nil) do
+    DS := DS.Parent;
+  Result := DS.FEventSet;
+  // Save result into FEventSet of this structure to not search next time.
+  if DS <> Self then
+    Self.FEventSet := Result;
+end;
+
 function TDSField.GetName: string;
 begin
   if FName <> '' then
@@ -1283,12 +1329,12 @@ begin
       Result := '';
 end;
 
-function TDSField.RootDS: TDSField;
-// Top-level structure containing this field
+procedure TDSField.SetParent(const Value: TDSCompoundField);
 begin
-  Result := Self;
-  while Result.Parent <> nil do
-    Result := Result.Parent;
+  if FParent <> Value then
+  begin
+    FParent := Value;
+  end;
 end;
 
 function TDSField.ToQuotedString(): string;
@@ -1607,15 +1653,6 @@ begin
   end;
 end;
 
-procedure TDSInterpretor.ReadData(var Data: TBytes; Size: Integer);
-begin
-  if FCurAddr + Size > FStartAddr + FMaxSize then
-    raise EDSParserError.Create('End of buffer');
-  OnGetMoreData(FCurAddr, Size, Data);
-  FCurAddr := FCurAddr + Size;
-  EndOfData := (FCurAddr = FStartAddr + FMaxSize);
-end;
-
 procedure TDSInterpretor.Seek(Addr: TFilePointer);
 begin
   if Addr > FStartAddr + FMaxSize then
@@ -1663,7 +1700,8 @@ begin
       end;
     end;
   end;
-  ReadData(DS.Data, Size);
+  Seek(FCurAddr + Size);
+
   if DS.BigEndian then
     InvertByteOrder(DS.Data[0], Size);
   ValidateField(DS);
@@ -1893,7 +1931,7 @@ begin
     begin
       FItem := FCurrentParent.Fields[FIndex];
       if (FItem.Name = '') and (FItem is TDSCompoundField) then
-      // Found unnamed field - step into it
+      // Found unnamed structure - step into it
       begin
         FCurrentParent := FItem as TDSCompoundField;
         FIndices.Push(FIndex);

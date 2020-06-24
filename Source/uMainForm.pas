@@ -1178,7 +1178,6 @@ var
 begin
 //  bWriteLogFile := True;
 //  bThreadedLogWrite := False;
-  Progress := TProgressTracker.Create();
   Progress.OnDisplay.Add(ProgressForm.ProgressDisplay);
   Progress.OnTaskEnd.Add(ProgressForm.ProgressTaskEnd);
   Progress.OnTaskStart.Add(Self.ProgressTaskStart);
@@ -1235,7 +1234,6 @@ begin
 
   Utils.Free;
   APIEnv.Free;
-  FreeAndNil(Progress);
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
