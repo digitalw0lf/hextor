@@ -31,7 +31,7 @@ uses
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame;
+  uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct;
 
 {$I AppVersion.inc}
 
@@ -62,6 +62,7 @@ type
   public
     procedure Sleep(milliseconds: Cardinal);
     procedure Alert(V: Variant);
+    function HexToData(const Text: string): TByteBuffer;
   end;
 
   TMainForm = class(TForm)
@@ -130,6 +131,7 @@ type
     Splitter1: TSplitter;
     PgStruct: TTabSheet;
     ValueFrame: TValueFrame;
+    [API]
     StructFrame: TStructFrame;
     AfterEventTimer: TTimer;
     MITools: TMenuItem;
@@ -329,6 +331,10 @@ type
     procedure AdjustMDITabsHeight();
     procedure ProgressTaskStart(Sender: TProgressTracker; Task: TProgressTracker.TTask);
     procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
+    procedure ValueToVariantProc(const AIn: TValue; var AOut: OleVariant; var Handled: Boolean);
+    procedure VariantToValueProc(const AIn: Variant; var AOut: TValue; var Handled: Boolean);
+    procedure BeginAddEditors();
+    procedure EndAddEditors();
   public
     { Public declarations }
     Settings: TMainFormSettings;
@@ -338,7 +344,13 @@ type
     Utils: THextorUtils;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
-    function OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
+    [API]
+    function CreateFile(): TEditorForm;
+    function Open(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
+    [API]
+    function OpenFile(const AFileName: string): TEditorForm;
+    [API]
+    procedure SaveAll();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
     procedure UpdateMsgPanel();
@@ -361,8 +373,6 @@ type
     procedure DoAfterEvent(Proc: TProc);
     function ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
     procedure ShowUpdateAvailable(const Version: string);
-    procedure BeginAddEditors();
-    procedure EndAddEditors();
 
     [API]
     procedure DoTest(x: Integer);
@@ -552,12 +562,12 @@ procedure TMainForm.ActionGoToEndExecute(Sender: TObject);
 begin
   with ActiveEditor do
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       MoveCaret(GetFileSize(), KeyboardStateToShiftState());
       CaretInByte := 0;
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -566,12 +576,12 @@ procedure TMainForm.ActionGoToStartExecute(Sender: TObject);
 begin
   with ActiveEditor do
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       MoveCaret(0, KeyboardStateToShiftState());
       CaretInByte := 0;
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -586,7 +596,7 @@ end;
 
 procedure TMainForm.ActionNewExecute(Sender: TObject);
 begin
-  CreateNewEditor().OpenNewEmptyFile();
+  CreateFile();
 end;
 
 procedure TMainForm.ActionOpenDiskExecute(Sender: TObject);
@@ -596,7 +606,7 @@ begin
   if DiskSelectForm.ShowModal() <> mrOk then Exit;
   s := DiskSelectForm.SelectedDrive;
 
-  OpenFile(TDiskDataSource, s);
+  Open(TDiskDataSource, s);
 end;
 
 procedure TMainForm.ActionOpenExecute(Sender: TObject);
@@ -610,7 +620,7 @@ begin
     for i:=0 to OpenDialog1.Files.Count-1 do
     begin
       Progress.Show(i, OpenDialog1.Files.Count);
-      OpenFile(TFileDataSource, OpenDialog1.Files[i]);
+      OpenFile(OpenDialog1.Files[i]);
     end;
   finally
     Progress.TaskEnd();
@@ -624,7 +634,7 @@ begin
   if ProcessSelectForm.ShowModal() <> mrOk then Exit;
   s := ProcessSelectForm.SelectedPID;
 
-  OpenFile(TProcMemDataSource, s);
+  Open(TProcMemDataSource, s);
 end;
 
 procedure TMainForm.ActionPasteExecute(Sender: TObject);
@@ -649,7 +659,7 @@ begin
     end;
     if Length(Buf)=0 then Exit;
 
-    BeginUpdatePanes();
+    BeginUpdate();
     UndoStack.BeginAction('', 'Paste');
     try
       if InsertMode then
@@ -663,7 +673,7 @@ begin
       end;
     finally
       UndoStack.EndAction();
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -672,11 +682,11 @@ procedure TMainForm.ActionRedoExecute(Sender: TObject);
 begin
   with ActiveEditor do
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       UndoStack.Redo();
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -691,15 +701,8 @@ begin
 end;
 
 procedure TMainForm.ActionSaveAllExecute(Sender: TObject);
-var
-  i: Integer;
 begin
-  for i:=0 to EditorCount-1 do
-  begin
-    // TODO: handle never saved editors
-    with Editors[i] do
-      SaveFile(THextorDataSourceType(DataSource.ClassType), DataSource.Path)
-  end;
+  SaveAll();
 end;
 
 procedure TMainForm.ActionSaveAsExecute(Sender: TObject);
@@ -713,7 +716,7 @@ begin
       fn := MakeValidFileName(fn);
     SaveDialog1.FileName := fn;
     if not SaveDialog1.Execute() then Exit;
-    SaveFile(TFileDataSource, SaveDialog1.FileName);
+    SaveAsFile(SaveDialog1.FileName);
   end;
 end;
 
@@ -722,7 +725,7 @@ begin
   with ActiveEditor do
   begin
     if DataSource.CanBeSaved() then
-      SaveFile(THextorDataSourceType(DataSource.ClassType), DataSource.Path)
+      Save()
     else
       ActionSaveAsExecute(Sender);
   end;
@@ -863,11 +866,11 @@ procedure TMainForm.ActionUndoExecute(Sender: TObject);
 begin
   with ActiveEditor do
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       UndoStack.Undo();
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -1083,6 +1086,12 @@ begin
   DoAfterEvent(ActiveEditorChanged);
 end;
 
+function TMainForm.CreateFile: TEditorForm;
+begin
+  Result := CreateNewEditor();
+  Result.OpenNewEmptyFile();
+end;
+
 procedure TMainForm.CreateTestFile1Click(Sender: TObject);
 const
   BlockSize = 1*MByte;
@@ -1213,6 +1222,8 @@ begin
 
 //  HextorOle := TCoHextor.Create();
   APIEnv := TAPIEnvironment.Create();
+  APIEnv.ValueToVariantProc := ValueToVariantProc;
+  APIEnv.VariantToValueProc := VariantToValueProc;
 
   ScriptFrame.Init();
 end;
@@ -1383,7 +1394,7 @@ end;
 procedure TMainForm.MIDummyRecentFileClick(Sender: TObject);
 // Open file from "Recent files" menu
 begin
-  OpenFile(TFileDataSource, (Sender as TMenuItem).Caption);
+  OpenFile((Sender as TMenuItem).Caption);
 end;
 
 procedure TMainForm.MIEncodingMenuClick(Sender: TObject);
@@ -1401,7 +1412,7 @@ begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
 end;
 
-function TMainForm.OpenFile(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
+function TMainForm.Open(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
 var
   DS: THextorDataSource;
 begin
@@ -1420,11 +1431,31 @@ begin
   end;
 end;
 
+function TMainForm.OpenFile(const AFileName: string): TEditorForm;
+begin
+  Result := Open(TFileDataSource, AFileName);
+end;
+
 procedure TMainForm.OpenInitialFiles;
+var
+  i: Integer;
+  s: string;
 begin
   FInitialFilesOpened := True;
   if ParamCount()>0 then
-    OpenFile(TFileDataSource, ParamStr(1))
+  begin
+    Progress.TaskStart(Self);
+    try
+      for i := 1 to ParamCount do
+      begin
+        Progress.Show(i - 1, ParamCount);
+        s := ParamStr(i);
+        if FileExists(s) then OpenFile(s);
+      end;
+    finally
+      Progress.TaskEnd();
+    end;
+  end
   else
     ActionNewExecute(nil);
 end;
@@ -1505,6 +1536,18 @@ procedure TMainForm.RightPanelResize(Sender: TObject);
 begin
   Settings.RightPanelWidth := RightPanel.Width;
   Settings.Changed();
+end;
+
+procedure TMainForm.SaveAll;
+var
+  i: Integer;
+begin
+  for i:=0 to EditorCount-1 do
+  begin
+    // TODO: handle never saved editors
+    with Editors[i] do
+      Save();
+  end;
 end;
 
 procedure TMainForm.SelectionChanged;
@@ -1630,7 +1673,7 @@ begin
   Progress.TaskStart(Sender);
   with ActiveEditor do
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       for i:=1 to WriteCount do
       begin
@@ -1640,7 +1683,7 @@ begin
         Progress.Show(i, WriteCount);
       end;
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
   Progress.TaskEnd();
@@ -1749,6 +1792,34 @@ begin
   end;
 end;
 
+procedure TMainForm.ValueToVariantProc(const AIn: TValue; var AOut: OleVariant;
+  var Handled: Boolean);
+begin
+  if (not AIn.IsEmpty) and (AIn.IsObject) and (AIn.AsObject is TDSCompoundField) then
+  begin
+    // DS has specific COM wrappers
+    AOut := (AIn.AsObject as TDSCompoundField).GetComWrapper() as IDispatch;
+    Handled := True;
+  end
+end;
+
+procedure TMainForm.VariantToValueProc(const AIn: Variant; var AOut: TValue;
+  var Handled: Boolean);
+var
+  V: TValue;
+  ADSWrapper: TDSComWrapper;
+begin
+  V := TValue.FromVariant(AIn);
+
+  if (V.Kind = tkInterface) then
+    if (Supports(V.AsInterface, IDSComWrapper, ADSWrapper)) then
+    begin
+      // DS has specific COM wrappers
+      AOut := ADSWrapper.GetWrappedField();
+      Handled := True;
+    end;
+end;
+
 procedure TMainForm.VisibleRangeChanged;
 begin
   OnVisibleRangeChanged.Call(GetActiveEditorNoEx());
@@ -1776,7 +1847,7 @@ begin
     begin
       Progress.Show(I, Catcher.FileCount);
       s:=Catcher.Files[i];
-      if FileExists(s) then OpenFile(TFileDataSource, s);
+      if FileExists(s) then OpenFile(s);
     end;
   finally
     Progress.TaskEnd();
@@ -1793,6 +1864,12 @@ end;
 procedure THextorUtils.Alert(V: Variant);
 begin
   Application.MessageBox(PChar(string(V)), 'Alert', MB_OK);
+end;
+
+function THextorUtils.HexToData(const Text: string): TByteBuffer;
+begin
+  Result := TByteBuffer.Create();
+  Result.Data := Hex2Data(Text);
 end;
 
 procedure THextorUtils.Sleep(milliseconds: Cardinal);

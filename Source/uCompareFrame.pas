@@ -293,12 +293,12 @@ begin
     else if Sender = Editors[1] then n := 1
     else Exit;
 
-    Editors[1-n].BeginUpdatePanes();
+    Editors[1-n].BeginUpdate();
     try
       Editors[1-n].TopVisibleRow := Sender.TopVisibleRow;
       Editors[1-n].HorzScrollPos := Sender.HorzScrollPos;
     finally
-      Editors[1-n].EndUpdatePanes();
+      Editors[1-n].EndUpdate();
     end;
     DiffBarPaint(nil);
   finally

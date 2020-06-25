@@ -20,6 +20,10 @@ type
     function GetWrappedObject(): TObject;
   end;
 
+  // Custom functions to convert to/from ole automation variants
+  TValueToVariantProc = procedure(const AIn: TValue; var AOut: OleVariant; var Handled: Boolean) of Object;
+  TVariantToValueProc = procedure(const AIn: Variant; var AOut: TValue; var Handled: Boolean) of Object;
+
   // Dispatch wrapper for object
   TAPIWrapper = class (TInterfacedObject, IAPIWrapper, IDispatch)
   private
@@ -60,6 +64,9 @@ type
     function GetTypeWrapper(AInstance: TObject): TAPITypeWrapper;
   public
     MemberVisibility: (amvAttributed, amvPublished, amvPublic);
+    // Custom functions to convert to/from ole automation variants
+    ValueToVariantProc: TValueToVariantProc;
+    VariantToValueProc: TVariantToValueProc;
     function GetAPIWrapper(AObject: TObject): IDispatch;
     procedure ObjectDestroyed(AObject: TObject);
     constructor Create();
@@ -226,7 +233,16 @@ function TAPIWrapper.ValueToVariant(const X: TValue): OleVariant;
 //  Len, i: Integer;
 //  arr: TBytes;
 //  ti: PTypeInfo;
+var
+  Handled: Boolean;
 begin
+  if Assigned(Environment.ValueToVariantProc) then
+  begin
+    Handled := False;
+    Environment.ValueToVariantProc(X, Result, Handled);
+    if Handled then Exit;
+  end;
+
   if (not X.IsEmpty) and (X.IsObject) then
   begin
     // If object is returned, convert it to wrapper
@@ -245,7 +261,15 @@ end;
 function TAPIWrapper.VariantToValue(const X: Variant): TValue;
 var
   AWrapper: IAPIWrapper;
+  Handled: Boolean;
 begin
+  if Assigned(Environment.VariantToValueProc) then
+  begin
+    Handled := False;
+    Environment.VariantToValueProc(X, Result, Handled);
+    if Handled then Exit;
+  end;
+
   Result := TValue.FromVariant(X);
 
   // Convert wrappers to objects

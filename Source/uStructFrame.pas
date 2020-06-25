@@ -19,7 +19,7 @@ uses
   Vcl.ToolWin, Winapi.ShellAPI,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
-  uDataStruct, uEditedData, uCallbackList, uModuleSettings;
+  uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper;
 
 const
   Color_DSFieldBg = $FFF8F8;
@@ -121,8 +121,17 @@ type
     procedure MIOrganizeFilesClick(Sender: TObject);
   private const
     Unnamed_Struct = 'Unnamed';
+    sDescrFromEditor = '%';
   private type
     TFieldEnumProc = reference to function(DS: TDSField): Boolean;
+    TDSScriptEnv = class
+    private
+      FOwner: TStructFrame;
+      function GetDS: TDSField;
+    public
+      [API]
+      property ds: TDSField read GetDS;
+    end;
   private
     { Private declarations }
     FParser: TDSParser;
@@ -159,12 +168,17 @@ type
     function EnumerateFields(DS: TDSField; const Range: TFileRange; Proc: TFieldEnumProc): Integer;
     procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
     procedure UpdateNode(Node: PVirtualNode);
+    procedure ClearShownDS();
   public
     { Public declarations }
     Settings: TStructSettings;
+    DSScriptEnv: TDSScriptEnv;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
-    procedure Analyze(Addr, Size: TFilePointer; const Struct: string);
+    [API]
+    procedure LoadDescr(FileName: string);
+    [API]
+    procedure Interpret(AEditor: TEditorForm; Addr, Size: TFilePointer; Struct: string = sDescrFromEditor);
     property ShownDS: TDSField read FShownDS;
     property InterpretRange: TStructInterpretRange read GetInterpretRange write SetInterpretRange;
   end;
@@ -178,21 +192,39 @@ uses
 
 { TStructFrame }
 
-procedure TStructFrame.Analyze(Addr, Size: TFilePointer; {const Data: TBytes;}
-  const Struct: string);
+procedure TStructFrame.Interpret(AEditor: TEditorForm; Addr, Size: TFilePointer;
+  Struct: string = sDescrFromEditor);
+// if Struct = sDescrFromEditor, use currently open description
 var
   Cnt: Cardinal;
   ASavedRootDS: TDSField;
   Node: PVirtualNode;
   EventSet: TDSEventSet;
 begin
+  // Link frame to editor
+  if AEditor <> FEditor then
+  begin
+    if Assigned(FEditor) then
+    begin
+      FEditor.OnClosed.Remove(Self);
+      FEditor.OnGetTaggedRegions.Remove(Self);
+      FEditor.Data.OnDataChanged.Remove(Self);
+    end;
+    FEditor := AEditor;
+    FEditor.OnClosed.Add(EditorClosed, Self);
+    FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
+    FEditor.Data.OnDataChanged.Add(DataChanged, Self);
+  end;
+
+  if Size = -1 then
+    Size := AEditor.Data.GetSize() - Addr;
+
+  if Struct = sDescrFromEditor then
+    Struct := DSDescrEdit.Text;
+
   Progress.TaskStart(Self);
   try
-
-    NodesForDSs.Clear();
-    DSTreeView.Clear();
-    FreeAndNil(FShownDS);
-    BtnCopyValue.Enabled := False;
+    ClearShownDS();
 
     // Parse structure description
     FShownDS := FParser.ParseStruct(Struct);
@@ -226,7 +258,7 @@ begin
     DSTreeView.BeginUpdate();
     Progress.TaskStart(Self, 0.1);
     try
-      // Show first level child fields
+      // Show first level child fields. Others will be created when expanded
       DSTreeViewInitChildren(DSTreeView, nil, Cnt);
 
       // Update node text when field changes
@@ -274,6 +306,8 @@ begin
 //
 //        end,
 //        nil);
+
+      // If we have only one top level node, expand it
       if (DSTreeView.RootNodeCount = 1) then
       begin
         Node := DSTreeView.GetFirstChild(nil);
@@ -319,21 +353,13 @@ end;
 
 procedure TStructFrame.BtnInterpretClick(Sender: TObject);
 var
+  AEditor: TEditorForm;
   Addr, Size: TFilePointer;
 begin
-  if Assigned(FEditor) then
-  begin
-    FEditor.OnClosed.Remove(Self);
-    FEditor.OnGetTaggedRegions.Remove(Self);
-    FEditor.Data.OnDataChanged.Remove(Self);
-  end;
-  FEditor := MainForm.ActiveEditor;
-  FEditor.OnClosed.Add(EditorClosed, Self);
-  FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
-  FEditor.Data.OnDataChanged.Add(DataChanged, Self);
+  AEditor := MainForm.ActiveEditor;
 
   Addr := 0; Size := 0;
-  with FEditor do
+  with AEditor do
   begin
     case InterpretRange of
       irFile:
@@ -355,7 +381,7 @@ begin
     end;
   end;
 
-  Analyze(Addr, Size, DSDescrEdit.Text);
+  Interpret(AEditor, Addr, Size);
 end;
 
 procedure TStructFrame.BtnLoadDescrClick(Sender: TObject);
@@ -385,6 +411,15 @@ begin
   Result := IncludeTrailingPathDelimiter( TPath.Combine(Settings.BuiltInSettingsFolder, 'DataStruct') );
 end;
 
+procedure TStructFrame.ClearShownDS;
+begin
+  NodesForDSs.Clear();
+  NodesToUpdate.Clear();
+  DSTreeView.Clear();
+  FreeAndNil(FShownDS);
+  BtnCopyValue.Enabled := False;
+end;
+
 constructor TStructFrame.Create(AOwner: TComponent);
 begin
   inherited;
@@ -397,6 +432,9 @@ begin
   DSTreeView.NodeDataSize := SizeOf(TDSTreeNode);
   NodesForDSs := TDictionary<TDSField, PVirtualNode>.Create();
   NodesToUpdate := TDictionary<PVirtualNode, Boolean>.Create();
+
+  DSScriptEnv := TDSScriptEnv.Create();
+  DSScriptEnv.FOwner := Self;
 
   Progress.OnTaskEnd.Add(ProgressTaskEnd);
 end;
@@ -452,6 +490,7 @@ end;
 
 destructor TStructFrame.Destroy;
 begin
+  DSScriptEnv.Free;
   NodesToUpdate.Free;
   NodesForDSs.Free;
   ShownDS.Free;
@@ -569,7 +608,7 @@ procedure TStructFrame.DSTreeViewChange(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 begin
   if FEditor = nil then Exit;
-  FEditor.BeginUpdatePanes();
+  FEditor.BeginUpdate();
   try
     if EditFieldValue.Visible then
       EditFieldValueExit(Sender);
@@ -578,7 +617,7 @@ begin
       FEditor.ScrollToShow(GetNodeDS(Node).BufAddr, -1, -1);
     FEditor.UpdatePanes();
   finally
-    FEditor.EndUpdatePanes();
+    FEditor.EndUpdate();
   end;
 end;
 
@@ -806,11 +845,8 @@ end;
 
 procedure TStructFrame.EditorClosed(Sender: TEditorForm);
 begin
-  NodesForDSs.Clear();
-  DSTreeView.Clear();
-  FreeAndNil(FShownDS);
+  ClearShownDS();
   FEditor := nil;
-  BtnCopyValue.Enabled := False;
 end;
 
 procedure TStructFrame.EditorGetTaggedRegions(Editor: TEditorForm; Start,
@@ -918,14 +954,11 @@ end;
 procedure TStructFrame.MIDummyDataStructClick(Sender: TObject);
 var
   n: Integer;
-  fn, name: string;
+  fn: string;
 begin
   n := (Sender as TMenuItem).Tag;
   if not FilesForMenuItems.TryGetValue(n, fn) then Exit;
-  name := (Sender as TMenuItem).Caption;
-  DSDescrEdit.Lines.LoadFromFile(fn);
-  LblStructName.Caption := '    ' + name;
-  CurDSFileName := fn;
+  LoadDescr(fn);
 end;
 
 procedure TStructFrame.MIGotoAddrClick(Sender: TObject);
@@ -1041,6 +1074,22 @@ begin
   MIRangeSelection.Checked := (InterpretRange = irSelection);
 end;
 
+procedure TStructFrame.LoadDescr(FileName: string);
+// Load DS description file into editor
+var
+  name: string;
+begin
+  if ExtractFileExt(FileName) = '' then
+    FileName := ChangeFileExt(FileName, '.ds');
+  // If path is not specified, search in user and built-in DS directories
+  if IsRelativePath(FileName) then
+    FileName := FindFile(FileName, [UserDSFolder(), BuiltInDSFolder()]);
+  name := ChangeFileExt(ExtractFileName(FileName), '');
+  DSDescrEdit.Lines.LoadFromFile(FileName);
+  LblStructName.Caption := '    ' + name;
+  CurDSFileName := FileName;
+end;
+
 procedure TStructFrame.SetInterpretRange(const Value: TStructInterpretRange);
 begin
   if Settings.Range <> Value then
@@ -1081,6 +1130,13 @@ begin
       ShowStructTree(Fields[i], Node);
     end;
   end;
+end;
+
+{ TStructFrame.TDSScriptEnv }
+
+function TStructFrame.TDSScriptEnv.GetDS: TDSField;
+begin
+  Result := FOwner.ShownDS;
 end;
 
 end.

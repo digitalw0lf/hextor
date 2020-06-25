@@ -216,12 +216,12 @@ begin
   MainForm.ActiveEditor := AEditor;
   AEditor.SelectAndShow(Ptr, Ptr + Size);
 
-  AEditor.EndUpdatePanes();  // Redraw editor when showing confirmation
+  AEditor.EndUpdate();  // Redraw editor when showing confirmation
   try
     Result := MessageDlg('Replace this Occurrence?'+sLineBreak+'"'+Searcher.Params.Text+'"  ->  "'+Searcher.Params.Replace+'"',
                       mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo, TMsgDlgBtn.mbCancel, TMsgDlgBtn.mbYesToAll], 0);
   finally
-    AEditor.BeginUpdatePanes();
+    AEditor.BeginUpdate();
   end;
 
   case Result of
@@ -415,7 +415,7 @@ begin
 
   Progress.TaskStart(Searcher);
   if Assigned(AEditor) then
-    AEditor.BeginUpdatePanes();
+    AEditor.BeginUpdate();
   try
     Progress.Show(0, ProgressText());
     while Searcher.FindNext(Start, 1, Ptr, Size) do  // <--
@@ -471,7 +471,7 @@ begin
       AEditor.SelectAndShow(SelectAfterOperation.AEnd, SelectAfterOperation.AEnd);
     end;
     if Assigned(AEditor) then
-      AEditor.EndUpdatePanes();
+      AEditor.EndUpdate();
     if NewCount = 0 then
       ResultsFrame.DeleteListGroup(ResultsGroupNode);
     Progress.TaskEnd();

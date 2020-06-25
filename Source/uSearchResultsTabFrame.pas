@@ -394,7 +394,7 @@ begin
     AEditor := MainForm.FindEditorWithSource(RNode.DataSourceType, RNode.DataSourcePath);
     // Open file in editor if it is not open now
     if AEditor = nil then
-      AEditor := MainForm.OpenFile(RNode.DataSourceType, RNode.DataSourcePath);
+      AEditor := MainForm.Open(RNode.DataSourceType, RNode.DataSourcePath);
     LinkNodeToEditor(HitInfo.HitNode, AEditor);
   end
   else

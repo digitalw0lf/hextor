@@ -13,6 +13,7 @@ interface
 uses
   Winapi.Windows, Winapi.ShLwApi, SysUtils, System.Classes, Generics.Collections,
   Vcl.Graphics, System.Math, System.SysConst, System.Variants, superobject,
+  System.IOUtils, System.Types,
 
   uCallbackList;
 
@@ -84,6 +85,11 @@ type
     constructor Create(const AAcceptRange: TFileRange); overload;
   end;
 
+  // Wrapper around TBytes for scripts
+  TByteBuffer = class (TInterfacedObject, IInterface)
+  public
+    Data: TBytes;
+  end;
 
   IHextorToolFrame = interface
     ['{4AB18488-6B7D-4A9B-9892-EC91DDF81745}']
@@ -142,6 +148,7 @@ function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overloa
 function MakeValidFileName(const S: string): string;
 function CanonicalizePath(const Path: string): string;
 function PathIsInside(const InnerPath, OuterPath: string): Boolean;
+function FindFile(const FileMask: string; const Paths: array of string): string;
 function RemUnprintable(const s:UnicodeString; NewChar: WideChar='.'):UnicodeString;
 function DivRoundUp(A, B: Int64): Int64; inline;
 function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
@@ -318,6 +325,21 @@ begin
   Inner := IncludeTrailingPathDelimiter(CanonicalizePath(InnerPath));
   Outer := IncludeTrailingPathDelimiter(CanonicalizePath(OuterPath));
   Result := SameFileName(Outer, Copy(Inner, Low(Inner), Length(Outer)));
+end;
+
+function FindFile(const FileMask: string; const Paths: array of string): string;
+// Search Paths for a file that matches FileMask (recursive)
+var
+  i: Integer;
+  Files: TStringDynArray;
+begin
+  for i:=0 to Length(Paths)-1 do
+  begin
+    Files := TDirectory.GetFiles(Paths[i], FileMask, TSearchOption.soAllDirectories);
+    if Length(Files) > 0 then
+      Exit(Files[0]);
+  end;
+  Result := '';
 end;
 
 function RemUnprintable(const s: string; NewChar: Char='.'): string;

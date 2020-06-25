@@ -80,7 +80,7 @@ type
 implementation
 
 uses
-  uMainForm, uDataStruct;
+  uMainForm, uDataStruct, uEditorForm;
 
 {$R *.dfm}
 
@@ -111,6 +111,8 @@ var
 //  t: Int64;
   Timer: TStopwatch;
   i: Integer;
+  AEditor: TEditorForm;
+  AEditors: TList<TEditorForm>;
 begin
   AText := ScriptEdit.Text;
 
@@ -120,10 +122,13 @@ begin
   //t := GetNanosec();
   Timer := TStopwatch.StartNew();
 
+  AEditors := TList<TEditorForm>.Create();
   for i:=0 to MainForm.EditorCount-1 do
   begin
-    MainForm.Editors[i].UndoStack.BeginAction('Script_'+IntToStr(Random(1000000)), 'Scripted change');
-    MainForm.Editors[i].BeginUpdatePanes();
+    AEditor := MainForm.Editors[i];
+    AEditor.UndoStack.BeginAction('Script_'+IntToStr(Random(1000000)), 'Scripted change');
+    AEditor.BeginUpdate();
+    AEditors.Add(AEditor);
   end;
   Progress.TaskStart(Self);
   try
@@ -132,11 +137,17 @@ begin
 
   finally
     Progress.TaskEnd();
+    // Check with AEditors list because MainForm.Editors could have changed during script execution
     for i:=0 to MainForm.EditorCount-1 do
     begin
-      MainForm.Editors[i].EndUpdatePanes();
-      MainForm.Editors[i].UndoStack.EndAction();
+      AEditor := MainForm.Editors[i];
+      if AEditors.IndexOf(AEditor) >= 0 then
+      begin
+        AEditor.EndUpdate();
+        AEditor.UndoStack.EndAction();
+      end;
     end;
+    AEditors.Free;
   end;
 
   //t := GetNanosec() - t;
@@ -246,9 +257,10 @@ begin
   // Utility functions
   ScriptControl1.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
   // Parsed structure from StructFrame
-  if (MainForm.StructFrame.ShownDS <> nil) and
-     (MainForm.StructFrame.ShownDS is TDSCompoundField) then
-    ScriptControl1.AddObject('ds', (MainForm.StructFrame.ShownDS as TDSCompoundField).GetComWrapper(), False);
+  ScriptControl1.AddObject('_StructFrame', MainForm.APIEnv.GetAPIWrapper(MainForm.StructFrame.DSScriptEnv), True);
+//  if (MainForm.StructFrame.ShownDS <> nil) and
+//     (MainForm.StructFrame.ShownDS is TDSCompoundField) then
+//    ScriptControl1.AddObject('ds', (MainForm.StructFrame.ShownDS as TDSCompoundField).GetComWrapper(), False);
 end;
 
 procedure TScriptFrame.BtnClearOutputClick(Sender: TObject);

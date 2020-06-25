@@ -154,7 +154,11 @@ type
     function AskSaveChanges(): TModalResult;
     procedure OpenNewEmptyFile;
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
-    procedure SaveFile(DataSourceType: THextorDataSourceType; APath: string);
+    procedure SaveAs(DataSourceType: THextorDataSourceType; APath: string);
+    [API]
+    procedure SaveAsFile(APath: string);
+    [API]
+    procedure Save();
     procedure NewFileOpened(ResetCaret: Boolean);
     function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
     function GetOrigFileSize(): TFilePointer;
@@ -187,9 +191,9 @@ type
     procedure ScrollToCaret();
     procedure SelectAndShow(AStart, AEnd: TFilePointer; MoveCaret: TCaretInSelection = CaretAtStart);
     [API]
-    procedure BeginUpdatePanes();
+    procedure BeginUpdate();
     [API]
-    procedure EndUpdatePanes();
+    procedure EndUpdate();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
     property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property HorzScrollPos: Integer read FHorzScrollPos write SetHorzScrollPos;
@@ -200,6 +204,8 @@ type
     property TextEncoding: Integer read FTextEncoding write SetTextEncoding;
     [API]
     procedure InsertDataFromFile(const FileName: string; Addr: TFilePointer; Overwrite: Boolean);
+    [API]
+    procedure InsertHex(const HexText: string; Addr: TFilePointer; Overwrite: Boolean);
     class function Settings(): TEditorSettings;
   end;
 
@@ -288,7 +294,7 @@ begin
   end;
 end;
 
-procedure TEditorForm.BeginUpdatePanes;
+procedure TEditorForm.BeginUpdate;
 begin
   Inc(FUpdating);
   PaneAddr.BeginUpdate();
@@ -330,11 +336,11 @@ begin
   finally
     Progress.TaskEnd();
   end;
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     ScrollToShow(Ptr, -1, -1);
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -443,13 +449,13 @@ end;
 procedure TEditorForm.FormResize(Sender: TObject);
 begin
   if FClosed then Exit;
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     CalculateByteColumns();
     UpdatePaneWidths();
     UpdatePanes();
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -490,7 +496,7 @@ procedure TEditorForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
   end;
 
 begin
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     case Key of
       VK_HOME:
@@ -581,7 +587,7 @@ begin
 //    end;
 
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -596,7 +602,7 @@ var
 begin
   if CharInSet(Key, HexCharsSet) then
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
       if InsertMode then
@@ -633,7 +639,7 @@ begin
       UndoStack.EndAction();
       TypingActionChangeTimer.Enabled := False;
       TypingActionChangeTimer.Enabled := True;
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -767,6 +773,18 @@ begin
     Data.Insert(Addr, Length(Buf), @Buf[0]);
 end;
 
+procedure TEditorForm.InsertHex(const HexText: string; Addr: TFilePointer;
+  Overwrite: Boolean);
+var
+  Buf: TBytes;
+begin
+  Buf := Hex2Data(HexText);
+  if Overwrite then
+    Data.Change(Addr, Length(Buf), @Buf[0])
+  else
+    Data.Insert(Addr, Length(Buf), @Buf[0]);
+end;
+
 //function TEditorForm.Invoke(DispID: Integer; const IID: TGUID;
 //  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
 //  ArgErr: Pointer): HResult;
@@ -794,7 +812,7 @@ end;
 
 procedure TEditorForm.NewFileOpened(ResetCaret: Boolean);
 begin
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     Data.DataSource := DataSource;
     HasUnsavedChanges := False;
@@ -812,7 +830,7 @@ begin
 
     SelectionChanged();
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 
   AddCurrentFileToRecentFiles();
@@ -826,7 +844,7 @@ var
   Index, ACaretInByte: Integer;
   ss: TShiftState;
 begin
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     if (Sender as TEditorPane).GetCharAt(X, Y, p, Index) then
     begin
@@ -847,7 +865,7 @@ begin
       CaretInByte := ACaretInByte;
     end;
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -858,7 +876,7 @@ var
 begin
   if Key >= ' ' then
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
       // Maybe some better way to convert single unicode char to selected CP char?
@@ -880,7 +898,7 @@ begin
       UndoStack.EndAction();
       TypingActionChangeTimer.Enabled := False;
       TypingActionChangeTimer.Enabled := True;
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -889,14 +907,14 @@ procedure TEditorForm.ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
 var
   NewCaretPos: TFilePointer;
 begin
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     NewCaretPos := SelStart + NewSize;
     Data.Change(SelStart, SelLength, NewSize, Value);
     MoveCaret(NewCaretPos, []);
     ScrollToCaret();
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -910,11 +928,23 @@ begin
   TopVisibleRow := TFilePointer(VertScrollBar.Position) * FLinesPerScrollBarTick;
 end;
 
-procedure TEditorForm.SaveFile(DataSourceType: THextorDataSourceType; APath: string);
+procedure TEditorForm.Save;
+begin
+  if not DataSource.CanBeSaved() then
+    raise EInvalidUserInput.Create('Cannot save to this target');
+  SaveAs(THextorDataSourceType(DataSource.ClassType), DataSource.Path);
+end;
+
+procedure TEditorForm.SaveAs(DataSourceType: THextorDataSourceType; APath: string);
 begin
   TDataSaver.Save(Data, DataSourceType, APath);
   DataSource := Data.DataSource;
   NewFileOpened(False);
+end;
+
+procedure TEditorForm.SaveAsFile(APath: string);
+begin
+  SaveAs(TFileDataSource, APath);
 end;
 
 procedure TEditorForm.ScrollToCaret;
@@ -930,7 +960,7 @@ var
   TargetRow: TFilePointer;
   TargetCol: Integer;
 begin
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     if RowsFromBorder = -1 then RowsFromBorder := 8;
     if ColsFromBorder = -1 then ColsFromBorder := 8;
@@ -953,7 +983,7 @@ begin
     if TargetCol > HorzScrollPos + GetVisibleColsCount(False) - ColsFromBorder - 1 then
       HorzScrollPos := TargetCol - GetVisibleColsCount(False) + ColsFromBorder + 1;
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -962,12 +992,12 @@ procedure TEditorForm.SelectAndShow(AStart, AEnd: TFilePointer;
 // Select specified range and scroll it to view.
 // Caret is placed at start or at end of range.
 begin
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     ScrollToShow(AStart, -1, -1);
     SetSelection(AStart, AEnd, MoveCaret);
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -994,7 +1024,7 @@ begin
   Value := BoundValue(Value, 1, 16384);
   if Value <> FByteColumns then
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       if ByteColumns > 0 then
         CaretLineOnScreen := CaretPos div ByteColumns - TopVisibleRow
@@ -1015,7 +1045,7 @@ begin
 
       OnByteColsChanged.Call(Self);
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -1044,7 +1074,7 @@ begin
   Value := BoundValue(Value, 0, GetFileSize());
   if Value <> FCaretPos then
   begin
-    BeginUpdatePanes();
+    BeginUpdate();
     try
       // If caret moved away, start new "Typing" action in undo stack
       if (Value < FCaretPos) or (Value > FCaretPos + 1) then
@@ -1055,7 +1085,7 @@ begin
       UpdatePanesCarets();
       SelectionChanged();
     finally
-      EndUpdatePanes();
+      EndUpdate();
     end;
   end;
 end;
@@ -1132,7 +1162,7 @@ begin
     FSelStart := AStart;
     FSelLength := AEnd-AStart;
   end;
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     case MoveCaret of
       CaretAtStart: CaretPos := FSelStart;
@@ -1141,7 +1171,7 @@ begin
     UpdatePanes();
     SelectionChanged();
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -1259,7 +1289,7 @@ begin
   Result := FSettings;
 end;
 
-procedure TEditorForm.EndUpdatePanes;
+procedure TEditorForm.EndUpdate;
 begin
   if FUpdating=0 then Exit;
   Dec(FUpdating);
@@ -1288,7 +1318,7 @@ end;
 procedure TEditorForm.UndoActionReverted(Action: TUndoStackAction; Direction: TUndoStack.TUndoDirection);
 begin
   // Restore selection when Undo'ing operation
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     if Direction = udUndo then
     begin
@@ -1299,7 +1329,7 @@ begin
       // TODO: Save and restore selection after action (add TEditedData.OnAfterPartsReplace?)
       MoveCaret(Action.SelBefore.SelStart + Action.SelBefore.SelLength, []);
   finally
-    EndUpdatePanes();
+    EndUpdate();
   end;
 end;
 
@@ -1370,7 +1400,7 @@ begin
 
 //  StartTimeMeasure();
 
-  BeginUpdatePanes();
+  BeginUpdate();
   try
     Rows := GetVisibleRowsCount();
     FirstVisibleAddress := FirstVisibleAddr();
@@ -1467,7 +1497,7 @@ begin
     end;
   finally
 //    StartTimeMeasure();
-    EndUpdatePanes();
+    EndUpdate();
 //    EndTimeMeasure('EndUpdatePanes', True);
   end;
 

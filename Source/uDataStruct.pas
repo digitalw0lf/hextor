@@ -195,8 +195,13 @@ type
     function GetFixedSize(): TFilePointer; override;
   end;
 
+  IDSComWrapper = interface
+    ['{A3BF1107-670C-47EF-90D6-F0F7EF927A27}']
+    function GetWrappedField(): TDSField;
+  end;
+
   // DS wrapper for scripts
-  TDSComWrapper = class(TInterfacedObject, IDispatch)
+  TDSComWrapper = class(TInterfacedObject, IDSComWrapper, IDispatch)
   private const
     DISPID_INDEX  = -1;  // "index" pseudo-field of arrays
     DISPID_LENGTH = -2;  // "length" pseudo-field of arrays
@@ -212,6 +217,7 @@ type
     function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; var Params; VarResult: Pointer; ExcepInfo: Pointer;
       ArgErr: Pointer): HRESULT; virtual; stdcall;
+    function GetWrappedField(): TDSField;
   end;
 
   // Class for parsing structure description to DS's
@@ -1880,6 +1886,11 @@ end;
 function TDSComWrapper.GetTypeInfoCount(out Count: Integer): HRESULT;
 begin
   Result := E_NOTIMPL;
+end;
+
+function TDSComWrapper.GetWrappedField: TDSField;
+begin
+  Result := DSField;
 end;
 
 function TDSComWrapper.Invoke(DispID: Integer; const IID: TGUID;

@@ -86,13 +86,19 @@ type
     procedure Change(Addr, OldSize, NewSize: TFilePointer; Value: PByteArray); overload;
     [API]
     procedure Change(Addr: TFilePointer; Value: Byte); overload;
+    [API]
+    procedure Change(Addr, OldSize: TFilePointer; Value: TByteBuffer); overload;
 
     procedure Change(Addr: TFilePointer; Size: TFilePointer; Value: PByteArray); overload;
     procedure Insert(Addr: TFilePointer; Size: TFilePointer; Value: PByteArray); overload;
     [API]
     procedure Insert(Addr: TFilePointer; Value: Byte); overload;
     [API]
+    procedure Insert(Addr: TFilePointer; Value: TByteBuffer); overload;
+    [API]
     procedure Delete(Addr: TFilePointer; Size: TFilePointer);
+    [API]
+    procedure Clear();
   end;
 
 implementation
@@ -121,6 +127,17 @@ procedure TEditedData.Change(Addr: TFilePointer; Size: TFilePointer;
   Value: PByteArray);
 begin
   Change(Addr, Size, Size, Value);
+end;
+
+procedure TEditedData.Clear;
+// Delete all content
+begin
+  Change(0, GetSize(), 0, nil);
+end;
+
+procedure TEditedData.Change(Addr, OldSize: TFilePointer; Value: TByteBuffer);
+begin
+  Change(Addr, OldSize, Length(Value.Data), @Value.Data[0]);
 end;
 
 procedure TEditedData.Change(Addr: TFilePointer; Value: Byte);
@@ -525,6 +542,11 @@ begin
   Parts.Remove(Part2);
   Part1.Size := NewSize;
   Result := True;
+end;
+
+procedure TEditedData.Insert(Addr: TFilePointer; Value: TByteBuffer);
+begin
+  Insert(Addr, Length(Value.Data), @Value.Data[0])
 end;
 
 { TEditedData.TDataPart }
