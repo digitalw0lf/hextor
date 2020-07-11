@@ -329,7 +329,7 @@ var
   Range: TVariantRange;
 begin
   a := S.Split([',']);
-  SetLength(Result.Ranges, Length(a));
+  Result.Ranges := nil;
   for i:=0 to Length(a)-1 do
   begin
     p := a[i].IndexOf('..');
@@ -443,6 +443,7 @@ begin
   BufEnd := @Buffer[High(Buffer)+1];
   Ptr := BufStart;
   CurLineNum := 1;
+  CurBigEndian := False;
 
   try
     Result := ReadStruct();
@@ -1003,6 +1004,8 @@ begin
     raise EDSParserError.Create('Invalid field size');
   SetLength(AData, BufSize);
   Intr.FromVariant(V, AData[0], Length(AData));
+  if BigEndian then
+    InvertByteOrder(AData[0], Length(AData));
   SetData(AData, AChanger);
 end;
 
@@ -1043,6 +1046,8 @@ begin
     VarClear(Result);
     Exit;
   end;
+  if BigEndian then
+    InvertByteOrder(AData[0], Length(AData));
   Result := Intr.ToVariant(AData[0], Length(AData));
 end;
 
@@ -1641,6 +1646,9 @@ begin
     Inc(FieldsProcessed);
   end;
 
+  if DS is TDSSimpleField then
+    ValidateField(TDSSimpleField(DS));
+
   with DS.EventSet do
     OnInterpreted.Call(DataContext, DS);
 end;
@@ -1820,9 +1828,6 @@ begin
   end;
   Seek(FCurAddr + Size);
 
-  if DS.BigEndian then
-    InvertByteOrder(DS.Data[0], Size);
-  ValidateField(DS);
 end;
 
 { TDSComWrapper }
