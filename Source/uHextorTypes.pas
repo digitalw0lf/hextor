@@ -151,7 +151,8 @@ function PathIsInside(const InnerPath, OuterPath: string): Boolean;
 function FindFile(const FileMask: string; const Paths: array of string): string;
 function RemUnprintable(const s:UnicodeString; NewChar: WideChar='.'):UnicodeString;
 function DivRoundUp(A, B: Int64): Int64; inline;
-function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
+function NextAlignBoundary(Size, Align: TFilePointer): TFilePointer; overload;
+function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer; overload;
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
 function AdjustPositionInData(var Pos: TFilePointer; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;
 function AdjustPositionInData(var Range: TFileRange; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;
@@ -174,12 +175,15 @@ function Str2FileSize(const s:UnicodeString):Int64;
 function GetAppBuildTime(Instance:THandle = 0):TDateTime;
 procedure WriteLog(const LogSrc, Text: string); overload;
 procedure WriteLog(const Text: string); overload;
+procedure WriteLogFmt(const LogSrc, AFormat: string; const Args: array of const); overload;
+procedure WriteLogFmt(const AFormat: string; const Args: array of const); overload;
 
 const
   EntireFile: TFileRange = (Start: 0; AEnd: -1);
   NoRange: TFileRange = (Start: -1; AEnd: -1);
 
 var
+  bDebugMode: Boolean = False;
   Progress: TProgressTracker = nil;  // Grobal progress tracker instance for all operations
 
 implementation
@@ -357,7 +361,13 @@ begin
   Result := (A-1) div B + 1;
 end;
 
-function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer;
+function NextAlignBoundary(Size, Align: TFilePointer): TFilePointer; overload;
+// Aligns Size upwards to Align block size
+begin
+  Result := ((Size - 1) div Align + 1) * Align;
+end;
+
+function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer; overload;
 // Given buffer start address, current position and alignment block size,
 // returns next alignment boundary after current position (may be equal to current position)
 begin
@@ -607,6 +617,7 @@ var
   Now_: TDateTime;
   fs: TFileStream;
 begin
+  if not bDebugMode then Exit;
   Now_ := Now();
 
   DateTimeToString(fn, 'yymmdd', Now_);
@@ -631,6 +642,16 @@ end;
 procedure WriteLog(const Text: string); overload;
 begin
   WriteLog('Log', Text);
+end;
+
+procedure WriteLogFmt(const LogSrc, AFormat: string; const Args: array of const); overload;
+begin
+  WriteLog(LogSrc, Format(AFormat, Args));
+end;
+
+procedure WriteLogFmt(const AFormat: string; const Args: array of const); overload;
+begin
+  WriteLog(Format(AFormat, Args));
 end;
 
 { TFileRange }

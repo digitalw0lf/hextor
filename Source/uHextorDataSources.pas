@@ -18,8 +18,25 @@ uses
   uHextorTypes{, uLogFile};
 
 type
+  THextorDataSource = class;
+  TCachedDataSource = class;
   TDataSourceProperty = (dspWritable, dspResizable);
   TDataSourceProperties = set of TDataSourceProperty;
+
+  TDataCache = class
+  // Read cache for slow data sources (like files)
+  private
+    DataSource: TCachedDataSource;
+    ReadTime: Cardinal;
+    Addr: TFilePointer;
+    Buffer: TBytes;
+  public
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer;
+    procedure Flush();
+    constructor Create(ADataSource: TCachedDataSource);
+    destructor Destroy(); override;
+  end;
 
   THextorDataSource = class
   private
@@ -27,7 +44,7 @@ type
   public
     property Path: string read FPath;
 
-    constructor Create(const APath: string);
+    constructor Create(const APath: string); virtual;
     destructor Destroy(); override;
     procedure Open(Mode: Word); virtual; abstract;
     function GetProperties(): TDataSourceProperties; virtual;
@@ -41,39 +58,54 @@ type
 
   THextorDataSourceType = class of THextorDataSource;
 
-  TFileDataSource = class (THextorDataSource)
+  TCachedDataSource = class (THextorDataSource)
+  protected
+    Cache: TDataCache;
+  public
+    procedure Open(Mode: Word); override;
+    function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
+    function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
+    constructor Create(const APath: string); override;
+    destructor Destroy(); override;
+  end;
+
+  TFileDataSource = class (TCachedDataSource)
   protected
     FileStream: TFileStream;
   public
-    constructor Create(const APath: string);
+    constructor Create(const APath: string); override;
     destructor Destroy(); override;
     procedure Open(Mode: Word); override;
     function GetProperties(): TDataSourceProperties; override;
     function CanBeSaved(): Boolean; override;
     function GetSize(): TFilePointer; override;
     procedure SetSize(NewSize: TFilePointer); override;
-    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
-    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
+    function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
     procedure CopyContentFrom(Source: THextorDataSource); override;
   end;
 
   TDiskDataSource = class (TFileDataSource)
   protected
     const SectorAlign = 512;
+  protected
+    CachedDiskSize: TFilePointer;
   public
-    constructor Create(const APath: string);
+    constructor Create(const APath: string); override;
     procedure Open(Mode: Word); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
-    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
-    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
+    function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
   end;
 
   TProcMemDataSource = class (THextorDataSource)
   protected
     hProcess: Cardinal;
   public
-    constructor Create(const APath: string);
+    constructor Create(const APath: string); override;
     destructor Destroy(); override;
     procedure Open(Mode: Word); override;
     function GetProperties(): TDataSourceProperties; override;
@@ -144,16 +176,6 @@ begin
   Result := (inherited) and (ExtractFilePath(Path) <> '');
 end;
 
-function TFileDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
-  const Data): Integer;
-begin
-  FileStream.Position := Addr;
-  //FileStream.WriteBuffer(Data, Size);
-  if FileStream.Write(Data, Size) <> Size then
-    RaiseLastOSError();
-  Result := Size;
-end;
-
 procedure TFileDataSource.CopyContentFrom(Source: THextorDataSource);
 // Called on closed dest
 //var
@@ -184,7 +206,30 @@ begin
   inherited;
 end;
 
-function TFileDataSource.GetData(Addr: TFilePointer; Size: Integer;
+function TFileDataSource.GetProperties: TDataSourceProperties;
+begin
+  Result := [dspWritable, dspResizable];
+end;
+
+function TFileDataSource.GetSize: TFilePointer;
+begin
+  if FileStream <> nil then
+    Result := FileStream.Size
+  else
+    Result := 0;
+end;
+
+function TFileDataSource.InternalChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
+begin
+  FileStream.Position := Addr;
+  //FileStream.WriteBuffer(Data, Size);
+  if FileStream.Write(Data, Size) <> Size then
+    RaiseLastOSError();
+  Result := Size;
+end;
+
+function TFileDataSource.InternalGetData(Addr: TFilePointer; Size: Integer;
   var Data): Integer;
 begin
   if FileStream = nil then
@@ -198,19 +243,6 @@ begin
   Result := Size;
 
 //  EndTimeMeasure('FileRead:', True);
-end;
-
-function TFileDataSource.GetProperties: TDataSourceProperties;
-begin
-  Result := [dspWritable, dspResizable];
-end;
-
-function TFileDataSource.GetSize: TFilePointer;
-begin
-  if FileStream <> nil then
-    Result := FileStream.Size
-  else
-    Result := 0;
 end;
 
 procedure TFileDataSource.Open(Mode: Word);
@@ -236,7 +268,7 @@ end;
 
 { TDiskDataSource }
 
-function TDiskDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
+function TDiskDataSource.InternalChangeData(Addr: TFilePointer; Size: Integer;
   const Data): Integer;
 var
   Ptr1, Ptr2: TFilePointer;
@@ -246,15 +278,21 @@ begin
     Exit(0);
 
   // Drive read/write operations must be aligned by 512 bytes
+  if (Addr mod SectorAlign = 0) and (Size mod SectorAlign = 0) then
+  begin
+    Result := inherited InternalChangeData(Addr, Size, Data);
+    Exit;
+  end;
+
+  // If not aligned - read, partial modify, write
   Ptr1 := (Addr div SectorAlign) * SectorAlign;
   Ptr2 := ((Addr + Size - 1) div SectorAlign + 1) * SectorAlign;
   SetLength(Buf, Ptr2 - Ptr1);
 
   inherited GetData(Ptr1, Ptr2 - Ptr1, Buf[0]);
-//  Move(Buf[Addr - Ptr1], Data[0], Size);
   Move(Data, Buf[Addr - Ptr1], Size);
 
-  inherited ChangeData(Ptr1, Ptr2 - Ptr1, Buf[0]);
+  inherited InternalChangeData(Ptr1, Ptr2 - Ptr1, Buf[0]);
 
   Result := Size;
 end;
@@ -264,7 +302,7 @@ begin
   inherited;
 end;
 
-function TDiskDataSource.GetData(Addr: TFilePointer; Size: Integer;
+function TDiskDataSource.InternalGetData(Addr: TFilePointer; Size: Integer;
   var Data): Integer;
 var
   Ptr1, Ptr2: TFilePointer;
@@ -278,7 +316,7 @@ begin
   Ptr2 := ((Addr + Size - 1) div SectorAlign + 1) * SectorAlign;
   SetLength(Buf, Ptr2 - Ptr1);
 
-  inherited GetData(Ptr1, Ptr2 - Ptr1, Buf[0]);
+  inherited InternalGetData(Ptr1, Ptr2 - Ptr1, Buf[0]);
   Move(Buf[Addr - Ptr1], Data, Size);
 
   Result := Size;
@@ -293,6 +331,11 @@ function TDiskDataSource.GetSize: TFilePointer;
 begin
   if Length(Path) < 2 then Exit(0);
   Result := DiskSize(Ord(Path[Low(Path)]) - Ord('A') + 1);
+  if Result > 0 then
+    CachedDiskSize := Result
+  else
+    // DiskSize() fails if volume is opened for writing
+    Result := CachedDiskSize;
 end;
 
 procedure TDiskDataSource.Open(Mode: Word);
@@ -363,6 +406,108 @@ begin
   end;
   hProcess := OpenProcess(Access, false, ProcID);
   Win32Check(Bool(hProcess));
+end;
+
+{ TDataCache }
+
+function TDataCache.ChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
+begin
+  Flush();
+  Result := DataSource.InternalChangeData(Addr, Size, Data);
+end;
+
+constructor TDataCache.Create(ADataSource: TCachedDataSource);
+begin
+  inherited Create();
+  DataSource := ADataSource;
+end;
+
+destructor TDataCache.Destroy;
+begin
+  Flush();
+  inherited;
+end;
+
+procedure TDataCache.Flush;
+begin
+  Addr := -1;
+  Buffer := nil;
+end;
+
+function TDataCache.GetData(Addr: TFilePointer; Size: Integer;
+  var Data): Integer;
+const
+  ReadAlign = 512;
+  MaxReadAhead = 1*MByte;
+  CachingTime = 1000;  // Milliseconds
+var
+  ReadStart, ReadSize, SuggestedReadSize, SourceSize: TFilePointer;
+//  t: Cardinal;
+begin
+//  WriteLog('Cache', 'Get:  ' + IntToStr(Addr) + ' ' + IntToStr(Size));
+  // Cache missed?
+  if (Self.Addr < 0) or (GetTickCount() - ReadTime > CachingTime) or
+     (Addr < Self.Addr) or (Addr + Size > Self.Addr + Length(Buffer)) then
+  begin
+    // Align read range
+    ReadStart := (Addr div ReadAlign) * ReadAlign;
+    ReadSize := NextAlignBoundary(Addr + Size, ReadAlign) - ReadStart;
+    // If reading sequential blocks, increase read size with each read
+    if (ReadStart <= Self.Addr + Length(Buffer)) and (ReadStart + ReadSize > Self.Addr + Length(Buffer)) then
+    begin
+      SuggestedReadSize := Min(NextAlignBoundary(Length(Buffer) * 2, ReadAlign), MaxReadAhead);
+      if ReadSize < SuggestedReadSize  then
+        ReadSize := SuggestedReadSize;
+    end;
+    SourceSize := DataSource.GetSize();
+    if ReadStart + ReadSize > SourceSize then
+      ReadSize := SourceSize - ReadStart;
+    // Read from source
+    SetLength(Buffer, ReadSize);
+//    t := GetTickCount();
+    DataSource.InternalGetData(ReadStart, ReadSize, Buffer[0]);
+//    t := GetTickCount() - t;
+    Self.Addr := ReadStart;
+    ReadTime := GetTickCount();
+//    WriteLogFmt('Cache', 'Read: %d %d (%d ms)', [ReadStart, ReadSize, t]);
+  end;
+
+  // Return data from cache
+  Move(Buffer[Addr - Self.Addr], Data, Size);
+  Result := Size;
+end;
+
+{ TCachedDataSource }
+
+function TCachedDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
+begin
+  Result := Cache.ChangeData(Addr, Size, Data);
+end;
+
+constructor TCachedDataSource.Create(const APath: string);
+begin
+  inherited;
+  Cache := TDataCache.Create(Self);
+end;
+
+destructor TCachedDataSource.Destroy;
+begin
+  Cache.Free;
+  inherited;
+end;
+
+function TCachedDataSource.GetData(Addr: TFilePointer; Size: Integer;
+  var Data): Integer;
+begin
+  Result := Cache.GetData(Addr, Size, Data);
+end;
+
+procedure TCachedDataSource.Open(Mode: Word);
+begin
+  Cache.Flush();
+  inherited;
 end;
 
 end.

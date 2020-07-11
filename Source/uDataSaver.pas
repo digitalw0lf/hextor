@@ -16,6 +16,7 @@ uses
   uHextorTypes, uEditedData, uHextorDataSources;
 
 type
+  // Used to save TEditedData to TDataSource
   TDataSaver = class
   public
     class function ChooseSaveMethod(Data: TEditedData;

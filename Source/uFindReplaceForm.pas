@@ -317,6 +317,7 @@ var
   ResultBoundToEditor: TEditorForm;
   InFilesCount: Integer;
   s: string;
+  t: Cardinal;
 begin
   ResultsFrame := nil;
   // Collect search parameters from input controls
@@ -346,6 +347,7 @@ begin
 
   Progress.TaskStart(Self);
   try
+    t := GetTickCount();
 
     case FindWhere.AType of
       fwCurrentFile:  // Search in current editor
@@ -361,6 +363,9 @@ begin
           FindInDirectories(Action, ResultsFrame, Result, InFilesCount);
         end;
     end;
+
+    t := GetTickCount() - t;
+    WriteLog('Search: ' + IntToStr(Result) + ' items, ' + IntToStr(t) + ' ms');
 
   finally
     if Action in [saList, saReplace] then
