@@ -152,7 +152,7 @@ type
     property Data: TEditedData read FData write FData;
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
-    procedure OpenNewEmptyFile;
+    procedure OpenNewEmptyFile(const FileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveAs(DataSourceType: THextorDataSourceType; APath: string);
     [API]
@@ -1656,9 +1656,9 @@ begin
   Result := GetVisibleRowsCount() * ByteColumns;
 end;
 
-procedure TEditorForm.OpenNewEmptyFile;
+procedure TEditorForm.OpenNewEmptyFile(const FileName: string);
 begin
-  DataSource := TFileDataSource.Create('New file');
+  DataSource := TFileDataSource.Create(FileName);
 
   NewFileOpened(True);
 end;

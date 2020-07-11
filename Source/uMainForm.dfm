@@ -744,6 +744,9 @@ object MainForm: TMainForm
           Action = ActionCopyAsArray
           Caption = 'Array (delimited text)'
         end
+        object Base641: TMenuItem
+          Action = ActionCopyAsBase64
+        end
       end
       object MIPaste: TMenuItem
         Action = ActionPaste
@@ -941,6 +944,12 @@ object MainForm: TMainForm
       SecondaryShortCuts.Strings = (
         'Ctrl+Ins')
       ShortCut = 16451
+      OnExecute = ActionCopyExecute
+    end
+    object ActionCopyAsBase64: TAction
+      Category = 'Edit'
+      Caption = 'Base64'
+      Hint = 'Copy data as Base64'
       OnExecute = ActionCopyExecute
     end
     object ActionCopyAsArray: TAction
@@ -1164,7 +1173,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010118004001980310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010118004001A00310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

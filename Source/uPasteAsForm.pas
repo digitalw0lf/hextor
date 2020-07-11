@@ -13,7 +13,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Clipbrd,
-  Vcl.ExtCtrls, System.Math,
+  Vcl.ExtCtrls, System.Math, System.NetEncoding,
 
   uHextorTypes, uValueInterpretors;
 
@@ -38,6 +38,7 @@ type
     LblOutputPreview: TLabel;
     Label4: TLabel;
     CBElemType: TComboBox;
+    RBBase64: TRadioButton;
     procedure BtnOkClick(Sender: TObject);
     procedure RBTextClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -178,6 +179,12 @@ begin
   if RBHex.Checked then
   begin
     Result := Hex2Data(Text);
+  end
+  else
+
+  if RBBase64.Checked then
+  begin
+    Result := TNetEncoding.Base64.DecodeStringToBytes(Text);
   end
   else
 

@@ -3,7 +3,7 @@ object PasteAsForm: TPasteAsForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Paste as...'
-  ClientHeight = 257
+  ClientHeight = 305
   ClientWidth = 385
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -18,41 +18,41 @@ object PasteAsForm: TPasteAsForm
   TextHeight = 13
   object Label4: TLabel
     Left = 161
-    Top = 66
+    Top = 90
     Width = 47
     Height = 13
     Caption = 'Elements:'
   end
   object RBValueArray: TRadioButton
     Left = 18
-    Top = 64
+    Top = 88
     Width = 141
     Height = 17
     Caption = 'Array (delimited text)'
     Checked = True
-    TabOrder = 0
+    TabOrder = 3
     TabStop = True
     OnClick = RBTextClick
   end
   object BtnOk: TButton
     Left = 108
-    Top = 216
+    Top = 240
     Width = 75
     Height = 25
     Caption = 'Paste'
     Default = True
-    TabOrder = 1
+    TabOrder = 6
     OnClick = BtnOkClick
   end
   object BtnCancel: TButton
     Left = 212
-    Top = 216
+    Top = 240
     Width = 75
     Height = 25
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 2
+    TabOrder = 7
   end
   object RBText: TRadioButton
     Left = 18
@@ -60,25 +60,25 @@ object PasteAsForm: TPasteAsForm
     Width = 141
     Height = 17
     Caption = 'Text'
-    TabOrder = 3
+    TabOrder = 0
     OnClick = RBTextClick
   end
   object RBHex: TRadioButton
     Left = 18
-    Top = 41
+    Top = 40
     Width = 141
     Height = 17
     Caption = 'Hex'
-    TabOrder = 4
+    TabOrder = 1
     OnClick = RBTextClick
   end
   object Panel1: TPanel
     Left = 32
-    Top = 87
+    Top = 111
     Width = 329
     Height = 41
     BevelOuter = bvNone
-    TabOrder = 5
+    TabOrder = 8
     Visible = False
     object Label1: TLabel
       Left = 0
@@ -137,11 +137,11 @@ object PasteAsForm: TPasteAsForm
   end
   object GroupBox1: TGroupBox
     Left = 8
-    Top = 112
+    Top = 136
     Width = 369
     Height = 81
     Caption = 'Preview'
-    TabOrder = 6
+    TabOrder = 5
     object Label2: TLabel
       Left = 16
       Top = 24
@@ -173,11 +173,20 @@ object PasteAsForm: TPasteAsForm
   end
   object CBElemType: TComboBox
     Left = 214
-    Top = 62
+    Top = 86
     Width = 89
     Height = 21
     Style = csDropDownList
-    TabOrder = 7
+    TabOrder = 4
     OnChange = RBTextClick
+  end
+  object RBBase64: TRadioButton
+    Left = 18
+    Top = 64
+    Width = 141
+    Height = 17
+    Caption = 'Base64'
+    TabOrder = 2
+    OnClick = RBTextClick
   end
 end

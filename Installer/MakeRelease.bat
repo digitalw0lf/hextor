@@ -15,6 +15,5 @@ copy .\Output\HextorSetup.exe ..\..\Hextor-pages\download\
 
 @goto END
 @:ERROR
-@pause
 @:END
-
+@pause

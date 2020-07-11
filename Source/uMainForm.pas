@@ -25,7 +25,7 @@ uses
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
   System.StrUtils, MSScriptControl_TLB, System.IOUtils, Vcl.HtmlHelpViewer,
-  Vcl.StdActns,
+  Vcl.StdActns, System.NetEncoding,
 
   uEditorPane, {uLogFile,} superobject, uModuleSettings,
   uHextorTypes, uHextorDataSources, uEditorForm,
@@ -229,6 +229,8 @@ type
     N3: TMenuItem;
     ActionSettings: TAction;
     Settings1: TMenuItem;
+    ActionCopyAsBase64: TAction;
+    Base641: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -335,6 +337,7 @@ type
     procedure VariantToValueProc(const AIn: Variant; var AOut: TValue; var Handled: Boolean);
     procedure BeginAddEditors();
     procedure EndAddEditors();
+    function GetNameForNewFile(): string;
   public
     { Public declarations }
     Settings: TMainFormSettings;
@@ -470,6 +473,7 @@ begin
 end;
 
 procedure TMainForm.ActionCopyExecute(Sender: TObject);
+// Handler for ActionCopy, ActionCut, ActionCopyAsBase64
 var
   Buf: TBytes;
   s: string;
@@ -479,6 +483,11 @@ begin
     if SelLength > 100*MByte then
       if Application.MessageBox(PChar('Try to copy '+IntToStr(SelLength div MByte)+' megabytes to system clipboard?'), PChar('Copy'), MB_YESNO) <> IDYES then Exit;
     Buf := GetEditedData(SelStart, SelLength);
+    if Sender = ActionCopyAsBase64 then
+    begin
+      s := TNetEncoding.Base64.EncodeBytesToString(Buf);
+    end
+    else
     if ActiveControl=PaneHex then
       s := Data2Hex(Buf, True)
     else
@@ -493,7 +502,8 @@ end;
 procedure TMainForm.ActionDebugModeExecute(Sender: TObject);
 begin
   // Show Debug menu
-  MIDebug.Visible := not MIDebug.Visible;
+  bDebugMode := not bDebugMode;
+  MIDebug.Visible := bDebugMode;
 end;
 
 procedure TMainForm.ActionExitExecute(Sender: TObject);
@@ -1089,7 +1099,7 @@ end;
 function TMainForm.CreateFile: TEditorForm;
 begin
   Result := CreateNewEditor();
-  Result.OpenNewEmptyFile();
+  Result.OpenNewEmptyFile(GetNameForNewFile());
 end;
 
 procedure TMainForm.CreateTestFile1Click(Sender: TObject);
@@ -1325,6 +1335,35 @@ begin
   if DSType = TDiskDataSource then  Result := 4
   else if DSType = TProcMemDataSource then  Result := 5
   else Result := 7;
+end;
+
+function TMainForm.GetNameForNewFile: string;
+// Get file name like "New file 2" that is not used by any open editor
+const
+  Base = 'New file';
+var
+  i, n: Integer;
+  Ok: Boolean;
+begin
+  Result := Base;
+  n := 0;
+  repeat
+    Ok := True;
+    for i:=0 to EditorCount-1 do
+    with Editors[i] do
+      if (DataSource <> nil) and (DataSource.Path = Result) then
+      begin
+        Ok := False;
+        Break;
+      end;
+    if Ok then
+      Exit
+    else
+    begin
+      Inc(n);
+      Result := Base + ' ' + IntToStr(n);
+    end;
+  until False;
 end;
 
 type
