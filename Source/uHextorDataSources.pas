@@ -103,6 +103,8 @@ type
 
   TProcMemDataSource = class (THextorDataSource)
   protected
+    const PageSize = 4096;
+  protected
     hProcess: Cardinal;
   public
     constructor Create(const APath: string); override;
@@ -376,11 +378,21 @@ function TProcMemDataSource.GetData(Addr: TFilePointer; Size: Integer;
   var Data): Integer;
 var
   Res: Boolean;
+  PtrStart, PtrEnd: TFilePointer;
+  Dest: Pointer;
 begin
-  // TODO: read by pages, because partially available range fails
-  Res := Bool( ReadProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) );
-  if not Res then
-    ZeroMemory(@Data, Size);
+  // Read by pages, because partially available range fails
+  PtrStart := Addr;
+  PtrEnd := Addr;
+  while PtrEnd < Addr + Size do
+  begin
+    PtrEnd := Min(NextAlignBoundary(PtrStart + 1, PageSize), Addr + Size);
+    Dest := @(PByteArray(@Data)[PtrStart - Addr]);
+    Res := Bool( ReadProcessMemory(hProcess, Pointer(PtrStart), Dest, PtrEnd - PtrStart, NativeUInt(nil^)) );
+    if not Res then
+      ZeroMemory(Dest, PtrEnd - PtrStart);
+    PtrStart := PtrEnd;
+  end;
   Result := Size;
 end;
 
