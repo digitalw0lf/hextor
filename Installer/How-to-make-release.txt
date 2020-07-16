@@ -1,0 +1,5 @@
+Add git tag (like v0.1-alpha), push
+..\..\HextorWiki\build_html.bat 
+MakeRelease.bat
+Create release on GitHub
+Commit Hextor-pages

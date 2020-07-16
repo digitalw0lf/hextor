@@ -2,8 +2,8 @@ object DiskSelectForm: TDiskSelectForm
   Left = 0
   Top = 0
   Caption = 'Select Disk'
-  ClientHeight = 273
-  ClientWidth = 273
+  ClientHeight = 329
+  ClientWidth = 569
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -11,65 +11,108 @@ object DiskSelectForm: TDiskSelectForm
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  Position = poMainFormCenter
   OnShow = FormShow
   DesignSize = (
-    273
-    273)
+    569
+    329)
   PixelsPerInch = 96
   TextHeight = 13
-  object ListView1: TListView
-    Left = 8
-    Top = 8
-    Width = 257
-    Height = 217
-    Anchors = [akLeft, akTop, akRight, akBottom]
-    Columns = <
-      item
-        Caption = 'Drive'
-      end
-      item
-        Caption = 'Label'
-        Width = 90
-      end
-      item
-        Caption = 'Size'
-        Width = 60
-      end>
-    ReadOnly = True
-    RowSelect = True
-    SmallImages = ImageList1
-    TabOrder = 0
-    ViewStyle = vsReport
-    OnChange = ListView1Change
-    OnDblClick = ListView1DblClick
-  end
   object BtnOpen: TButton
-    Left = 48
-    Top = 240
+    Left = 376
+    Top = 288
     Width = 75
     Height = 25
-    Anchors = [akLeft, akBottom]
+    Anchors = [akRight, akBottom]
     Caption = 'Open'
     Default = True
     ModalResult = 1
-    TabOrder = 1
+    TabOrder = 0
+    ExplicitLeft = 320
   end
   object BtnCancel: TButton
-    Left = 152
-    Top = 240
+    Left = 480
+    Top = 288
     Width = 75
     Height = 25
-    Anchors = [akLeft, akBottom]
+    Anchors = [akRight, akBottom]
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
+    TabOrder = 1
+    ExplicitLeft = 424
+  end
+  object DiskListView: TListView
+    Left = 8
+    Top = 8
+    Width = 553
+    Height = 268
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    Columns = <
+      item
+        Caption = 'Disk'
+        Width = 180
+      end
+      item
+        Caption = 'Size'
+        Width = 80
+      end
+      item
+        Caption = 'Internal name'
+        Width = 150
+      end
+      item
+        Caption = 'Phisical disk(s)'
+        Width = 90
+      end>
+    DoubleBuffered = True
+    Groups = <
+      item
+        Header = 'Logical volumes'
+        GroupID = 0
+        State = [lgsNormal]
+        HeaderAlign = taLeftJustify
+        FooterAlign = taLeftJustify
+        TitleImage = -1
+      end
+      item
+        Header = 'Physical disks'
+        GroupID = 1
+        State = [lgsNormal]
+        HeaderAlign = taLeftJustify
+        FooterAlign = taLeftJustify
+        TitleImage = -1
+      end>
+    Items.ItemData = {
+      05540000000200000000000000FFFFFFFFFFFFFFFF0000000000000000000000
+      000241003A0000000000FFFFFFFFFFFFFFFF0000000001000000000000000E50
+      006800690073006900630061006C00440072006900760065003000}
+    GroupView = True
+    ReadOnly = True
+    RowSelect = True
+    ParentDoubleBuffered = False
+    SmallImages = ImageList1
     TabOrder = 2
+    ViewStyle = vsReport
+    OnChange = DiskListViewChange
+    OnDblClick = DiskListViewDblClick
+  end
+  object BusyPanel: TPanel
+    Left = 172
+    Top = 112
+    Width = 225
+    Height = 41
+    Anchors = []
+    Caption = 'Reading disk information...'
+    TabOrder = 3
+    Visible = False
+    ExplicitLeft = 144
   end
   object ImageList1: TImageList
     Left = 72
-    Top = 120
+    Top = 192
     Bitmap = {
-      494C010107000900180010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010107000900300010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000002000000001002000000000000020
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -339,5 +382,12 @@ object DiskSelectForm: TDiskSelectForm
       00010001E0030001E00FE00FE003E00FFFFFFFFFE003FFFFFFFFFFFFE003FFFF
       FFFFFFFFE003FFFFFFFFFFFFF007FFFF00000000000000000000000000000000
       000000000000}
+  end
+  object RefreshTimer: TTimer
+    Enabled = False
+    Interval = 1
+    OnTimer = RefreshTimerTimer
+    Left = 152
+    Top = 192
   end
 end

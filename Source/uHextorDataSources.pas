@@ -40,9 +40,11 @@ type
 
   THextorDataSource = class
   private
-    FPath: string;
+    FPath, FDisplayName: string;
+    function GetDisplayName: string; virtual;
   public
     property Path: string read FPath;
+    property DisplayName: string read GetDisplayName;
 
     constructor Create(const APath: string); virtual;
     destructor Destroy(); override;
@@ -90,8 +92,6 @@ type
   TDiskDataSource = class (TFileDataSource)
   protected
     const SectorAlign = 512;
-  protected
-    CachedDiskSize: TFilePointer;
   public
     constructor Create(const APath: string); override;
     procedure Open(Mode: Word); override;
@@ -99,6 +99,7 @@ type
     function GetSize(): TFilePointer; override;
     function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
     function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
+    class function DiskDisplayName(const PathName, VolumeLabel: string): string;
   end;
 
   TProcMemDataSource = class (THextorDataSource)
@@ -158,6 +159,14 @@ destructor THextorDataSource.Destroy;
 begin
 
   inherited;
+end;
+
+function THextorDataSource.GetDisplayName: string;
+begin
+  if FDisplayName <> '' then
+    Result := FDisplayName
+  else
+    Result := FPath;
 end;
 
 function THextorDataSource.GetProperties: TDataSourceProperties;
@@ -300,8 +309,26 @@ begin
 end;
 
 constructor TDiskDataSource.Create(const APath: string);
+var
+  Buf: array[0..1023] of Char;
+  Len, m, f: Cardinal;
+  PathName, VolumeLabel: string;
 begin
   inherited;
+  if APath.StartsWith('\\?\Volume') then
+  begin
+    // Drive letter (we use first item from PathNames)
+    if GetVolumePathNamesForVolumeName(PChar(IncludeTrailingPathDelimiter(APath)), @Buf, Length(Buf), Len) then
+      PathName := ExcludeTrailingPathDelimiter(PChar(@Buf))
+    else
+      PathName := '';
+    // Volume label
+    if GetVolumeInformation(PChar(IncludeTrailingPathDelimiter(APath)), @Buf, Length(Buf), nil, m, f, nil, 0) then
+      VolumeLabel := PChar(@Buf)
+    else
+      VolumeLabel := '';
+    FDisplayName := DiskDisplayName(PathName, VolumeLabel);
+  end;
 end;
 
 function TDiskDataSource.InternalGetData(Addr: TFilePointer; Size: Integer;
@@ -324,25 +351,38 @@ begin
   Result := Size;
 end;
 
+class function TDiskDataSource.DiskDisplayName(const PathName,
+  VolumeLabel: string): string;
+// Combine drive letter and label like "Windows (C:)"
+begin
+  if VolumeLabel = '' then
+    Result := PathName
+  else
+  begin
+    Result := VolumeLabel;
+    if PathName <> '' then
+      Result := Result + ' (' + PathName + ')';
+  end;
+end;
+
 function TDiskDataSource.GetProperties: TDataSourceProperties;
 begin
   Result := [dspWritable];
 end;
 
 function TDiskDataSource.GetSize: TFilePointer;
+var
+  Ret: Cardinal;
 begin
-  if Length(Path) < 2 then Exit(0);
-  Result := DiskSize(Ord(Path[Low(Path)]) - Ord('A') + 1);
-  if Result > 0 then
-    CachedDiskSize := Result
-  else
-    // DiskSize() fails if volume is opened for writing
-    Result := CachedDiskSize;
+  if not DeviceIoControl(FileStream.Handle, IOCTL_DISK_GET_LENGTH_INFO,
+                         nil, 0, @Result, SizeOf(Result), Ret, nil) then
+    Result := 0;
 end;
 
 procedure TDiskDataSource.Open(Mode: Word);
+var
+  Ret: Cardinal;
 begin
-  if Length(Path) <> 2 then Exit;
   FreeAndNil(FileStream);
   if Mode = fmCreate then
     Mode := fmOpenReadWrite;
@@ -350,7 +390,11 @@ begin
     Mode := Mode or fmShareDenyNone
   else
     Mode := Mode or fmShareExclusive;
-  FileStream := TFileStream.Create('\\.\'+Path, Mode);
+  FileStream := TFileStream.Create(Path, Mode);
+
+  // Allow access to last sectors of volume
+  DeviceIoControl(FileStream.Handle, FSCTL_ALLOW_EXTENDED_DASD_IO,
+                  nil, 0, nil, 0, Ret, nil);
 end;
 
 { TProcMemDataSource }

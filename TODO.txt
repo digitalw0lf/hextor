@@ -1,0 +1,32 @@
+Regions
+  Bookmarks (w)
+  Pattern coloring
+  Graphical file map bar
+  Changed regions list
+  Process memory regions list
+
+Search
+  RegEx/masks/values search
+
+Work with buffers
+  Save without temp file
+  Backups when saving
+  Phisical drive edit (w)
+  Refresh extarnally changed file
+  TCP/UDP/COM data source
+
+Tools
+  Unicode (w)
+  Copy/paste base64, URLencode
+  https://github.com/Xor-el/HashLib4Pascal
+  Text mode (w)
+
+Visuals
+  Windows caret
+
+DataStruct
+  typedef
+  #define
+  #include
+  #color
+  #hint

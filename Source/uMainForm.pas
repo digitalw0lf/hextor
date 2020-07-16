@@ -1779,7 +1779,9 @@ begin
   for i:=0 to EditorCount-1 do
   begin
 //    s := MinimizeName(Editors[i].Caption, MDITabs.Canvas, MAX_TAB_WIDTH);
-    s := ExtractFileName(Editors[i].Caption);
+    s := Editors[i].Caption;
+    if s.Contains(PathDelim) then
+      s := ExtractFileName(s);
     if s = '' then s := Editors[i].Caption;
     st.Add(s);
     if Editors[i] = ActiveMDIChild then

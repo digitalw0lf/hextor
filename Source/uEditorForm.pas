@@ -1338,8 +1338,8 @@ var
   s: string;
 begin
   s := '';
-  if DataSource.Path <> '' then
-    s := s + DataSource.Path
+  if DataSource.DisplayName <> '' then
+    s := s + DataSource.DisplayName
   else
     s := s + '(unnamed)';
   if HasUnsavedChanges then
