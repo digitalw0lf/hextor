@@ -18,7 +18,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
   System.UITypes, System.IOUtils, System.Types, Vcl.Buttons, System.StrUtils,
-  System.Masks,
+  System.Masks, Winapi.ShellAPI,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
   uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver,
@@ -91,6 +91,7 @@ type
     procedure FindInOpenFiles(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     procedure FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
+    procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
   public
     { Public declarations }
     Searcher: TDataSearcher;
@@ -111,6 +112,7 @@ function SplitPathList(const Text: string): TArray<string>;
 // Split ';'-separated and '"'-quoted list of paths to string array
 var
   sl: TStringList;
+  i, j: Integer;
 begin
   sl := TStringList.Create();
   try
@@ -119,6 +121,23 @@ begin
     sl.QuoteChar := '"';
     sl.DelimitedText := Text;
     Result := sl.ToStringArray();
+    // Trim spaces
+    for i:=Length(Result)-1 downto 0 do
+    begin
+      Result[i] := Trim(Result[i]);
+      if Result[i] = '' then
+        Delete(Result, i, 1);
+    end;
+    // Remove duplicates
+    for i:=Length(Result)-1 downto 1 do
+    begin
+      for j:=i-1 downto 0 do
+        if SameFileName(Result[j], Result[i]) then
+        begin
+          Delete(Result, i, 1);
+          Break;
+        end;
+    end;
   finally
     sl.Free;
   end;
@@ -530,6 +549,9 @@ begin
   CPReplace.Collapsed := True;
   CPFindInFiles.Collapsed := True;
   AutosizeForm();
+
+  // We will catch drag'n'dropped directories and add them to "Search in:" edit field
+  DragAcceptFiles(Handle, True);
 end;
 
 procedure TFindReplaceForm.FormDestroy(Sender: TObject);
@@ -694,6 +716,32 @@ procedure TFindReplaceForm.Timer1Timer(Sender: TObject);
 begin
   if not Visible then Exit;
   CheckEnabledControls();
+end;
+
+procedure TFindReplaceForm.WMDropFiles(var Msg: TWMDropFiles);
+// Add drag'n'dropped directories to "Search in:" edit field
+var
+  i:Integer;
+  Catcher: TDropFileCatcher;
+  s:string;
+begin
+  inherited;
+  Catcher := TDropFileCatcher.Create(Msg.Drop);
+  try
+    for I := 0 to Catcher.FileCount-1 do
+    begin
+      s:=Catcher.Files[i];
+      if DirectoryExists(s) then
+      begin
+        if EditInDirectories.Text <> '' then
+          EditInDirectories.Text := EditInDirectories.Text + ';';
+        EditInDirectories.Text := EditInDirectories.Text + s;
+      end;
+    end;
+  finally
+    Catcher.Free;
+  end;
+  Msg.Result := 0;
 end;
 
 end.
