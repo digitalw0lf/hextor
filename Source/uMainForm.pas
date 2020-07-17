@@ -231,6 +231,8 @@ type
     Settings1: TMenuItem;
     ActionCopyAsBase64: TAction;
     Base641: TMenuItem;
+    ActionCopyAsURLEncode: TAction;
+    URLEncode1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -486,6 +488,11 @@ begin
     if Sender = ActionCopyAsBase64 then
     begin
       s := TNetEncoding.Base64.EncodeBytesToString(Buf);
+    end
+    else
+    if Sender = ActionCopyAsURLEncode then
+    begin
+      s := TNetEncoding.URL.Encode(Data2String(Buf), [], []);
     end
     else
     if ActiveControl=PaneHex then

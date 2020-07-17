@@ -112,7 +112,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -309,13 +309,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblStructName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
           inherited SavedDescrsMenu: TPopupMenu
             Images = nil
@@ -591,8 +584,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 259
-        Height = 17
+        Width = 389
+        Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -756,6 +749,9 @@ object MainForm: TMainForm
         end
         object Base641: TMenuItem
           Action = ActionCopyAsBase64
+        end
+        object URLEncode1: TMenuItem
+          Action = ActionCopyAsURLEncode
         end
       end
       object MIPaste: TMenuItem
@@ -960,6 +956,12 @@ object MainForm: TMainForm
       Category = 'Edit'
       Caption = 'Base64'
       Hint = 'Copy data as Base64'
+      OnExecute = ActionCopyExecute
+    end
+    object ActionCopyAsURLEncode: TAction
+      Category = 'Edit'
+      Caption = 'URLEncode'
+      Hint = 'Copy data as URL encode'
       OnExecute = ActionCopyExecute
     end
     object ActionCopyAsArray: TAction
@@ -1183,7 +1185,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C010118004001A40310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010118004001AC0310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

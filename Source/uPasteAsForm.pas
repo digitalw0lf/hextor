@@ -39,6 +39,7 @@ type
     Label4: TLabel;
     CBElemType: TComboBox;
     RBBase64: TRadioButton;
+    RBURLEncode: TRadioButton;
     procedure BtnOkClick(Sender: TObject);
     procedure RBTextClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -75,7 +76,9 @@ begin
   for i:=0 to DataSize-1 do
   begin
     if Data[i] >= Ord(AnsiChar(' ')) then
-      Result := Result + Char(AnsiChar(Data[i]))
+    begin
+      Result := Result + string(AnsiChar(Data[i]));
+    end
     else
       Result := Result + '\x' + IntToHex(Data[i],2);
     if (Length(Result) >= MaxLen) and (i < DataSize-1) then
@@ -185,6 +188,12 @@ begin
   if RBBase64.Checked then
   begin
     Result := TNetEncoding.Base64.DecodeStringToBytes(Text);
+  end
+  else
+
+  if RBURLEncode.Checked then
+  begin
+    Result := String2Data(TNetEncoding.URL.Decode(Text, []));
   end
   else
 

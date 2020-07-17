@@ -3,7 +3,7 @@ object PasteAsForm: TPasteAsForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Paste as...'
-  ClientHeight = 305
+  ClientHeight = 300
   ClientWidth = 385
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -18,14 +18,14 @@ object PasteAsForm: TPasteAsForm
   TextHeight = 13
   object Label4: TLabel
     Left = 161
-    Top = 90
+    Top = 114
     Width = 47
     Height = 13
     Caption = 'Elements:'
   end
   object RBValueArray: TRadioButton
     Left = 18
-    Top = 88
+    Top = 112
     Width = 141
     Height = 17
     Caption = 'Array (delimited text)'
@@ -36,7 +36,7 @@ object PasteAsForm: TPasteAsForm
   end
   object BtnOk: TButton
     Left = 108
-    Top = 240
+    Top = 256
     Width = 75
     Height = 25
     Caption = 'Paste'
@@ -46,7 +46,7 @@ object PasteAsForm: TPasteAsForm
   end
   object BtnCancel: TButton
     Left = 212
-    Top = 240
+    Top = 256
     Width = 75
     Height = 25
     Cancel = True
@@ -73,8 +73,8 @@ object PasteAsForm: TPasteAsForm
     OnClick = RBTextClick
   end
   object Panel1: TPanel
-    Left = 32
-    Top = 111
+    Left = 320
+    Top = 8
     Width = 329
     Height = 41
     BevelOuter = bvNone
@@ -137,7 +137,7 @@ object PasteAsForm: TPasteAsForm
   end
   object GroupBox1: TGroupBox
     Left = 8
-    Top = 136
+    Top = 152
     Width = 369
     Height = 81
     Caption = 'Preview'
@@ -173,7 +173,7 @@ object PasteAsForm: TPasteAsForm
   end
   object CBElemType: TComboBox
     Left = 214
-    Top = 86
+    Top = 110
     Width = 89
     Height = 21
     Style = csDropDownList
@@ -187,6 +187,15 @@ object PasteAsForm: TPasteAsForm
     Height = 17
     Caption = 'Base64'
     TabOrder = 2
+    OnClick = RBTextClick
+  end
+  object RBURLEncode: TRadioButton
+    Left = 18
+    Top = 88
+    Width = 141
+    Height = 17
+    Caption = 'URLEncode'
+    TabOrder = 9
     OnClick = RBTextClick
   end
 end
