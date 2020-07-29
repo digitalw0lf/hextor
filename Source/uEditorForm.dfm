@@ -118,6 +118,8 @@ object EditorForm: TEditorForm
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneHexKeyPress
     OnMouseWheel = PaneHexMouseWheel
+    OnBeforeDraw = PaneHexBeforeDraw
+    OnAfterDraw = PaneHexAfterDraw
   end
   object PaneAddr: TEditorPane
     Left = 0
@@ -139,6 +141,8 @@ object EditorForm: TEditorForm
     ShowCaret = False
     HorzScrollPos = 0
     OnMouseWheel = PaneHexMouseWheel
+    OnBeforeDraw = PaneHexBeforeDraw
+    OnAfterDraw = PaneHexAfterDraw
   end
   object PaneText: TEditorPane
     Left = 774
@@ -168,6 +172,8 @@ object EditorForm: TEditorForm
     OnKeyDown = PaneHexKeyDown
     OnKeyPress = PaneTextKeyPress
     OnMouseWheel = PaneHexMouseWheel
+    OnBeforeDraw = PaneHexBeforeDraw
+    OnAfterDraw = PaneHexAfterDraw
     DesignSize = (
       258
       627)
@@ -286,7 +292,7 @@ object EditorForm: TEditorForm
     Left = 878
     Top = 304
     Bitmap = {
-      494C010102000800E40033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010102000800140133001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000CC0000001A0000000100200000000000E052
       000000000000000000000000000000000000B9B9B90082828200858585008585
       8500858585008585850085858500858585008585850085858500858585008585

@@ -139,7 +139,7 @@ var
 //  ctx: array of THashContext;
 begin
   // Label above result list
-  s := ExtractFileName(FEditor.DataSource.Path);
+  s := ExtractFileName(FEditor.DataSource.DisplayName);
   if (Range.Start <> 0) or (Range.AEnd <> FEditor.Data.GetSize()) then
     s := s + ' (Range ' + IntToStr(Range.Start) + '..' + IntToStr(Range.AEnd-1) + ')';
   StaticText1.Caption := s;

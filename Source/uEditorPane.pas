@@ -17,6 +17,15 @@ uses
   uHextorTypes {, uLogFile};
 
 type
+  TEditorPane = class;
+
+  TEditorPaneDrawEvent = procedure(Sender: TEditorPane; Canvas: TCanvas) of Object;
+
+  // TEditorPane knows only text (TStringList) that is displayed now.
+  // It does not knows absolute addresses of displayed chars in file,
+  // and even how many chars corresponds to every byte of original data.
+  // But it manages horizontal scroll.
+
   TEditorPane = class(TPanel)
   public type
     // Tags, Selected range, Diff range etc. displayed in editor panes
@@ -31,6 +40,8 @@ type
     FCaretPos: TPoint;
     FShowCaret: Boolean;
     FHorzScrollPos: Integer;
+    FOnAfterDraw: TEditorPaneDrawEvent;
+    FOnBeforeDraw: TEditorPaneDrawEvent;
     function GetText: string;
     procedure SetText(const Value: string);
     procedure SetCaretPos(const Value: TPoint);
@@ -62,7 +73,6 @@ type
     procedure CalcTextLength();
     procedure CalcCharAttributes();
     procedure OnLinesChange(Sender: TObject);
-    function GetCharRect(Pos: TPoint): TRect;
   public
     { Public declarations }
     CharSize: TSize;
@@ -72,6 +82,7 @@ type
     function CharHeight(): Integer;
     function CharWidth(): Integer;
     function GetCharAt(x, y: Integer; var Pos: TPoint; var Index: Integer): Boolean;
+    function GetCharRect(Pos: TPoint): TRect;
     procedure SetSelection(AStart, ALength: Integer);
     procedure SetVisRegions(const ARegions: TVisualTextRegionArray);
     procedure BeginUpdate();
@@ -89,6 +100,8 @@ type
     property OnMouseWheel;
     property OnMouseWheelUp;
     property OnMouseWheelDown;
+    property OnBeforeDraw: TEditorPaneDrawEvent read FOnBeforeDraw write FOnBeforeDraw;
+    property OnAfterDraw: TEditorPaneDrawEvent read FOnAfterDraw write FOnAfterDraw;
   end;
 
 procedure Register;
@@ -187,6 +200,7 @@ const
   UndefAttr: TCharAttributes = (TxColor: clNone; BgColor: clNone);
 var
   i, j, j1, CharIndex, FirstCharInLine: Integer;
+  VisibleRange: TFileRange;
   CurAttr, PrevAttr: TCharAttributes;
   FirstVis, LastVis: Integer;  // First and last visible chars of line, 0-based
   R: TRect;
@@ -196,17 +210,25 @@ var
 
   procedure DrawRegionOutline(const Region: TVisualTextRegion);
   // Draw contour around tagged range of text
-  // TODO: Draw zero-length regions to support zero-length bookmarks?
   var
-    n1, n2: Integer;        // Char index
+    n1, n2: Integer;   // Char index
     p1, p2: TPoint;    // Char row and column
     r1, r2, r3, r4: TRect;  // Char rectangles
+    ZeroLen: Boolean;
   begin
     if Length(CharPos) = 0 then Exit;
 
     // Coordinates of first and last char of region
     n1 := Max(Region.Range.Start, 0);
     n2 := Min(Region.Range.AEnd-1, High(CharPos));
+    if (n2 = n1 - 1) then
+    // Special handling of zero-length regions
+    begin
+      ZeroLen := True;
+      n2 := n1;
+    end
+    else
+      ZeroLen := False;
     if (n2 < n1) or (n1 < Low(CharPos)) or (n2 > High(CharPos)) then Exit;
     p1 := CharPos[n1];
     p2 := CharPos[n2];
@@ -223,6 +245,19 @@ var
     ScrBmp.Canvas.Pen.Width := Region.FrameWidth;
     ScrBmp.Canvas.Brush.Style := bsClear;
 
+    if ZeroLen then
+    // Small corner to indicate zero-length region
+    begin
+      if Region.BgColor <> clNone then
+      begin
+        ScrBmp.Canvas.Brush.Style := bsSolid;
+        ScrBmp.Canvas.Brush.Color := Region.BgColor;
+      end;
+      ScrBmp.Canvas.Polygon([Point(r1.Left - 1, r1.Top),
+                             Point(r1.Left + r.Width div 2 + 1, r1.Top),
+                             Point(r1.Left - 1, r1.Top + r.Width div 2 + 2)]);
+    end
+    else
     if p1.y = p2.y then
     // Single rectangle
     begin
@@ -259,7 +294,10 @@ begin
   ScrBmp.Canvas.Brush.Color := Self.Color;
   ScrBmp.Canvas.Font := Self.Font;
   ScrBmp.Canvas.FillRect(ClientRect);
+  if Assigned(OnBeforeDraw) then
+    OnBeforeDraw(Self, ScrBmp.Canvas);
   CalcTextLength();
+  VisibleRange := TFileRange.Create(0, TextLength);
   CharSize := ScrBmp.Canvas.TextExtent('O');
   DefaultAttr.TxColor := Self.Font.Color;
   DefaultAttr.BgColor := Self.Color;
@@ -314,10 +352,13 @@ begin
   // Draw region outlines
   for i:=0 to Length(FVisRegions)-1 do
     if (FVisRegions[i].FrameColor <> clNone) and
-       (FVisRegions[i].Range.Intersects(0, TextLength)) then
+       (VisibleRange.Intersects2(FVisRegions[i].Range)) then
     begin
       DrawRegionOutline(FVisRegions[i]);
     end;
+
+  if Assigned(OnAfterDraw) then
+    OnAfterDraw(Self, ScrBmp.Canvas);
 
   // Draw caret
   if (FShowCaret) and (CaretPos.Y >= 0) and (CaretPos.Y < Lines.Count) then
@@ -349,25 +390,6 @@ begin
     end;
     Pen.Mode := pmCopy;
   end;
-
-  {
-  ScrBmp.Canvas.Pen.Color := clGray;
-  ScrBmp.Canvas.Brush.Color := clGray;
-  for i:=0 to Ord(High(TPenMode)) do
-  begin
-    R := Rect(i*CharSize.cx, 0, (i+1)*CharSize.cx, CharSize.cy);
-    ScrBmp.Canvas.Pen.Mode := TPenMode(i);
-    ScrBmp.Canvas.Rectangle(R);
-  end;
-  ScrBmp.Canvas.Pen.Color := clBlack;
-  ScrBmp.Canvas.Brush.Color := clBlack;
-  for i:=0 to Ord(High(TPenMode)) do
-  begin
-    R := Rect(i*CharSize.cx, CharSize.cy, (i+1)*CharSize.cx, 2*CharSize.cy);
-    ScrBmp.Canvas.Pen.Mode := TPenMode(i);
-    ScrBmp.Canvas.Rectangle(R);
-  end;
-  {}
 end;
 
 procedure TEditorPane.OnLinesChange(Sender: TObject);

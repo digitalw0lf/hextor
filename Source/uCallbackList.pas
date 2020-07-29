@@ -17,6 +17,7 @@ type
   // Multiple-subscriber callback mechanism
   // (inspired by signal-slot in Qt)
   // Implemented as record so no need to explicitly call constructor
+  // Source code is maintained using automatic generator CallbackListUnitGen
 
   TCallbackListP1<T1> = record
   public type
@@ -27,6 +28,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1);
   end;
 
@@ -39,6 +41,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2);
   end;
 
@@ -51,6 +54,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2; Param3: T3);
   end;
 
@@ -63,6 +67,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
   end;
 
@@ -75,6 +80,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
   end;
 
@@ -107,6 +113,16 @@ begin
       Delete(FList, i, 1);
 end;
 
+function TCallbackListP1<T1>.HasListener(Id: Pointer): Boolean;
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if FList[i].Key = Id then
+      Exit(True);
+  Result := False;
+end;
+
 { TCallbackListP2<T1, T2> }
 
 procedure TCallbackListP2<T1, T2>.Add(Method: TCallback; Id: Pointer = nil);
@@ -132,6 +148,16 @@ begin
   for i:=Length(FList)-1 downto 0 do
     if FList[i].Key = Id then
       Delete(FList, i, 1);
+end;
+
+function TCallbackListP2<T1, T2>.HasListener(Id: Pointer): Boolean;
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if FList[i].Key = Id then
+      Exit(True);
+  Result := False;
 end;
 
 { TCallbackListP3<T1, T2, T3> }
@@ -161,6 +187,16 @@ begin
       Delete(FList, i, 1);
 end;
 
+function TCallbackListP3<T1, T2, T3>.HasListener(Id: Pointer): Boolean;
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if FList[i].Key = Id then
+      Exit(True);
+  Result := False;
+end;
+
 { TCallbackListP4<T1, T2, T3, T4> }
 
 procedure TCallbackListP4<T1, T2, T3, T4>.Add(Method: TCallback; Id: Pointer = nil);
@@ -186,6 +222,16 @@ begin
   for i:=Length(FList)-1 downto 0 do
     if FList[i].Key = Id then
       Delete(FList, i, 1);
+end;
+
+function TCallbackListP4<T1, T2, T3, T4>.HasListener(Id: Pointer): Boolean;
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if FList[i].Key = Id then
+      Exit(True);
+  Result := False;
 end;
 
 { TCallbackListP5<T1, T2, T3, T4, T5> }
@@ -215,5 +261,14 @@ begin
       Delete(FList, i, 1);
 end;
 
-end.
+function TCallbackListP5<T1, T2, T3, T4, T5>.HasListener(Id: Pointer): Boolean;
+var
+  i: Integer;
+begin
+  for i:=Length(FList)-1 downto 0 do
+    if FList[i].Key = Id then
+      Exit(True);
+  Result := False;
+end;
 
+end.

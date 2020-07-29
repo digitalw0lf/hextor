@@ -91,7 +91,7 @@ begin
   Node := ResultsList.AddChild(nil);
   RNode := Node.GetData;
 
-  RNode.DisplayFileName := AData.DataSource.Path;
+  RNode.DisplayFileName := AData.DataSource.DisplayName;
   RNode.DataSourceType := THextorDataSourceType(AData.DataSource.ClassType);
   RNode.DataSourcePath := AData.DataSource.Path;
 

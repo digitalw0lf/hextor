@@ -421,7 +421,7 @@ var
 
   function ProgressText(): string;
   begin
-    Result := 'Found '+IntToStr(OldCount + NewCount)+' time(s)  (' + AData.DataSource.Path + ')';
+    Result := 'Found '+IntToStr(OldCount + NewCount)+' time(s)  (' + AData.DataSource.DisplayName + ')';
   end;
 
 begin

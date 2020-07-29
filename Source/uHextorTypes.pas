@@ -46,6 +46,8 @@ type
     function Intersects(const BRange: TFileRange): Boolean; overload; inline;
     function Intersects(BStart, BEnd: TFilePointer): Boolean; overload; inline;
     function Intersects(Value: TFilePointer): Boolean; overload; inline;
+    function Intersects2(const BRange: TFileRange): Boolean; overload; inline;
+    function Intersects2(BStart, BEnd: TFilePointer): Boolean; overload; inline;
     class operator Equal(const A, B: TFileRange): Boolean; inline;
     class operator NotEqual(const A, B: TFileRange): Boolean; inline;
     constructor Create(BStart, BEnd: TFilePointer);
@@ -677,6 +679,19 @@ begin
   Result := (Value >= Start) and (Value < AEnd);
 end;
 
+function TFileRange.Intersects2(const BRange: TFileRange): Boolean;
+// Also accept zero-length regions on the ends of this range
+begin
+  Result := Intersects2(BRange.Start, BRange.AEnd);
+end;
+
+function TFileRange.Intersects2(BStart, BEnd: TFilePointer): Boolean;
+// Also accept zero-length regions on the ends of this range
+begin
+  Result := ((BEnd > Start) and (BStart < AEnd)) or
+            ((BStart = BEnd) and ((BStart = Start) or (BStart = AEnd)));
+end;
+
 function TFileRange.Intersects(BStart, BEnd: TFilePointer): Boolean;
 begin
   Result := (BEnd > Start) and (BStart < AEnd);
@@ -776,7 +791,7 @@ end;
 function TTaggedDataRegionList.AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer;
   TextColor, BgColor, FrameColor: TColor): TTaggedDataRegion;
 begin
-  if (AcceptRange = EntireFile) or (AcceptRange.Intersects(RangeStart, RangeEnd)) then
+  if (AcceptRange = EntireFile) or (AcceptRange.Intersects2(RangeStart, RangeEnd)) then
   begin
     Result := TTaggedDataRegion.Create(Owner, TFileRange.Create(RangeStart, RangeEnd), TextColor, BgColor, FrameColor);
     Add(Result);

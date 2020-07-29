@@ -7,8 +7,9 @@ Aim of the project is to create a powerful and expandable binary data analyzing 
 Main features are:
 
 - Fast view/edit files of any size
-- View/edit logical volumes, process memory
+- View/edit logical volumes, physical disks, process memory
 - Unlimited Undo/Redo
+- Bookmarks
 - ANSI/ASCII encoding (other SBCS and MBCS planned)
 - View data as different basic types (int8/16/32/float/etc.)
 - Text/hex/unicode search and replace (RegEx planned)

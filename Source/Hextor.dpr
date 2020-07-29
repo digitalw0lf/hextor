@@ -43,7 +43,8 @@ uses
   uAsmFrame in 'uAsmFrame.pas' {AsmFrame: TFrame},
   uUpdaterForm in 'uUpdaterForm.pas' {UpdaterForm},
   uSettingsForm in 'uSettingsForm.pas' {SettingsForm},
-  uModuleSettings in 'uModuleSettings.pas';
+  uModuleSettings in 'uModuleSettings.pas',
+  uBookmarksFrame in 'uBookmarksFrame.pas' {BookmarksFrame: TFrame};
 
 {$R *.res}
 

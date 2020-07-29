@@ -95,6 +95,7 @@ procedure AddComboBoxHistory(CB: TComboBox; Text: string = sTextFromControl; Max
 function PopulateMenuWithFileList(Menu: TMenuItem; AfterItem, BeforeItem: TMenuItem;
   Template: TMenuItem; FolderImageIndex: Integer; const Path, Mask: string;
   FilesForMenuItems: TDictionary<Integer, string>): Integer;
+function FitTextInWidth(const Text: string; Canvas: TCanvas; MaxWidth: Integer; DotsPosition: Double = 0.66): string;
 
 procedure Register;
 
@@ -234,6 +235,22 @@ begin
     Inc(n);
     Inc(Result);
   end;
+end;
+
+function FitTextInWidth(const Text: string; Canvas: TCanvas;
+  MaxWidth: Integer; DotsPosition: Double = 0.66): string;
+// Approximately fit text in specified width (in pixels) by replacing part of text with "...".
+// DotsPosition defines a position of "..." in resulting text (0.5 -> in the middle)
+var
+  w, chars: Integer;
+begin
+  w := Canvas.TextWidth(Text);
+  if w <= MaxWidth then Exit(Text);
+  // Approx. count of chars that fit in MaxWidth
+  chars := Round(MaxWidth / (w / Length(Text)));
+  Result := Copy(Text, Low(Text), Trunc(chars * DotsPosition)) +
+            '...' +
+            Copy(Text, Length(Text) - Trunc(chars * (1 - DotsPosition)) + 5, MaxInt);
 end;
 
 { tFmtHintWindow }

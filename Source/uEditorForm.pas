@@ -81,6 +81,8 @@ type
     procedure HorzScrollBarChange(Sender: TObject);
     procedure BtnSkipFFBackClick(Sender: TObject);
     procedure TypingActionChangeTimerTimer(Sender: TObject);
+    procedure PaneHexBeforeDraw(Sender: TEditorPane; Canvas: TCanvas);
+    procedure PaneHexAfterDraw(Sender: TEditorPane; Canvas: TCanvas);
   private
     { Private declarations }
     FData: TEditedData;
@@ -148,6 +150,8 @@ type
     OnByteColsChanged: TCallbackListP1<TEditorForm>;
     OnGetTaggedRegions: TCallbackListP5<{Editor: }TEditorForm, {Start: }TFilePointer,
       {AEnd: }TFilePointer, {AData: }PByteArray, {Regions: }TTaggedDataRegionList>;
+    OnBeforeDrawPane: TCallbackListP3<{Editor: }TEditorForm, {Pane: }TEditorPane, {Canvas: }TCanvas>;
+    OnAfterDrawPane: TCallbackListP3<{Editor: }TEditorForm, {Pane: }TEditorPane, {Canvas: }TCanvas>;
     [API]
     property Data: TEditedData read FData write FData;
     destructor Destroy(); override;
@@ -171,6 +175,8 @@ type
     function GetVisibleColsCount(IncludePartial: Boolean = True): Integer;
     function FirstVisibleAddr(): TFilePointer;
     function VisibleBytesCount(): Integer;
+    function GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer; var Pos: TPoint): Boolean;
+    function GetByteScreenRect(Pane: TEditorPane; Addr: TFilePointer; var Rect: TRect): Boolean;
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
     function DeleteSelected(): TFilePointer;
     procedure ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
@@ -207,6 +213,8 @@ type
     [API]
     procedure InsertHex(const HexText: string; Addr: TFilePointer; Overwrite: Boolean);
     class function Settings(): TEditorSettings;
+    function HasEventListener(Id: Pointer): Boolean;
+    procedure RemoveEventListener(Id: Pointer);
   end;
 
 procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
@@ -287,7 +295,7 @@ begin
   Result := mrNo;
   if HasUnsavedChanges then
   begin
-    Result := Application.MessageBox(PChar('Save changes to '+sLineBreak+DataSource.Path+'?'), 'Closing', MB_YESNOCANCEL);
+    Result := Application.MessageBox(PChar('Save changes to '+sLineBreak+DataSource.DisplayName+'?'), 'Closing', MB_YESNOCANCEL);
     case Result of
       mrYes: MainForm.ActionSaveExecute(nil);
     end;
@@ -457,6 +465,16 @@ begin
   finally
     EndUpdate();
   end;
+end;
+
+procedure TEditorForm.PaneHexAfterDraw(Sender: TEditorPane; Canvas: TCanvas);
+begin
+  OnAfterDrawPane.Call(Self, Sender, Canvas);
+end;
+
+procedure TEditorForm.PaneHexBeforeDraw(Sender: TEditorPane; Canvas: TCanvas);
+begin
+  OnBeforeDrawPane.Call(Self, Sender, Canvas);
 end;
 
 procedure TEditorForm.PaneHexEnter(Sender: TObject);
@@ -677,6 +695,39 @@ begin
   TopVisibleRow := TopVisibleRow - WheelDelta div 120 * Settings.ScrollWithWheel;
 end;
 
+function TEditorForm.GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer;
+  var Pos: TPoint): Boolean;
+// Returns Row/Column of given byte on Pane, if this byte is visible on screen now.
+// Horizontal scroll does not affects it (it is handled by Pane itself)
+var
+  FirstVis, VisCount: TFilePointer;
+  N: Integer;
+begin
+  FirstVis := FirstVisibleAddr();
+  VisCount := VisibleBytesCount();
+  if (Addr < FirstVis) or (Addr >= FirstVis + VisCount) then Exit(False);
+  N := Addr - FirstVis;
+  Pos.Y := N div ByteColumns;
+  Pos.X := N mod ByteColumns;
+  if Pane = PaneAddr then Pos.X := 0
+  else if Pane = PaneHex then Pos.X := Pos.X * 3;
+  Result := True;
+end;
+
+function TEditorForm.GetByteScreenRect(Pane: TEditorPane; Addr: TFilePointer;
+  var Rect: TRect): Boolean;
+// Returns screen position of given byte on Pane, if this byte is visible on screen now.
+// Horizontal scroll does not affects it (it is handled by Pane itself)
+var
+  p: TPoint;
+begin
+  Result := GetByteScreenPosition(Pane, Addr, p);
+  if not Result then Exit;
+  Rect := Pane.GetCharRect(p);
+  if Pane = PaneHex then
+    Rect.Width := Rect.Width * 3;
+end;
+
 function TEditorForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
 begin
   Result := Data.Get(Addr, Size, ZerosBeyondEoF);
@@ -754,6 +805,19 @@ end;
 function TEditorForm.GetVisibleRowsCount: Integer;
 begin
   Result := PaneHex.Height div PaneHex.CharHeight();
+end;
+
+function TEditorForm.HasEventListener(Id: Pointer): Boolean;
+// True if this listener is subscribed on some events of this Editor
+begin
+  Result :=
+    OnClosed.HasListener(Id) or
+    OnVisibleRangeChanged.HasListener(Id) or
+    OnSelectionChanged.HasListener(Id) or
+    OnByteColsChanged.HasListener(Id) or
+    OnGetTaggedRegions.HasListener(Id) or
+    OnBeforeDrawPane.HasListener(Id) or
+    OnAfterDrawPane.HasListener(Id);
 end;
 
 procedure TEditorForm.HorzScrollBarChange(Sender: TObject);
@@ -901,6 +965,18 @@ begin
       EndUpdate();
     end;
   end;
+end;
+
+procedure TEditorForm.RemoveEventListener(Id: Pointer);
+// Remove given listener from all events of this Editor
+begin
+  OnClosed.Remove(Id);
+  OnVisibleRangeChanged.Remove(Id);
+  OnSelectionChanged.Remove(Id);
+  OnByteColsChanged.Remove(Id);
+  OnGetTaggedRegions.Remove(Id);
+  OnBeforeDrawPane.Remove(Id);
+  OnAfterDrawPane.Remove(Id);
 end;
 
 procedure TEditorForm.ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);

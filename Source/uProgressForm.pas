@@ -15,7 +15,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Samples.Gauges, Vcl.StdCtrls,
   System.Types,
 
-  uHextorTypes;
+  uHextorTypes, uHextorGUI;
 
 type
   TProgressForm = class(TForm)
@@ -31,7 +31,6 @@ type
     ActiveWindow: HWnd;
     FocusState: TFocusState;
     WindowList: TTaskWindowList;
-    function FitTextInWidth(const Text: string; Canvas: TCanvas; MaxWidth: Integer): string;
   public
     { Public declarations }
     FOperationAborted: Boolean;
@@ -51,21 +50,6 @@ procedure TProgressForm.BtnAbortClick(Sender: TObject);
 begin
 //  FOperationAborted := True;
   Close();
-end;
-
-function TProgressForm.FitTextInWidth(const Text: string; Canvas: TCanvas;
-  MaxWidth: Integer): string;
-// Approximately fit text in specified width (in pixels) by replacing part of text with "...".
-var
-  w, chars: Integer;
-begin
-  w := Canvas.TextWidth(Text);
-  if w <= MaxWidth then Exit(Text);
-  // Approx. count of chars that fit in MaxWidth
-  chars := Round(MaxWidth / (w / Length(Text)));
-  Result := Copy(Text, Low(Text), chars * 2 div 3) +
-            '...' +
-            Copy(Text, Length(Text) - chars div 3 + 5, MaxInt);
 end;
 
 procedure TProgressForm.FormClose(Sender: TObject; var Action: TCloseAction);

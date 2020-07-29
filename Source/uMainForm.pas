@@ -31,7 +31,8 @@ uses
   uHextorTypes, uHextorDataSources, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
-  uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct;
+  uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct,
+  uBookmarksFrame;
 
 {$I AppVersion.inc}
 
@@ -233,6 +234,8 @@ type
     Base641: TMenuItem;
     ActionCopyAsURLEncode: TAction;
     URLEncode1: TMenuItem;
+    PgBookmarks: TTabSheet;
+    BookmarksFrame: TBookmarksFrame;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
