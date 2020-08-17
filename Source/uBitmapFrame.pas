@@ -29,7 +29,6 @@ type
     Label2: TLabel;
     EditHScroll: TSpinEdit;
     TrackBarHScroll: TTrackBar;
-    EditScale: TComboBox;
     Label3: TLabel;
     Label4: TLabel;
     EditBPP: TComboBox;
@@ -40,11 +39,14 @@ type
     BtnFlipHorz: TSpeedButton;
     Label6: TLabel;
     EditByteShift: TSpinEdit;
+    BtnZoomIn: TSpeedButton;
+    BtnZoomOut: TSpeedButton;
+    Label7: TLabel;
+    LblScaleValue: TLabel;
     procedure TrackBarWidthChange(Sender: TObject);
     procedure EditWidthChange(Sender: TObject);
     procedure TrackBarHScrollChange(Sender: TObject);
     procedure EditHScrollChange(Sender: TObject);
-    procedure EditScaleChange(Sender: TObject);
     procedure EditBPPChange(Sender: TObject);
     procedure EditPaletteChange(Sender: TObject);
     procedure TopPanelResize(Sender: TObject);
@@ -57,6 +59,7 @@ type
     procedure EditByteShiftChange(Sender: TObject);
     procedure FrameMouseWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure BtnZoomInClick(Sender: TObject);
   private type
     TCardinalArray = array[0..0] of Cardinal;
     PCardinalArray = ^TCardinalArray;
@@ -93,6 +96,8 @@ type
     procedure GenerateScrBmp();
     procedure DrawScrToPaintBox();
     procedure EditorVisibleRangeChanged(Sender: TEditorForm);
+    procedure EditorSelectionChanged(Sender: TEditorForm);
+    function GetBitsPerRow(): Integer;
     function GetMaxVisibleBytesCount(): Integer;
     procedure UpdateScrollBars();
     function AddrToScreen(BitAddr: TFilePointer; var x, y: Integer; ScreenScale: Boolean): Boolean;
@@ -178,6 +183,16 @@ begin
   Redraw();
 end;
 
+procedure TBitmapFrame.BtnZoomInClick(Sender: TObject);
+begin
+  LblScaleValue.Tag := LblScaleValue.Tag + (Sender as TSpeedButton).Tag;
+  LblScaleValue.Tag := BoundValue(LblScaleValue.Tag, Low(ScalesList), High(ScalesList));
+  DisplayScale := ScalesList[LblScaleValue.Tag];
+  LblScaleValue.Caption := R2S(DisplayScale);
+  UpdateScrollBars();
+  Redraw();
+end;
+
 constructor TBitmapFrame.Create(AOwner: TComponent);
 begin
   inherited;
@@ -186,8 +201,10 @@ begin
   EditHScrollChange(nil);
   EditBPPChange(nil);
   EditPaletteChange(nil);
-  EditScaleChange(nil);
+  //EditScaleChange(nil);
+  DisplayScale := 1;
   MainForm.OnVisibleRangeChanged.Add(EditorVisibleRangeChanged);
+  MainForm.OnSelectionChanged.Add(EditorSelectionChanged);
 end;
 
 destructor TBitmapFrame.Destroy;
@@ -264,12 +281,33 @@ begin
   Redraw();
 end;
 
+procedure TBitmapFrame.EditorSelectionChanged(Sender: TEditorForm);
+var
+  p: TFilePointer;
+begin
+  if (Sender <> FEditor) or (Sender = nil) then Exit;
+  if not Parent.Visible then Exit;
+  if CLockControls > 0 then Exit;
+
+  // When selection in editor moves, scroll bitmap view to new selection
+  if FBitsPerScrollBarTick <> 0 then
+  begin
+    Inc(CLockControls);
+    try
+      p := FEditor.SelStart;
+      VertScrollBar.Position := BoundValue(p * 8 div FBitsPerScrollBarTick - VertScrollBar.PageSize div 2, 0, VertScrollBar.Max - VertScrollBar.PageSize);
+    finally
+      Dec(CLockControls);
+    end;
+  end;
+end;
+
 procedure TBitmapFrame.EditorVisibleRangeChanged(Sender: TEditorForm);
 begin
   FEditor := MainForm.GetActiveEditorNoEx;
   if not Parent.Visible then Exit;
 
-  if (Sender <> nil) and (Sender.Data.GetSize() <> PrevFileSize) then
+  if (Sender <> nil) and (Sender = FEditor) and (Sender.Data.GetSize() <> PrevFileSize) then
     UpdateScrollBars();
   Redraw();
 end;
@@ -277,13 +315,6 @@ end;
 procedure TBitmapFrame.EditPaletteChange(Sender: TObject);
 begin
   SelectedPalette := EditPalette.ItemIndex;
-  Redraw();
-end;
-
-procedure TBitmapFrame.EditScaleChange(Sender: TObject);
-begin
-  DisplayScale := ScalesList[EditScale.ItemIndex];
-  UpdateScrollBars();
   Redraw();
 end;
 
@@ -309,7 +340,7 @@ procedure TBitmapFrame.FrameMouseWheel(Sender: TObject; Shift: TShiftState;
 begin
   if ControlAtPos(ScreenToClient(MousePos), False, True, True) = MainPaintBox then
   begin
-    VertScrollBar.Position := VertScrollBar.Position - WheelDelta;
+    VertScrollBar.Position := VertScrollBar.Position - WheelDelta * GetBitsPerRow() div FBitsPerScrollBarTick;
   end;
 end;
 
@@ -363,10 +394,15 @@ begin
   end;
 end;
 
+function TBitmapFrame.GetBitsPerRow: Integer;
+begin
+  Result := EditWidth.Value * BitsPerPixel;
+end;
+
 function TBitmapFrame.GetMaxVisibleBytesCount: Integer;
 // How many bytes will fit in screen with current settings
 begin
-  Result := EditWidth.Value * Round(MainPaintBox.Height / DisplayScale) * BitsPerPixel div 8;
+  Result := GetBitsPerRow() * Round(MainPaintBox.Height / DisplayScale) div 8;
 end;
 
 function TBitmapFrame.GetValue(Index: Integer): Cardinal;
@@ -404,7 +440,15 @@ begin
   if FEditor = nil then Exit;
   ScreenToAddr(X, Y, Addr, True);
   Addr := Addr div 8;
-  FEditor.MoveCaret(Addr, KeyboardStateToShiftState());
+  if Button = mbLeft then
+  begin
+    Inc(CLockControls);
+    try
+      FEditor.MoveCaret(Addr, KeyboardStateToShiftState());
+    finally
+      Dec(CLockControls);
+    end;
+  end;
 end;
 
 procedure TBitmapFrame.MainPaintBoxPaint(Sender: TObject);
@@ -477,14 +521,17 @@ begin
   end;
 
   // Adjust vertical scrollbar
-  FBitsPerScrollBarTick := Max(FEditor.Data.GetSize() * 8 div 10000{00000}, 1);
+  FBitsPerScrollBarTick := Max(FEditor.Data.GetSize() * 8 div 1000000000, 1);
   PrevFileSize := FEditor.Data.GetSize();
   if PrevFileSize = 0 then
     ConfigureScrollbar(VertScrollBar, 0, 0)
   else
+  begin
     ConfigureScrollbar(VertScrollBar, (PrevFileSize * 8 div FBitsPerScrollBarTick) - 1,
                        (GetMaxVisibleBytesCount() * 8 div FBitsPerScrollBarTick));
-  VertScrollBar.LargeChange := VertScrollBar.PageSize;
+  end;
+  VertScrollBar.LargeChange := Min(VertScrollBar.PageSize, High(VertScrollBar.LargeChange));
+  VertScrollBar.SmallChange := Max(VertScrollBar.LargeChange div Max(MainPaintBox.Height, 1), 1);
 
 end;
 
