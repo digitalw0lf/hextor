@@ -16,7 +16,7 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
   Vcl.Buttons, Vcl.Menus, System.Types, Math, SynEdit, SynEditHighlighter,
   SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils,
-  Vcl.ToolWin, Winapi.ShellAPI,
+  Vcl.ToolWin, Winapi.ShellAPI, System.UITypes,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
   uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper;
@@ -119,6 +119,9 @@ type
     procedure DSTreeViewInitNode(Sender: TBaseVirtualTree; ParentNode,
       Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
     procedure MIOrganizeFilesClick(Sender: TObject);
+    procedure DSTreeViewDrawText(Sender: TBaseVirtualTree;
+      TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
+      const Text: string; const CellRect: TRect; var DefaultDraw: Boolean);
   private const
     Unnamed_Struct = 'Unnamed';
     sDescrFromEditor = '%';
@@ -619,6 +622,40 @@ begin
   finally
     FEditor.EndUpdate();
   end;
+end;
+
+procedure TStructFrame.DSTreeViewDrawText(Sender: TBaseVirtualTree;
+  TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
+  const Text: string; const CellRect: TRect; var DefaultDraw: Boolean);
+var
+  DS: TDSField;
+  R: TRect;
+  Sz: Integer;
+  pc, bc: TColor;
+  bs: TBrushStyle;
+begin
+  DS := GetNodeDS(Node);
+  // Red mark for compound fields with erroneous childs
+  if (DS is TDSCompoundField) and
+     ((DS as TDSCompoundField).ChildsWithErrors > 0) then
+    begin
+      bc := TargetCanvas.Brush.Color;
+      pc := TargetCanvas.Pen.Color;
+      bs := TargetCanvas.Brush.Style;
+      try
+//        TargetCanvas.Brush.Color := $B090FF;
+        TargetCanvas.Pen.Color := clRed;
+        R := CellRect; // Sender.GetDisplayRect(Node, Column, False, True);
+        Sz := R.Height div 4;
+        TargetCanvas.Polygon([Point(R.Left - 1, R.Top),
+                              Point(R.Left + Sz, R.Top),
+                              Point(R.Left - 1, R.Top + Sz + 1)]);
+      finally
+        TargetCanvas.Brush.Color := bc;
+        TargetCanvas.Pen.Color := pc;
+        TargetCanvas.Brush.Style := bs;
+      end;
+    end;
 end;
 
 procedure TStructFrame.DSTreeViewEnter(Sender: TObject);

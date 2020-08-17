@@ -53,14 +53,15 @@ type
     FParent: TDSCompoundField;
 //    function RootDS(): TDSField;
     FEventSet: TDSEventSet;
+    FErrorText: string;
     function GetName: string;
     procedure SetParent(const Value: TDSCompoundField);
     function GetEventSet(): TDSEventSet;
+    procedure SetErrorText(const Value: string);
   public
     BufAddr: TFilePointer;   // Address and size in original data buffer
     BufSize: TFilePointer;
     DescrLineNum: Integer;   // Line number in structure description text
-    ErrorText: string;       // Parsing error (e.g. "End of buffer" or "Value out of range")
     DisplayFormat: TValueDisplayNotation;
     constructor Create(); virtual;
     destructor Destroy(); override;
@@ -74,6 +75,7 @@ type
     property EventSet: TDSEventSet read GetEventSet write FEventSet;  // Callbacks which link DataStruct with underlying EditedData and GUI
     procedure DoChanged(Changer: TObject);
     function GetFixedSize(): TFilePointer; virtual;
+    property ErrorText: string read FErrorText write SetErrorText;    // Parsing error (e.g. "End of buffer" or "Value out of range")
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -136,6 +138,7 @@ type
   public
     Fields: TObjectList<TDSField>;
     FieldAlign: Integer;  // Alignment of fields relative to structure start
+    ChildsWithErrors: Integer;  // Total count of childs (recursively) with non-empty ErrorText
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
@@ -1452,6 +1455,31 @@ begin
       Result := IntToStr(FIndex)
     else
       Result := '';
+end;
+
+procedure TDSField.SetErrorText(const Value: string);
+var
+  DS: TDSCompoundField;
+  d: integer;
+begin
+  if FErrorText <> Value then
+  begin
+    // Update error count in parents
+    if (Value <> '') and (FErrorText = '') then d := 1
+    else if (Value = '') and (FErrorText <> '') then d := -1
+    else d := 0;
+    if d <> 0 then
+    begin
+      DS := Self.Parent;
+      while DS <> nil do
+      begin
+        Inc(DS.ChildsWithErrors, d);
+        DS := DS.Parent;
+      end;
+    end;
+
+    FErrorText := Value;
+  end;
 end;
 
 procedure TDSField.SetParent(const Value: TDSCompoundField);

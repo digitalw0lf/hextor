@@ -122,6 +122,7 @@ object StructFrame: TStructFrame
     TreeOptions.SelectionOptions = [toRightClickSelect]
     OnBeforeItemErase = DSTreeViewBeforeItemErase
     OnChange = DSTreeViewChange
+    OnDrawText = DSTreeViewDrawText
     OnEnter = DSTreeViewEnter
     OnExit = DSTreeViewExit
     OnFreeNode = DSTreeViewFreeNode
