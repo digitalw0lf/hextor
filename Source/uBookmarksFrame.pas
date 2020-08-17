@@ -8,7 +8,7 @@ uses
   Vcl.ComCtrls, System.Generics.Collections, System.Math, Vcl.AppEvnts,
   System.Types,
 
-  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, uEditorPane;
+  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, uEditorPane, Vcl.Menus;
 
 const
 //  Color_BookmarkBg = $E7BFC8;
@@ -53,6 +53,9 @@ type
     BtnAddBookmark: TToolButton;
     BtnDelete: TToolButton;
     ApplicationEvents1: TApplicationEvents;
+    BMListPopupMenu: TPopupMenu;
+    MIDelete: TMenuItem;
+    MISelectDataBetween: TMenuItem;
     procedure BtnAddBookmarkClick(Sender: TObject);
     procedure BookmarksTreeViewFreeNode(Sender: TBaseVirtualTree;
       Node: PVirtualNode);
@@ -68,6 +71,8 @@ type
       TextType: TVSTTextType);
     procedure BookmarksTreeViewNewText(Sender: TBaseVirtualTree;
       Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+    procedure MISelectDataBetweenClick(Sender: TObject);
+    procedure BMListPopupMenuPopup(Sender: TObject);
   private
     { Private declarations }
     procedure EditorClosed(Sender: TEditorForm);
@@ -206,6 +211,37 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TBookmarksFrame.BMListPopupMenuPopup(Sender: TObject);
+var
+  Node: PVirtualNode;
+  Data: PBMTreeNode;
+  i: Integer;
+  AEditor: TEditorForm;
+begin
+  // If user selected two bookmarks, located in one editor, show "Select data between"
+  MISelectDataBetween.Visible := False;
+  if BookmarksTreeView.SelectedCount = 2 then
+  begin
+    i := 0; AEditor := nil;
+    for Node in BookmarksTreeView.SelectedNodes() do
+    begin
+      Data := BookmarksTreeView.GetNodeData(Node);
+      if Data <> nil then
+      begin
+        case i of
+          0: AEditor := Data.Bookmark.Editor;
+          1: MISelectDataBetween.Visible := (AEditor = Data.Bookmark.Editor);
+        end;
+        Inc(i);
+        if i >= 2 then Break;
+      end;
+    end;
+  end;
+
+  // "Delete" menu item
+  MIDelete.Visible := (BookmarksTreeView.SelectedCount > 0);
 end;
 
 procedure TBookmarksFrame.BookmarksTreeViewFreeNode(Sender: TBaseVirtualTree;
@@ -475,6 +511,44 @@ begin
   AEditor := ABookmark.Editor;
   MainForm.ActiveEditor := AEditor;
   AEditor.SelectAndShow(ABookmark.Range.Start, ABookmark.Range.AEnd);
+end;
+
+procedure TBookmarksFrame.MISelectDataBetweenClick(Sender: TObject);
+// Select data between two selected bookmarks
+var
+  Node: PVirtualNode;
+  Data: PBMTreeNode;
+  i: Integer;
+  AEditor: TEditorForm;
+  Range1, Range2, Range: TFileRange;
+begin
+  if BookmarksTreeView.SelectedCount < 2 then Exit;
+  i := 0; AEditor := nil;
+  for Node in BookmarksTreeView.SelectedNodes() do
+  begin
+    Data := BookmarksTreeView.GetNodeData(Node);
+    if Data <> nil then
+    begin
+      case i of
+        0: Range1 := Data.Bookmark.Range;
+        1: Range2 := Data.Bookmark.Range;
+      end;
+      AEditor := Data.Bookmark.Editor;
+      Inc(i);
+      if i >= 2 then Break;
+    end;
+  end;
+
+  if i < 2 then Exit;
+  if Range2.Start >= Range1.AEnd then
+    Range := TFileRange.Create(Range1.AEnd, Range2.Start)
+  else
+  if Range1.Start >= Range2.AEnd then
+    Range := TFileRange.Create(Range2.AEnd, Range1.Start)
+  else
+    Exit;
+
+  AEditor.SelectAndShow(Range.Start, Range.AEnd);
 end;
 
 procedure TBookmarksFrame.UpdateList;

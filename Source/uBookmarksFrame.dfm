@@ -54,6 +54,7 @@ object BookmarksFrame: TBookmarksFrame
     Align = alClient
     Header.AutoSizeIndex = 0
     Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    PopupMenu = BMListPopupMenu
     TabOrder = 1
     TreeOptions.MiscOptions = [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick]
     TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages]
@@ -85,5 +86,19 @@ object BookmarksFrame: TBookmarksFrame
     OnMessage = ApplicationEvents1Message
     Left = 64
     Top = 112
+  end
+  object BMListPopupMenu: TPopupMenu
+    OnPopup = BMListPopupMenuPopup
+    Left = 40
+    Top = 200
+    object MISelectDataBetween: TMenuItem
+      Caption = 'Select data between'
+      Visible = False
+      OnClick = MISelectDataBetweenClick
+    end
+    object MIDelete: TMenuItem
+      Caption = 'Delete'
+      OnClick = BtnDeleteClick
+    end
   end
 end
