@@ -12,6 +12,7 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     Align = alClient
     Header.AutoSizeIndex = 1
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    PopupMenu = ResultsListPopupMenu
     TabOrder = 0
     TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoSpanColumns, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
     TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages]
@@ -51,17 +52,17 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
       Height = 13
       Caption = 'LblFoundCount'
     end
-    object CBHighlightResults: TCheckBox
-      Left = 144
-      Top = 5
-      Width = 97
-      Height = 17
-      Caption = 'Highlight'
-      Checked = True
-      State = cbChecked
-      TabOrder = 0
-      Visible = False
-      OnClick = CBHighlightResultsClick
+  end
+  object ResultsListPopupMenu: TPopupMenu
+    Left = 56
+    Top = 128
+    object Expandall1: TMenuItem
+      Caption = 'Expand all'
+      OnClick = Expandall1Click
+    end
+    object Collapseall1: TMenuItem
+      Caption = 'Collapse all'
+      OnClick = Collapseall1Click
     end
   end
 end

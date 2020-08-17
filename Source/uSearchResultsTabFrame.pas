@@ -15,14 +15,16 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.ComCtrls,
   System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls,
 
-  uEditorForm, uHextorTypes, uHextorDataSources, uEditedData;
+  uEditorForm, uHextorTypes, uHextorDataSources, uEditedData, Vcl.Menus;
 
 type
   TSearchResultsTabFrame = class(TFrame)
     ResultsList: TVirtualStringTree;
     Panel1: TPanel;
     LblFoundCount: TLabel;
-    CBHighlightResults: TCheckBox;
+    ResultsListPopupMenu: TPopupMenu;
+    Expandall1: TMenuItem;
+    Collapseall1: TMenuItem;
     procedure ResultsListGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure ResultsListFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
@@ -31,7 +33,8 @@ type
     procedure ResultsListDrawText(Sender: TBaseVirtualTree;
       TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       const Text: string; const CellRect: TRect; var DefaultDraw: Boolean);
-    procedure CBHighlightResultsClick(Sender: TObject);
+    procedure Expandall1Click(Sender: TObject);
+    procedure Collapseall1Click(Sender: TObject);
   private type
     TDisplayedNeedle = array[0..2] of string;  // Text[1] is highlighted needle, Text[0] and Text[2] is short context before and after
     // Data for result list node (both "File name" nodes and "item" leaf nodes)
@@ -103,6 +106,8 @@ end;
 procedure TSearchResultsTabFrame.AddListItem(AGroupNode: Pointer; AData: TEditedData;
   const ARange: TFileRange);
 // Add found item to list of search results
+const
+  ContextBytes = 8;
 var
   GroupNode, Node: PVirtualNode;
   RGroupNode, RNode: PResultTreeNode;
@@ -119,8 +124,8 @@ begin
   RNode.DataSourcePath := RGroupNode.DataSourcePath;
   RNode.Range := ARange;
   // Display some data before/after found item
-  DispRange.Start := Max(ARange.Start - 5, 0);
-  DispRange.AEnd := Min(ARange.AEnd + 5, AData.GetSize());
+  DispRange.Start := Max(ARange.Start - ContextBytes, 0);
+  DispRange.AEnd := Min(ARange.AEnd + ContextBytes, AData.GetSize());
   ABuf := AData.Get(DispRange.Start, Min(DispRange.Size, 100));
   RNode.DisplayHex[0] := Data2Hex(Copy(ABuf, 0, ARange.Start-DispRange.Start));
   RNode.DisplayHex[1] := Data2Hex(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size));
@@ -134,10 +139,9 @@ begin
   RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), TextEncoding));
 end;
 
-procedure TSearchResultsTabFrame.CBHighlightResultsClick(Sender: TObject);
+procedure TSearchResultsTabFrame.Collapseall1Click(Sender: TObject);
 begin
-//  if Assigned(FEditor) then
-//    FEditor.UpdatePanes();
+  ResultsList.FullCollapse();
 end;
 
 constructor TSearchResultsTabFrame.Create(AOwner: TComponent);
@@ -203,7 +207,6 @@ var
   GroupNode, Node: PVirtualNode;
   RNode: PResultTreeNode;
 begin
-//  if not CBHighlightResults.Checked then Exit;
   if (not Parent.Visible) then Exit;
 
   GroupNode := GetEditorNode(Editor);
@@ -228,6 +231,11 @@ begin
     AEditor.UpdatePanes();
   if ResultsList.RootNodeCount = 1 then
     ResultsList.Expanded[ResultsList.RootNode.FirstChild] := True;
+end;
+
+procedure TSearchResultsTabFrame.Expandall1Click(Sender: TObject);
+begin
+  ResultsList.FullExpand();
 end;
 
 function TSearchResultsTabFrame.GetEditorNode(
