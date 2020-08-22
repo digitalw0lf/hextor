@@ -31,9 +31,11 @@ type
     procedure InitDefault(); override;
   end;
 
-  TFFSkipSearcher = class(TDataSearcher)
+  TFFSkipSearcher = class(TCustomDataSearcher)
   // Searcher for skipping given byte value
   public
+    SkipByte: Byte;
+    constructor Create();
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; override;
   end;
 
@@ -329,12 +331,12 @@ begin
   Dir := (Sender as TSpeedButton).Tag;
   if Dir < 0 then
   begin
-    FFSkipSearcher.Params.Needle := [FFSkipBackByte];
+    FFSkipSearcher.SkipByte := FFSkipBackByte;
     Start := FirstVisibleAddr() - 1;
   end
   else
   begin
-    FFSkipSearcher.Params.Needle := [FFSkipFwdByte];
+    FFSkipSearcher.SkipByte := FFSkipFwdByte;
     Start := FirstVisibleAddr() + VisibleBytesCount();
   end;
 
@@ -1763,11 +1765,18 @@ end;
 
 { TFFSkipSearcher }
 
+constructor TFFSkipSearcher.Create;
+begin
+  inherited;
+  MinMatchSize := 1;
+  MaxMatchSize := 1;
+end;
+
 function TFFSkipSearcher.Match(const Data: PByte; DataSize: Integer;
   var Size: Integer): Boolean;
 // Return True if we found different byte
 begin
-  if Data^ <> Params.Needle[0] then
+  if Data^ <> SkipByte then
   begin
     Size := 1;
     Result := True;

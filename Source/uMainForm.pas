@@ -1238,9 +1238,8 @@ begin
       ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
   ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
 
+  // Prepare scripting environment
   Utils := THextorUtils.Create();
-
-//  HextorOle := TCoHextor.Create();
   APIEnv := TAPIEnvironment.Create();
   APIEnv.ValueToVariantProc := ValueToVariantProc;
   APIEnv.VariantToValueProc := VariantToValueProc;

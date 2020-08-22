@@ -33,8 +33,8 @@ type
     Label1: TLabel;
     EditFindText: TComboBox;
     CBFindHex: TCheckBox;
-    CBWildcards: TCheckBox;
-    CBMatchCase: TCheckBox;
+    CBExtSyntax: TCheckBox;
+    CBIgnoreCase: TCheckBox;
     BtnFindNext: TButton;
     BtnFindPrev: TButton;
     BtnFindCount: TButton;
@@ -57,6 +57,7 @@ type
     Label4: TLabel;
     EditFileNameMask: TComboBox;
     FileOpenDialog1: TFileOpenDialog;
+    ImageProxy1: THintedImageProxy;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -94,7 +95,7 @@ type
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
   public
     { Public declarations }
-    Searcher: TDataSearcher;
+    Searcher: TExtPatternDataSearcher;
     function FindNext(Direction: Integer): Boolean;
     function FindAll(Action: TSearchAction): Integer;
     property TargetEditor: TEditorForm read GetTargetEditor;
@@ -260,13 +261,15 @@ begin
   // What to search for
   with Searcher do
   begin
+    FreeAndNil(Pattern);
+
     // Search text
     Params.Text := EditFindText.Text;
     AddComboBoxHistory(EditFindText);
     Params.bHex := CBFindHex.Checked;
-    Params.bWildcards := CBWildcards.Checked;
+    Params.bExtSyntax := CBExtSyntax.Checked;
     Params.bUnicode := CBUnicode.Checked;
-    Params.bMatchCase := CBMatchCase.Checked;
+    Params.bIgnoreCase := CBIgnoreCase.Checked;
     Params.bFindInSel := aCanFindInSel and CBFindInSelection.Enabled and CBFindInSelection.Checked;
 
     // Replace
@@ -277,6 +280,9 @@ begin
     Params.bAskEachReplace := CBAskReplace.Checked;
 
     // Encoding
+    if Params.bUnicode then
+      Params.CodePage := TEncoding.Unicode.CodePage
+    else
     if TargetEditorNoEx <> nil then
       Params.CodePage := TargetEditorNoEx.TextEncoding
     else
@@ -291,17 +297,21 @@ begin
     else
       Params.Range := EntireFile;
 
-    // Generate binary search pattern from given text
-    if Params.bHex then
-      Params.Needle := Hex2Data(Params.Text)
-    else
-    if Params.bUnicode then
-      Params.Needle := String2Data(Params.Text, TEncoding.Unicode.CodePage)
-    else
-      Params.Needle := String2Data(Params.Text, Params.CodePage);
+    // Parse search pattern
+    try
+      Pattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase, Params.bExtSyntax, Params.CodePage);
+      if Pattern.IsEmpty() then
+        raise EMatchPatternException.Create('Specify search string');
+      Pattern.CalcMinMaxMatchSize(MinMatchSize, MaxMatchSize);
+      if MinMatchSize <= 0 then
+        raise EMatchPatternException.Create('Expression can match empty buffer');
+      if MaxMatchSize > 16 * KByte then  // Limited by BlockOverlap in DataSearcher
+        raise EMatchPatternException.Create('Max allowed match size is 16 KBytes');
+    except
+      FreeAndNil(Pattern);
+      raise;
+    end;
 
-    if Length(Params.Needle) = 0 then
-      raise EInvalidUserInput.Create('Specify search string');
   end;
 
   // Where to search - editor or files
@@ -517,7 +527,7 @@ begin
     Start := TargetEditor.SelStart + TargetEditor.SelLength
   else
   begin
-    Start := TargetEditor.SelStart - Searcher.NeedleSize();
+    Start := TargetEditor.SelStart - Searcher.MinMatchSize;
     if TargetEditor.SelLength=0 then Inc(Start);
     if Start > TargetEditor.GetFileSize()-1 then Start := TargetEditor.GetFileSize()-1;
   end;
@@ -545,7 +555,7 @@ end;
 
 procedure TFindReplaceForm.FormCreate(Sender: TObject);
 begin
-  Searcher := TDataSearcher.Create();
+  Searcher := TExtPatternDataSearcher.Create();
   CPReplace.Collapsed := True;
   CPFindInFiles.Collapsed := True;
   AutosizeForm();

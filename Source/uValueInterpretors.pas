@@ -358,14 +358,14 @@ procedure TValueInterpretors.RegisterBuiltinInterpretors;
 var
   i: Integer;
 begin
-  RegisterInterpretor(['int8'], Int2Variant, Variant2Int, 1);
-  RegisterInterpretor(['uint8', 'char', 'uchar', 'byte'], UInt2Variant, Variant2UInt, 1);
-  RegisterInterpretor(['int16', 'short'], Int2Variant, Variant2Int, 2);
-  RegisterInterpretor(['uint16', 'word', 'ushort'], UInt2Variant, Variant2UInt, 2);
-  RegisterInterpretor(['int32', 'int', 'long'], Int2Variant, Variant2Int, 4);
-  RegisterInterpretor(['uint32', 'uint', 'dword', 'cardinal', 'ulong'], UInt2Variant, Variant2UInt, 4);
-  RegisterInterpretor(['int64'], Int2Variant, Variant2Int, 8);
-  RegisterInterpretor(['uint64', 'qword'], UInt2Variant, Variant2UInt, 8);
+  RegisterInterpretor(['int8', 'i8'], Int2Variant, Variant2Int, 1);
+  RegisterInterpretor(['uint8', 'u8', 'char', 'uchar', 'byte'], UInt2Variant, Variant2UInt, 1);
+  RegisterInterpretor(['int16', 'i16', 'short'], Int2Variant, Variant2Int, 2);
+  RegisterInterpretor(['uint16', 'u16', 'word', 'ushort'], UInt2Variant, Variant2UInt, 2);
+  RegisterInterpretor(['int32', 'i32', 'int', 'long'], Int2Variant, Variant2Int, 4);
+  RegisterInterpretor(['uint32', 'u32', 'uint', 'dword', 'cardinal', 'ulong'], UInt2Variant, Variant2UInt, 4);
+  RegisterInterpretor(['int64', 'i64'], Int2Variant, Variant2Int, 8);
+  RegisterInterpretor(['uint64', 'u64', 'qword'], UInt2Variant, Variant2UInt, 8);
 
   // int8_t etc.
   for i:=0 to Count-1 do

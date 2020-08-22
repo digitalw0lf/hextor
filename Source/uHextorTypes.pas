@@ -164,7 +164,11 @@ function MakeZeroBytes(Size: NativeInt): TBytes;
 procedure InvertByteOrder(var Buf; BufSize:Integer);
 function VariantRange(const AStart, AEnd: Variant): TVariantRange; overload;
 function VariantRange(const AValue: Variant): TVariantRange; overload;
+function StrToVariantRanges(const S: string): TVariantRanges;
 
+function TryEvalConst(Expr: string; var Value: Variant): Boolean;
+function EvalConstDef(Expr: string): Variant;
+function EvalConst(Expr: string): Variant;
 function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;
 function TryS2R(s:UnicodeString; var Value:Double):Boolean;
 function S2R(s:UnicodeString): Double;
@@ -457,6 +461,74 @@ function VariantRange(const AValue: Variant): TVariantRange; overload;
 begin
   Result.AStart := AValue;
   Result.AEnd := AValue;
+end;
+
+function StrToVariantRanges(const S: string): TVariantRanges;
+// Parse string like '1, 3, 5..10' to array of variant ranges
+var
+  a: TArray<string>;
+  a1, a2: string;
+  i, p: Integer;
+  Range: TVariantRange;
+begin
+  a := S.Split([',']);
+  Result.Ranges := nil;
+  for i:=0 to Length(a)-1 do
+  begin
+    p := a[i].IndexOf('..');
+    if p >= 0 then
+    begin
+      a1 := Copy(a[i], Low(a[i]), p);
+      a2 := Copy(a[i], Low(a[i]) + p + 2, MaxInt);
+      Range.AStart := EvalConst(a1);
+      Range.AEnd := EvalConst(a2);
+    end
+    else
+    begin
+      Range.AStart := EvalConst(a[i]);
+      Range.AEnd := Range.AStart;
+    end;
+    Result.Ranges := Result.Ranges + [Range];
+  end;
+end;
+
+function TryEvalConst(Expr: string; var Value: Variant): Boolean;
+// Evaluate simple constant expression that does not requires ScriptControl
+var
+  N: Integer;
+begin
+  Expr := Trim(Expr);
+
+  // Number
+  if TryStrToInt(Expr, N) then
+  begin
+    Value := N;
+    Exit(True);
+  end;
+
+  // Ansi char
+  if (Length(Expr) = 3) and (Expr[Low(Expr)] = '''') and
+     (Expr[High(Expr)] = '''') then
+  begin
+    Value := AnsiChar(Expr[Low(Expr)+1]);
+    Exit(True);
+  end;
+
+  Result := False;
+end;
+
+function EvalConstDef(Expr: string): Variant;
+// Evaluate simple constant expression that does not requires ScriptControl
+begin
+  if not TryEvalConst(Expr, Result) then
+    VarClear(Result);
+end;
+
+function EvalConst(Expr: string): Variant;
+// Evaluate simple constant expression that does not requires ScriptControl
+begin
+  if not TryEvalConst(Expr, Result) then
+    raise EConvertError.CreateFmt('"%s" is not a valid value', [Expr]);
 end;
 
 function StrToInt64Relative(S: string; OldValue: TFilePointer): TFilePointer;

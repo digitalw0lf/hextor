@@ -1,6 +1,7 @@
 object FindReplaceForm: TFindReplaceForm
   Left = 900
   Top = 200
+  BorderIcons = [biSystemMenu, biMinimize, biMaximize, biHelp]
   Caption = 'Find/Replace'
   ClientHeight = 508
   ClientWidth = 542
@@ -132,9 +133,15 @@ object FindReplaceForm: TFindReplaceForm
         Left = 87
         Top = 16
         Width = 432
-        Height = 21
+        Height = 22
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
+        Font.Charset = RUSSIAN_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Courier New'
+        Font.Style = []
+        ParentFont = False
         TabOrder = 0
       end
       object CBReplaceHex: TCheckBox
@@ -186,13 +193,31 @@ object FindReplaceForm: TFindReplaceForm
         Height = 13
         Caption = 'Find:'
       end
+      object ImageProxy1: THintedImageProxy
+        Left = 391
+        Top = 48
+        Width = 16
+        Height = 16
+        Image = MainForm.HintImage
+        ImageIndex = 0
+        HintFmt = 
+          '<b>?</b> matches any byte (<b>??</b> in hex mode)<br><b>\xAA</b>' +
+          ' includes hex byte in text pattern<br><b>{i32:1000}</b> matches ' +
+          '32-bit value 1000<br>See help for more options'
+      end
       object EditFindText: TComboBox
         Left = 87
         Top = 16
         Width = 432
-        Height = 21
+        Height = 22
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
+        Font.Charset = RUSSIAN_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Courier New'
+        Font.Style = []
+        ParentFont = False
         TabOrder = 0
       end
       object CBFindHex: TCheckBox
@@ -203,24 +228,24 @@ object FindReplaceForm: TFindReplaceForm
         Caption = 'Hex'
         TabOrder = 1
       end
-      object CBWildcards: TCheckBox
-        Left = 106
-        Top = 48
-        Width = 84
-        Height = 17
-        Caption = '? for any'
-        Enabled = False
-        TabOrder = 2
-      end
-      object CBMatchCase: TCheckBox
+      object CBExtSyntax: TCheckBox
         Left = 286
         Top = 48
+        Width = 107
+        Height = 17
+        Caption = 'Extended syntax'
+        Checked = True
+        ParentShowHint = False
+        ShowHint = False
+        State = cbChecked
+        TabOrder = 2
+      end
+      object CBIgnoreCase: TCheckBox
+        Left = 196
+        Top = 48
         Width = 84
         Height = 17
-        Caption = 'Match case'
-        Checked = True
-        Enabled = False
-        State = cbChecked
+        Caption = 'Ignore case'
         TabOrder = 3
       end
       object BtnFindNext: TButton
@@ -260,7 +285,7 @@ object FindReplaceForm: TFindReplaceForm
         OnClick = BtnFindCountClick
       end
       object CBUnicode: TCheckBox
-        Left = 196
+        Left = 106
         Top = 48
         Width = 84
         Height = 17

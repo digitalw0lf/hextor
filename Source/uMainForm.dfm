@@ -112,7 +112,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -542,6 +542,7 @@ object MainForm: TMainForm
           ExplicitHeight = 519
           inherited ToolBar1: TToolBar
             Width = 412
+            Images = nil
             ExplicitWidth = 412
           end
           inherited BookmarksTreeView: TVirtualStringTree
@@ -1206,7 +1207,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01011A004001C00310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01011A004001C40310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       000000000000000000000072000000720000006F0000006D0000006C00000000

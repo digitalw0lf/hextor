@@ -314,7 +314,6 @@ type
     procedure PrepareScriptEnv(CurField: TDSField);
     function Evaluate(Expr: string; CurField: TDSField): Variant;
   public
-    class function EvalConst(Expr: string): Variant;
     class function Eval(Expr: string; CurField: TDSField): Variant;
     constructor Create();
     destructor Destroy(); override;
@@ -322,35 +321,6 @@ type
 
 var
   FDSExprEvaluator: TDSExprEvaluator = nil;  // Not thread-safe
-
-function StrToVariantRanges(const S: string): TVariantRanges;
-// Parse string like '1, 3, 5..10' to array of variant ranges
-var
-  a: TArray<string>;
-  a1, a2: string;
-  i, p: Integer;
-  Range: TVariantRange;
-begin
-  a := S.Split([',']);
-  Result.Ranges := nil;
-  for i:=0 to Length(a)-1 do
-  begin
-    p := a[i].IndexOf('..');
-    if p >= 0 then
-    begin
-      a1 := Copy(a[i], Low(a[i]), p);
-      a2 := Copy(a[i], Low(a[i]) + p + 2, MaxInt);
-      Range.AStart := TDSExprEvaluator.EvalConst(a1);
-      Range.AEnd := TDSExprEvaluator.EvalConst(a2);
-    end
-    else
-    begin
-      Range.AStart := TDSExprEvaluator.EvalConst(a[i]);
-      Range.AEnd := Range.AStart;
-    end;
-    Result.Ranges := Result.Ranges + [Range];
-  end;
-end;
 
 { TDSParser }
 
@@ -567,7 +537,7 @@ begin
       raise EDSParserError.Create('Value expected');
     if CurStruct = nil then
       raise EDSParserError.Create('"#align" directive not inside structure');
-    CurStruct.FieldAlign := TDSExprEvaluator.EvalConst(Value);
+    CurStruct.FieldAlign := EvalConst(Value);
     Exit;
   end;
 
@@ -1244,7 +1214,7 @@ var
   Len: Integer;
   Sz: TFilePointer;
 begin
-  V := TDSExprEvaluator.EvalConst(ACount);
+  V := EvalConstDef(ACount);
   if VarIsOrdinal(V) then Len := V
                      else Exit(-1);
   Sz := ElementType.GetFixedSize();
@@ -2146,8 +2116,8 @@ begin
   try
     Expr := Trim(Expr);
 
-    Result := EvalConst(Expr);
-    if not VarIsEmpty(Result) then Exit;
+    if TryEvalConst(Expr, Result) then
+      Exit;
 
     PrepareScriptEnv(CurField);
     Result := ScriptControl.Eval(Expr);
@@ -2165,26 +2135,6 @@ begin
   // Make sure evaluator instance created and use it to calculate expression
   ForceEvaluator();
   Result := FDSExprEvaluator.Evaluate(Expr, CurField);
-end;
-
-class function TDSExprEvaluator.EvalConst(Expr: string): Variant;
-// Calculate expression that does not requires ScriptControl
-var
-  N: Integer;
-begin
-  VarClear(Result);
-  Expr := Trim(Expr);
-
-  // Number
-  if TryStrToInt(Expr, N) then Exit(N);
-
-  // Ansi char
-  if (Length(Expr) = 3) and (Expr[Low(Expr)] = '''') and
-     (Expr[High(Expr)] = '''') then
-  begin
-    Result := AnsiChar(Expr[Low(Expr)+1]);
-    Exit;
-  end;
 end;
 
 class procedure TDSExprEvaluator.ForceEvaluator;
