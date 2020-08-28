@@ -695,6 +695,7 @@ begin
         // E.g. {i16:5:2} evaluates to 05000500
         if (Element.MinCount = Element.MaxCount) and (Element.MaxCount <= 1024) and
            (Length(Element.Ranges.Ranges) = 1) and (Element.Ranges.Ranges[0].AStart = Element.Ranges.Ranges[0].AEnd) and
+           (not ((Element.DataType.Name = 'float') or (Element.DataType.Name = 'double'))) and  // Float's require inexact comparison
            (not Element.Inverse) then
         begin
           Element._type := peBytes;

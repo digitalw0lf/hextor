@@ -208,7 +208,7 @@ end;
 
 function Float2Variant(const Data; Size: Integer): Variant;
 begin
-  Result := Single(Data);
+  Result := VarAsType(Single(Data), varSingle);  // Without VarAsType(), Result becomes varDouble
 end;
 
 procedure Variant2Float(const V: Variant; var Data; Size: Integer);

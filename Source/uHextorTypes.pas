@@ -496,13 +496,29 @@ function TryEvalConst(Expr: string; var Value: Variant): Boolean;
 // Evaluate simple constant expression that does not requires ScriptControl
 var
   N: Integer;
+  N64: Int64;
+  F: Double;
 begin
   Expr := Trim(Expr);
 
-  // Number
+  // Integer number
   if TryStrToInt(Expr, N) then
   begin
     Value := N;
+    Exit(True);
+  end;
+
+  // 64-bit Integer number
+  if TryStrToInt64(Expr, N64) then
+  begin
+    Value := N64;
+    Exit(True);
+  end;
+
+  // Floating-point number
+  if TryS2R(Expr, F) then
+  begin
+    Value := F;
     Exit(True);
   end;
 
@@ -800,14 +816,35 @@ begin
             (VarIsStr(v1) and VarIsStr(v2));
 end;
 
+function VarLessOrEqual(const Value1, Value2: Variant; VarType: TVarType): Boolean;
+begin
+  // Compare using appropriate accuracy
+  case VarType of
+    varSingle:
+      begin
+        if IsNaN(Single(Value1)) or IsNaN(Single(Value2)) then Exit(False);
+        Result := (CompareValue(Single(Value1), Single(Value2)) <= 0);
+      end;
+    varDouble:
+      begin
+        if IsNaN(Double(Value1)) or IsNaN(Double(Value2)) then Exit(False);
+        Result := (CompareValue(Double(Value1), Double(Value2)) <= 0);
+      end
+    else       
+      Result := (CompareValue(Value1, Value2) <= 0);
+  end;
+end;
+
 function TVariantRanges.Contains(const Value: Variant): Boolean;
 var
   i: Integer;
+  VarType: TVarType;
 begin
+  VarType := FindVarData(Value)^.VType;
   for i:=0 to Length(Ranges)-1 do
     if (TypesCompatible(Value, Ranges[i].AStart)) and
        (TypesCompatible(Value, Ranges[i].AEnd)) and
-       (Value >= Ranges[i].AStart) and (Value <= Ranges[i].AEnd) then
+       (VarLessOrEqual(Ranges[i].AStart, Value, VarType)) and (VarLessOrEqual(Value, Ranges[i].AEnd, VarType)) then
       Exit(True);
   Result := False;
 end;
