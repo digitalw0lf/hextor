@@ -16,7 +16,7 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     TabOrder = 0
     TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoSpanColumns, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
     TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages]
-    TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
+    TreeOptions.SelectionOptions = [toFullRowSelect, toMultiSelect, toRightClickSelect]
     OnDrawText = ResultsListDrawText
     OnFreeNode = ResultsListFreeNode
     OnGetText = ResultsListGetText
@@ -63,6 +63,24 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     object Collapseall1: TMenuItem
       Caption = 'Collapse all'
       OnClick = Collapseall1Click
+    end
+    object N1: TMenuItem
+      Caption = '-'
+    end
+    object Copyfilenames1: TMenuItem
+      Caption = 'Copy file name(s)'
+      OnClick = Copyfilenames1Click
+    end
+    object Copyfounditems1: TMenuItem
+      Caption = 'Copy found item(s)'
+      object AsHex1: TMenuItem
+        Caption = 'As Hex'
+        OnClick = AsHex1Click
+      end
+      object AsText1: TMenuItem
+        Caption = 'As Text'
+        OnClick = AsHex1Click
+      end
     end
   end
 end

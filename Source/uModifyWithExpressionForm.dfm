@@ -133,7 +133,7 @@ object ModifyWithExpressionForm: TModifyWithExpressionForm
       'x - original value'
       'p - pattern value'
       'i - index in selection'
-      'a - adress in file')
+      'a - address in file')
     ParentColor = True
     ReadOnly = True
     TabOrder = 5

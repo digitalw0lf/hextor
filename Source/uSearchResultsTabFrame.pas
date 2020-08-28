@@ -13,7 +13,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.ComCtrls,
-  System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls,
+  System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Clipbrd,
 
   uEditorForm, uHextorTypes, uHextorDataSources, uEditedData, Vcl.Menus;
 
@@ -25,6 +25,11 @@ type
     ResultsListPopupMenu: TPopupMenu;
     Expandall1: TMenuItem;
     Collapseall1: TMenuItem;
+    N1: TMenuItem;
+    Copyfilenames1: TMenuItem;
+    Copyfounditems1: TMenuItem;
+    AsHex1: TMenuItem;
+    AsText1: TMenuItem;
     procedure ResultsListGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure ResultsListFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
@@ -35,6 +40,8 @@ type
       const Text: string; const CellRect: TRect; var DefaultDraw: Boolean);
     procedure Expandall1Click(Sender: TObject);
     procedure Collapseall1Click(Sender: TObject);
+    procedure Copyfilenames1Click(Sender: TObject);
+    procedure AsHex1Click(Sender: TObject);
   private type
     TDisplayedNeedle = array[0..2] of string;  // Text[1] is highlighted needle, Text[0] and Text[2] is short context before and after
     // Data for result list node (both "File name" nodes and "item" leaf nodes)
@@ -139,9 +146,58 @@ begin
   RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), TextEncoding));
 end;
 
+procedure TSearchResultsTabFrame.AsHex1Click(Sender: TObject);
+// Copy selected found items to clipboard.
+var
+  Node: PVirtualNode;
+  RNode: PResultTreeNode;
+  sb: TStringBuilder;
+  s: string;
+begin
+  sb := TStringBuilder.Create();
+  try
+    for Node in ResultsList.SelectedNodes() do
+      if not IsGroupNode(Node) then
+      begin
+        RNode := Node.GetData();
+        if RNode <> nil then
+        begin
+          if Sender = AsHex1 then
+            s := RNode.DisplayHex[1]
+          else
+            s := RNode.DisplayText[1];
+          sb.Append(s + sLineBreak);
+        end;
+      end;
+
+    Clipboard.AsText := sb.ToString();
+  finally
+    sb.Free;
+  end;
+end;
+
 procedure TSearchResultsTabFrame.Collapseall1Click(Sender: TObject);
 begin
   ResultsList.FullCollapse();
+end;
+
+procedure TSearchResultsTabFrame.Copyfilenames1Click(Sender: TObject);
+// Copy selected nodes file names to clipboard.
+// Root nodes should be selected, not leaf nodes with individual items
+var
+  Node: PVirtualNode;
+  RNode: PResultTreeNode;
+  s: string;
+begin
+  s := '';
+  for Node in ResultsList.SelectedNodes() do
+    if IsGroupNode(Node) then
+    begin
+      RNode := Node.GetData();
+      if RNode <> nil then
+        s := s + RNode.DisplayFileName + sLineBreak;
+    end;
+  Clipboard.AsText := s;
 end;
 
 constructor TSearchResultsTabFrame.Create(AOwner: TComponent);
