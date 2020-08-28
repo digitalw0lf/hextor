@@ -12,7 +12,7 @@ Main features are:
 - Bookmarks
 - ANSI/ASCII encoding (other SBCS and MBCS planned)
 - View data as different basic types (int8/16/32/float/etc.)
-- Text/hex/unicode search and replace (RegEx planned)
+- Text/hex/unicode search and replace with wildcards and value search
 - Search and replace in files/directories
 - Interpret and edit data as structure with C-like description
 - Binary file comparison

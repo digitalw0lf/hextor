@@ -236,6 +236,8 @@ type
     URLEncode1: TMenuItem;
     PgBookmarks: TTabSheet;
     BookmarksFrame: TBookmarksFrame;
+    ActionInvertByteOrder: TAction;
+    MIInvertByteOrder: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -304,6 +306,7 @@ type
     procedure ActionCheckUpdateExecute(Sender: TObject);
     procedure ActionSettingsExecute(Sender: TObject);
     procedure FormDblClick(Sender: TObject);
+    procedure ActionInvertByteOrderExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -602,6 +605,39 @@ begin
       CaretInByte := 0;
     finally
       EndUpdate();
+    end;
+  end;
+end;
+
+procedure TMainForm.ActionInvertByteOrderExecute(Sender: TObject);
+// Invert byte order
+var
+  Buf: TBytes;
+  Addr: TFilePointer;
+  Len, i: Integer;
+  tmp: Byte;
+begin
+  with ActiveEditor do
+  begin
+    if SelLength >= High(Integer) then
+      raise EInvalidUserInput.Create('This operation cannot process more then 2 GB');
+    Addr := SelStart;
+    Len := SelLength;
+    Progress.TaskStart(Self);
+    try
+      Buf := Data.Get(Addr, Len);
+      for i:=0 to Len div 2-1 do
+      begin
+        tmp := Buf[i];
+        Buf[i] := Buf[Len - i - 1];
+        Buf[Len - i - 1] := tmp;
+
+        if ((i+1) mod $1000000) = 0 then
+          Progress.Show(i, Len div 2);
+      end;
+      Data.Change(Addr, Len, @Buf[0]);
+    finally
+      Progress.TaskEnd();
     end;
   end;
 end;
@@ -1013,6 +1049,7 @@ begin
       ActionSetFileSize.Enabled := (DataSource <> nil) and (dspResizable in DataSource.GetProperties());
       ActionFillBytes.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
       ActionModifyWithExpr.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and (SelLength > 0);
+      ActionInvertByteOrder.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and (SelLength > 0);
 
       ActionBitsEditor.Enabled := (SelLength<=4);
     end;

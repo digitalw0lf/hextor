@@ -839,6 +839,9 @@ object MainForm: TMainForm
       object MIModifyWithExpr: TMenuItem
         Action = ActionModifyWithExpr
       end
+      object MIInvertByteOrder: TMenuItem
+        Action = ActionInvertByteOrder
+      end
     end
     object MITools: TMenuItem
       Caption = 'Tools'
@@ -1197,6 +1200,12 @@ object MainForm: TMainForm
       ImageIndex = 22
       OnExecute = ActionSettingsExecute
     end
+    object ActionInvertByteOrder: TAction
+      Category = 'Operations'
+      Caption = 'Invert byte order'
+      Hint = 'Invert byte order'
+      OnExecute = ActionInvertByteOrderExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -1207,7 +1216,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01011A004001C40310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01011A004001C80310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       000000000000000000000072000000720000006F0000006D0000006C00000000
