@@ -1040,6 +1040,8 @@ begin
 
       ActionCopy.Enabled := {(FocusInEditor) and} (SelLength > 0);
       ActionCopyAsArray.Enabled := ActionCopy.Enabled;
+      ActionCopyAsBase64.Enabled := ActionCopy.Enabled;
+      ActionCopyAsURLEncode.Enabled := ActionCopy.Enabled;
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
       ActionPaste.Enabled := Clipboard.HasFormat(CF_UNICODETEXT) and (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
       ActionPasteAs.Enabled := ActionPaste.Enabled;

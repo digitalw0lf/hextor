@@ -831,7 +831,7 @@ begin
         Result := (CompareValue(Double(Value1), Double(Value2)) <= 0);
       end
     else       
-      Result := (CompareValue(Value1, Value2) <= 0);
+      Result := (Value1 <= Value2);
   end;
 end;
 
