@@ -926,7 +926,8 @@ function TStructFrame.EnumerateFields(DS: TDSField; const Range: TFileRange;
 // Pass DS and its childs recuresively to procedure Proc.
 // Only process fields which intersect specified range.
 var
-  i: Integer;
+  i, n1, n2: Integer;
+  ElemSize: TFilePointer;
 begin
   Result := 0;
   // Check within requested address range
@@ -938,8 +939,25 @@ begin
 
   // Add childs
   if DS is TDSCompoundField then
-    for i:=0 to TDSCompoundField(DS).Fields.Count-1 do
+  begin
+    n1 := 0;
+    n2 := TDSCompoundField(DS).Fields.Count - 1;
+    // For arrays with fixed-size elements, we can calculate exact item range
+    if (DS is TDSArray) then
+    begin
+      ElemSize := (DS as TDSArray).ElementType.GetFixedSize();
+      if ElemSize > 0 then
+      begin
+        n1 := (Range.Start - DS.BufAddr) div ElemSize;
+        n2 := DivRoundUp(Range.AEnd - DS.BufAddr, ElemSize) - 1;
+        n1 := BoundValue(n1, 0, (DS as TDSArray).Fields.Count - 1);
+        n2 := BoundValue(n2, 0, (DS as TDSArray).Fields.Count - 1);
+      end;
+    end;
+
+    for i:=n1 to n2 do
       Inc(Result, EnumerateFields(TDSCompoundField(DS).Fields[i], Range, Proc));
+  end;
 end;
 
 //procedure TStructFrame.ExpandToNode(Node: PVirtualNode);

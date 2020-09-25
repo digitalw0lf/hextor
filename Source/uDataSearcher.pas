@@ -51,13 +51,15 @@ type
     function ParseTag(const Text: string): TExtMatchPatternElement;
     procedure Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
     function MatchElement(const Data: PByte; DataSize: Integer;
-      const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+      const Elem: TExtMatchPatternElement; var Size: Integer): Boolean; inline;
+    function ElemCompareStr(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+    function ElemCompareValues(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
   public
     constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
     destructor Destroy(); override;
     function IsEmpty(): Boolean;
     procedure CalcMinMaxMatchSize(var MinSize, MaxSize: Integer);
-    function Match(Data: PByte; DataSize: Integer; var Size: Integer): Boolean;
+    function Match(Data: PByte; DataSize: Integer; var Size: Integer): Boolean; inline;
   end;
 
   TSearchParams = record
@@ -113,6 +115,9 @@ type
 
 implementation
 
+uses
+  uHextorDataSources;
+
 { TDataSearcher }
 
 function TCustomDataSearcher.FindNext(Start: TFilePointer;
@@ -127,6 +132,8 @@ var
   IPtr: Integer;
   Block: TFileRange;
   LastBlock: Boolean;
+  Regions: TSourceRegionArray;
+//  t: Int64;
 begin
   if FSearchInProgress then Exit(False);
   Range := Params.Range;
@@ -160,11 +167,32 @@ begin
       if (Direction > 0) and (Block.AEnd = Range.AEnd) then LastBlock := True;
       if (Direction < 0) and (Block.Start = Range.Start) then LastBlock := True;
 
-      // Take next data portion
-      Data := Haystack.Get(Block.Start, Block.Size, False);
-      // Search in it
-      Result := FindInBlock(@Data[0], Length(Data), Ptr - Block.Start, Direction, not LastBlock, IPtr, Size);
-      Ptr := Block.Start + IPtr;
+      Regions := Haystack.DataSource.GetRegions(Block);
+      try
+
+        if (Length(Regions) = 1) and (not Regions[0].HasData) then
+        begin
+          // Skip totally empty regions (e.g. unallocated memory)
+          Result := False;
+          if Direction = 1 then Ptr := Max(Regions[0].Range.AEnd - MaxMatchSize, Ptr)
+                           else Ptr := Regions[0].Range.Start;
+//          WriteLogFmt('Skip to %x', [Ptr]);
+        end
+        else
+        begin
+          // Take next data portion
+          Data := Haystack.Get(Block.Start, Block.Size{, False});
+          // Search in it
+//          t := GetNanosec();
+          Result := FindInBlock(@Data[0], Length(Data), Ptr - Block.Start, Direction, not LastBlock, IPtr, Size);
+//          t := GetNanosec() - t;
+//          WriteLogFmt('FindInBlock: (%x-%x) sz: %d ptr: %x time: %d', [Block.Start, Block.AEnd, Block.Size, Ptr, t div 1000000]);
+          Ptr := Block.Start + IPtr;
+        end;
+
+      finally
+        Regions.Free;
+      end;
 
       // Found
       if Result then
@@ -343,6 +371,52 @@ destructor TExtMatchPattern.Destroy;
 begin
 
   inherited;
+end;
+
+function TExtMatchPattern.ElemCompareStr(const Data: PByte; DataSize: Integer;
+  const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+// Compare Data with Element's text using pattern's CodePage.
+var
+  s: string;
+begin
+  if (DataSize < Elem.SizeInBytes) then Exit(False);
+  // To compare case-insensitive, we have to convert file data to string using selected CodePage
+  s := Data2String(MakeBytes(Data[0], Elem.SizeInBytes), CodePage);
+  if bIgnoreCase then
+    Result := (AnsiCompareText(s, Elem.Text) = 0)
+  else
+    // Actually, if not IgnoreCase then element will be converted to peBytes and we won't get here
+    Result := (CompareStr(s, Elem.Text) = 0);
+  if Result then
+    Size := Elem.SizeInBytes;
+end;
+
+function TExtMatchPattern.ElemCompareValues(const Data: PByte; DataSize: Integer;
+  const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+// Compare Data with Element's value ranges.
+var
+  i, ElemSize, MaxCount: Integer;
+  v: Variant;
+begin
+  ElemSize := Elem.DataType.MinSize;
+  if DataSize < ElemSize * Elem.MinCount then Exit(False);
+  MaxCount := Min(DataSize div ElemSize, Elem.MaxCount);
+  for i:=0 to MaxCount-1 do
+  begin
+    try
+      v := Elem.DataType.ToVariant(Data[ElemSize * i], ElemSize);
+    except
+      Exit(False);
+    end;
+    if (not Elem.Ranges.Contains(v)) xor (Elem.Inverse) then  // Found item that do not falls in ranges
+    begin
+      Result := (i >= Elem.MinCount);
+      if Result then Size := i * ElemSize;
+      Exit;
+    end;
+  end;
+  Result := True;
+  Size := MaxCount * ElemSize;
 end;
 
 const
@@ -524,10 +598,6 @@ function TExtMatchPattern.MatchElement(const Data: PByte; DataSize: Integer;
 // Match specified Element with data buffer.
 // Returns True if data matches this element.
 // For variable-sized elements, match is always "greedy".
-var
-  i, ElemSize, MaxCount: Integer;
-  v: Variant;
-  s: string;
 begin
   Result := False;
   case Elem._type of
@@ -541,18 +611,7 @@ begin
       end;
     peStr:  // Match text, possible ignoring case
       begin
-        if (DataSize >= Elem.SizeInBytes) then
-        begin
-          // To compare case-insensitive, we have to convert file data to string using selected CodePage
-          s := Data2String(MakeBytes(Data[0], Elem.SizeInBytes), CodePage);
-          if bIgnoreCase then
-            Result := (AnsiCompareText(s, Elem.Text) = 0)
-          else
-            // Actually, if not IgnoreCase then element will be converted to peBytes and we won't get here
-            Result := (CompareStr(s, Elem.Text) = 0);
-          if Result then
-            Size := Elem.SizeInBytes;
-        end;
+        Result := ElemCompareStr(Data, DataSize, Elem, Size);
       end;
     peAny:  // Match any bytes
       begin
@@ -564,25 +623,7 @@ begin
       end;
     peRanges:  // Match specified count of elements by ranges
       begin
-        ElemSize := Elem.DataType.MinSize;
-        if DataSize < ElemSize * Elem.MinCount then Exit(False);
-        MaxCount := Min(DataSize div ElemSize, Elem.MaxCount);
-        for i:=0 to MaxCount-1 do
-        begin
-          try
-            v := Elem.DataType.ToVariant(Data[ElemSize * i], ElemSize);
-          except
-            Exit(False);
-          end;
-          if (not Elem.Ranges.Contains(v)) xor (Elem.Inverse) then  // Found item that do not falls in ranges
-          begin
-            Result := (i >= Elem.MinCount);
-            if Result then Size := i * ElemSize;
-            Exit;
-          end;
-        end;
-        Result := True;
-        Size := MaxCount * ElemSize;
+        Result :=  ElemCompareValues(Data, DataSize, Elem, Size);
       end;
     peScript:
       begin
