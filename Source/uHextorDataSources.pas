@@ -123,6 +123,7 @@ type
   TProcMemDataSource = class (THextorDataSource)
   protected
     const PageSize = 4096;
+  protected
     FSize: TFilePointer;
   public
     hProcess: Cardinal;
