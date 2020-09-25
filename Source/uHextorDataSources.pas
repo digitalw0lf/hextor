@@ -38,6 +38,23 @@ type
     destructor Destroy(); override;
   end;
 
+  TSourceRegion = class
+  // Native region of data source (e.g. allocated or free region of virtual memory).
+  // If DataSource defines Regions, they must cover entire DataSource size without gaps.
+  public
+    Range: TFileRange;
+    HasData: Boolean;
+    Parent: TSourceRegion;
+    HasChilds: Boolean;
+    Description: string;
+  end;
+
+  TSourceRegionArray = TArray<TSourceRegion>;
+  TSourceRegionArrayHelper = record helper for TSourceRegionArray
+  public
+    procedure Free;
+  end;
+
   THextorDataSource = class
   private
     FPath, FDisplayName: string;
@@ -56,6 +73,7 @@ type
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
     function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
     procedure CopyContentFrom(Source: THextorDataSource); virtual;
+    function GetRegions(const ARange: TFileRange): TSourceRegionArray; virtual;
   end;
 
   THextorDataSourceType = class of THextorDataSource;
@@ -105,9 +123,9 @@ type
   TProcMemDataSource = class (THextorDataSource)
   protected
     const PageSize = 4096;
-  protected
-    hProcess: Cardinal;
+    FSize: TFilePointer;
   public
+    hProcess: Cardinal;
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
     procedure Open(Mode: Word); override;
@@ -115,10 +133,14 @@ type
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
     function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
+    function GetRegions(const ARange: TFileRange): TSourceRegionArray; override;
   end;
 
 
 implementation
+
+uses
+  Winapi.PsAPI;
 
 { THextorDataSource }
 
@@ -172,6 +194,12 @@ end;
 function THextorDataSource.GetProperties: TDataSourceProperties;
 begin
   Result := [];
+end;
+
+function THextorDataSource.GetRegions(
+  const ARange: TFileRange): TSourceRegionArray;
+begin
+  Result := nil;
 end;
 
 procedure THextorDataSource.SetSize(NewSize: TFilePointer);
@@ -445,23 +473,119 @@ begin
   Result := [dspWritable];
 end;
 
+function TProcMemDataSource.GetRegions(
+  const ARange: TFileRange): TSourceRegionArray;
+// Returns a list of allocated and free regions of process virtual address space.
+// Warning! If requested range starts not from 0, first returned region is uncomplete;
+// it starts on nearest page boundary
+var
+  mbi: MEMORY_BASIC_INFORMATION;
+//  si: SYSTEM_INFO;
+  lpMem: Pointer;
+  fn: string;
+  len: Cardinal;
+  Region, ParentRegion: TSourceRegion;
+begin
+//  StartTimeMeasure();
+
+  Result := nil;
+  try
+    // Get maximum address range from system info
+  //  GetSystemInfo(si);
+    ParentRegion := nil;
+    lpMem := Pointer(ARange.Start);
+    while (ARange = EntireFile) or (UIntPtr(lpMem) < ARange.AEnd) do
+    begin
+      if VirtualQueryEx(hProcess, lpMem, mbi, SizeOf(mbi)) = 0 then
+      begin
+        Break;
+  //      RaiseLastOSError();
+      end;
+
+      SetLength(fn, 1024);
+
+      len := GetMappedFileName(hProcess, mbi.BaseAddress, @fn[Low(fn)], Length(fn));
+      if len > 0 then
+        fn := Copy(fn, Low(fn), len)
+      else
+        fn := '';
+
+  //    WriteLogFmt('MemRegions', '%x / %x Sz: %d State: %x Type: %x fn: %s', [UIntPtr(mbi.BaseAddress), UIntPtr(mbi.AllocationBase), mbi.RegionSize, mbi.State, mbi.Type_9, fn]);
+      Region := TSourceRegion.Create();
+      Region.Range := TFileRange.Create(UIntPtr(mbi.BaseAddress), UIntPtr(mbi.BaseAddress) + mbi.RegionSize);
+      Region.HasData := (mbi.State <> MEM_FREE);
+      Region.HasChilds := False;
+      case mbi.State of
+        MEM_COMMIT:
+          begin
+            case mbi.Type_9 of
+              MEM_IMAGE:   Region.Description := 'Image';
+              MEM_MAPPED:  Region.Description := 'Mapped';
+              MEM_PRIVATE: Region.Description := 'Private';
+              else         Region.Description := 'Commit';
+            end;
+          end;
+        MEM_RESERVE:       Region.Description := 'Reserved';
+        MEM_FREE:          Region.Description := 'Free';
+      end;
+      if fn <> '' then
+        Region.Description := Region.Description + ': ' + fn;
+
+      if (mbi.State <> MEM_FREE) then
+      begin
+        // Create parent region for regions sharing same allocation base
+        if (ParentRegion = nil) or (UIntPtr(mbi.AllocationBase) <> ParentRegion.Range.Start) then
+        begin
+          ParentRegion := TSourceRegion.Create();
+          ParentRegion.Range := TFileRange.Create(UIntPtr(mbi.AllocationBase), UIntPtr(mbi.AllocationBase));
+          ParentRegion.HasData := True;
+          ParentRegion.HasChilds := True;
+          ParentRegion.Description := Region.Description;
+
+          Result := Result + [ParentRegion];
+        end;
+        Region.Parent := ParentRegion;
+        ParentRegion.Range.AEnd := Max(ParentRegion.Range.AEnd, UIntPtr(mbi.BaseAddress) + mbi.RegionSize);
+      end;
+
+      Result := Result + [Region];
+
+      // increment lpMem to next region of memory
+      lpMem := Pointer(UIntPtr(mbi.BaseAddress) + UIntPtr(mbi.RegionSize));
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+
+//  EndTimeMeasure('Mem.GetRegions', True);
+end;
+
 function TProcMemDataSource.GetSize: TFilePointer;
 begin
-  Result := $100000000;
+  Result := FSize;
 end;
 
 procedure TProcMemDataSource.Open(Mode: Word);
 var
   ProcID, Access: Cardinal;
+  Regions: TSourceRegionArray;
 begin
   ProcID := StrToInt(Path);
   if hProcess <> 0 then  CloseHandle(hProcess);
   case Mode of
     fmCreate, fmOpenReadWrite: Access := PROCESS_ALL_ACCESS;
-    else Access := PROCESS_VM_READ;
+    else Access := PROCESS_VM_READ or PROCESS_QUERY_INFORMATION;
   end;
   hProcess := OpenProcess(Access, false, ProcID);
   Win32Check(Bool(hProcess));
+
+  Regions := GetRegions(TFileRange.Create(0, High(TFilePointer)));
+  if Length(Regions) > 0 then
+    FSize := Regions[High(Regions)].Range.AEnd
+  else
+    FSize := 0;
+  Regions.Free;
 end;
 
 { TDataCache }
@@ -564,6 +688,16 @@ procedure TCachedDataSource.Open(Mode: Word);
 begin
   Cache.Flush();
   inherited;
+end;
+
+{ TSourceRegionArrayHelper }
+
+procedure TSourceRegionArrayHelper.Free;
+var
+  i: Integer;
+begin
+  for i := 0 to Length(Self)-1 do
+    Self[i].Free;
 end;
 
 end.

@@ -1,6 +1,7 @@
 object ProcessSelectForm: TProcessSelectForm
   Left = 0
   Top = 0
+  ActiveControl = EditFilter
   Caption = 'Select process'
   ClientHeight = 432
   ClientWidth = 458
@@ -155,9 +156,9 @@ object ProcessSelectForm: TProcessSelectForm
   object Label2: TLabel
     Left = 16
     Top = 392
-    Width = 221
+    Width = 161
     Height = 13
-    Caption = 'Warning: this feature is incomplete and buggy'
+    Caption = 'Warning: currently limited to 4 GB'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clRed
     Font.Height = -11

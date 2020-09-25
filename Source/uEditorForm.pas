@@ -166,7 +166,7 @@ type
     [API]
     procedure Save();
     procedure NewFileOpened(ResetCaret: Boolean);
-    function GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
+    function GetEditedData(Addr, Size: TFilePointer): TBytes;
     function GetOrigFileSize(): TFilePointer;
     [API]
     function GetFileSize(): TFilePointer;
@@ -227,7 +227,7 @@ var
 implementation
 
 uses
-  uMainForm, uValueFrame;
+  uMainForm, uValueFrame, uDbgToolsForm;
 
 {$R *.dfm}
 
@@ -418,7 +418,7 @@ procedure TEditorForm.FormActivate(Sender: TObject);
 begin
   if FClosed then Exit;
   if DataSource <> nil then
-    MainForm.ActiveEditorChanged();
+    MainForm.CheckActiveEditorChanged();
 end;
 
 procedure TEditorForm.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -637,7 +637,11 @@ begin
         Data.Insert(APos, 1, @Zero);
         FCaretPos := APos;  // Keep caret pos in same byte
       end;
-      Buf := GetEditedData(APos, 1, dspResizable in DataSource.GetProperties());
+      Buf := GetEditedData(APos, 1);
+      // Allow typing beyong end of file
+      if (dspResizable in DataSource.GetProperties()) and
+         (Length(Buf) = 0) and (APos = Data.GetSize()) then
+        Buf := [0];
       if Length(Buf)<>1 then Exit;
       x := Buf[0];
       Digit := StrToInt('$'+Key);
@@ -730,9 +734,9 @@ begin
     Rect.Width := Rect.Width * 3;
 end;
 
-function TEditorForm.GetEditedData(Addr, Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes;
+function TEditorForm.GetEditedData(Addr, Size: TFilePointer): TBytes;
 begin
-  Result := Data.Get(Addr, Size, ZerosBeyondEoF);
+  Result := Data.Get(Addr, Size);
 end;
 
 function TEditorForm.GetFileSize: TFilePointer;
@@ -979,6 +983,8 @@ begin
   OnGetTaggedRegions.Remove(Id);
   OnBeforeDrawPane.Remove(Id);
   OnAfterDrawPane.Remove(Id);
+  Data.OnDataChanged.Remove(Id);
+  Data.OnBeforePartsReplace.Remove(Id);
 end;
 
 procedure TEditorForm.ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
@@ -1344,9 +1350,25 @@ end;
 procedure TEditorForm.EditorGetTaggedRegions(Editor: TEditorForm; Start,
   AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
 var
+  SrcRegions: TSourceRegionArray;
   Parts: TEditedData.TDataPartList;
   i: Integer;
 begin
+  // Data Source native regions
+  if DataSource <> nil then
+  begin
+    // TODO: Regions may move when data changed?
+    SrcRegions := DataSource.GetRegions(TFileRange.Create(Start, AEnd));
+    try
+      for i := 0 to Length(SrcRegions)-1 do
+      begin
+        Regions.AddRegion(Self, SrcRegions[i].Range.Start, SrcRegions[i].Range.AEnd, IfThen(SrcRegions[i].HasData, clNone, Color_NoDataTx), clNone, Color_SrcRegionFr);
+      end;
+    finally
+      SrcRegions.Free;
+    end;
+  end;
+
   // Changed bytes
   Parts := TEditedData.TDataPartList.Create(False);
   try
@@ -1448,6 +1470,7 @@ var
   FileSize: TFilePointer;
   IncludesFileEnd: Boolean;
   ws: string;
+  t: Cardinal;
 
   function ToDisplayedString(Buf: RawByteString): string;
   var
@@ -1477,6 +1500,7 @@ begin
   FNeedUpdatePanes := False;
 
 //  StartTimeMeasure();
+  t := GetTickCount();
 
   BeginUpdate();
   try
@@ -1577,6 +1601,8 @@ begin
 //    StartTimeMeasure();
     EndUpdate();
 //    EndTimeMeasure('EndUpdatePanes', True);
+    t := GetTickCount() - t;
+    DbgToolsForm.LblUpdateTime.Caption := 'Update: ' + IntToStr(t) + ' ms';
   end;
 
   UpdateSkipFFButtons(AData);

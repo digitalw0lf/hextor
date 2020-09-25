@@ -105,6 +105,8 @@ begin
   FilterText := Trim(EditFilter.Text);
   BtnClearFilter.Visible := (EditFilter.Text <> '');
   ShowProcessList();
+  if ListView1.Items.Count = 1 then
+    ListView1.ItemIndex := 0;
 end;
 
 procedure TProcessSelectForm.FormCreate(Sender: TObject);

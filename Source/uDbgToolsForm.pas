@@ -12,12 +12,13 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls
   {$IFDEF USE_DWF_UTILS}, uProfilerFrame{$ENDIF}
   ;
 
 type
   TDbgToolsForm = class(TForm)
+    LblUpdateTime: TLabel;
     procedure FormCreate(Sender: TObject);
   private
     { Private declarations }

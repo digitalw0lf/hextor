@@ -458,7 +458,7 @@ begin
       Portion := Min(BlockSize, MinSize - P);
   //    StartTimeMeasure();
       for i:=0 to 1 do
-        Buf[i] := Editors[i].Data.Get(P, Portion, False);
+        Buf[i] := Editors[i].Data.Get(P, Portion);
   //    EndTimeMeasure('Cmp.Read', True);
 
       // Compare

@@ -178,11 +178,14 @@ function R2Sf(X: Double; Digits:integer): string;
 function FileSize2Str(s:Int64; FracDigits:integer=1):UnicodeString;
 function Str2FileSize(const s:UnicodeString):Int64;
 
+function GetNanosec():Int64;
 function GetAppBuildTime(Instance:THandle = 0):TDateTime;
 procedure WriteLog(const LogSrc, Text: string); overload;
 procedure WriteLog(const Text: string); overload;
 procedure WriteLogFmt(const LogSrc, AFormat: string; const Args: array of const); overload;
 procedure WriteLogFmt(const AFormat: string; const Args: array of const); overload;
+procedure StartTimeMeasure();
+function EndTimeMeasure(const LogStr:string; bWriteLog:boolean=false; LogSrc:string=''):string; overload;
 
 const
   EntireFile: TFileRange = (Start: 0; AEnd: -1);
@@ -681,6 +684,27 @@ begin
   Result:=Round(S2R(s1)*Mult);
 end;
 
+var
+  PerfFreq: Int64 = 0;  // Result of QueryPerformanceFrequency()
+
+function GetNanosec():Int64;
+// Current time in nanoseconds
+{$IFDEF MSWINDOWS}
+begin
+  if PerfFreq=0 then QueryPerformanceFrequency(PerfFreq);
+  QueryPerformanceCounter(Result);
+  Result:=Round(Result/PerfFreq*1000000000);
+end;
+{$ENDIF}
+{$IFDEF LINUX}
+var
+  ts:TTimeSpec;
+begin
+  clock_gettime(CLOCK_MONOTONIC,@ts);
+  Result:=Int64(ts.tv_sec)*1000000000+Int64(ts.tv_nsec);
+end;
+{$ENDIF}
+
 function GetAppBuildTime(Instance:THandle = 0):TDateTime;
 // Returns application build time from PE file header
 var
@@ -742,6 +766,30 @@ end;
 procedure WriteLogFmt(const AFormat: string; const Args: array of const); overload;
 begin
   WriteLog(Format(AFormat, Args));
+end;
+
+ThreadVar
+  TimeSt: array [0..100] of Int64;
+  TimeStCnt: Integer;
+
+procedure StartTimeMeasure();
+begin
+  if TimeStCnt>100 then Exit;
+  TimeSt[TimeStCnt]:=GetNanosec();
+  inc(TimeStCnt);
+end;
+
+function EndTimeMeasure(const LogStr:string; bWriteLog:boolean=false; LogSrc:string=''):string; overload;
+var
+  t:Int64;
+begin
+  if TimeStCnt=0 then Exit;
+  dec(TimeStCnt);
+  t:=GetNanosec()-TimeSt[TimeStCnt];
+  Result := R2Sf(t / 1000000, 3) + ' ms'; //NanoSec2Str(t);
+  Result := StringOfChar(' ', TimeStCnt) + LogStr + ' ' + Result;
+  if LogSrc = '' then LogSrc := 'Timing';
+  WriteLog(LogSrc, Result);
 end;
 
 { TFileRange }

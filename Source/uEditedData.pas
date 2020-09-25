@@ -77,7 +77,7 @@ type
 
     [API]
     function GetSize(): TFilePointer;
-    function Get(Addr: TFilePointer; Size: TFilePointer; ZerosBeyondEoF: Boolean = False): TBytes; overload;
+    function Get(Addr: TFilePointer; Size: TFilePointer): TBytes; overload;
     [API]
     function Get(Addr: TFilePointer): Byte; overload;
 
@@ -176,8 +176,7 @@ begin
     SplitPart(Addr + Size);
 end;
 
-function TEditedData.Get(Addr: TFilePointer; Size: TFilePointer;
-  ZerosBeyondEoF: Boolean): TBytes;
+function TEditedData.Get(Addr: TFilePointer; Size: TFilePointer): TBytes;
 var
   CurrSize: TFilePointer;
   ReturnSize: NativeInt;
@@ -187,16 +186,11 @@ var
 begin
   CurrSize := GetSize();
   if (Addr<0) or (Addr>CurrSize) then Exit(nil);
-  if (not ZerosBeyondEoF) and (Addr>=CurrSize) then Exit(nil);
+  if (Addr>=CurrSize) then Exit(nil);
 
 //  StartTimeMeasure();
 
-  if ZerosBeyondEoF then
-    ReturnSize := Size
-  else
-  begin
-    ReturnSize := Min(Size, CurrSize-Addr);
-  end;
+  ReturnSize := Min(Size, CurrSize-Addr);
   SetLength(Result, ReturnSize);
 
   // Collect data from corresponding parts
@@ -223,12 +217,6 @@ begin
     AParts.Free;
   end;
 
-  if (ZerosBeyondEoF) and (Addr+ReturnSize > CurrSize) then
-  // Fill with zeros beyond end of file
-  begin
-    FillChar(Result[CurrSize-Addr], Addr+ReturnSize-CurrSize, 0);
-  end;
-
 //  EndTimeMeasure('Get', True);
 end;
 
@@ -236,7 +224,7 @@ function TEditedData.Get(Addr: TFilePointer): Byte;
 var
   Buf: TBytes;
 begin
-  Buf := Get(Addr, 1, False);
+  Buf := Get(Addr, 1);
   if Buf <> nil then
     Result := Buf[0]
   else

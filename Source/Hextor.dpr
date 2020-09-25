@@ -44,7 +44,8 @@ uses
   uUpdaterForm in 'uUpdaterForm.pas' {UpdaterForm},
   uSettingsForm in 'uSettingsForm.pas' {SettingsForm},
   uModuleSettings in 'uModuleSettings.pas',
-  uBookmarksFrame in 'uBookmarksFrame.pas' {BookmarksFrame: TFrame};
+  uBookmarksFrame in 'uBookmarksFrame.pas' {BookmarksFrame: TFrame},
+  uRegionsFrame in 'uRegionsFrame.pas' {RegionsFrame: TFrame};
 
 {$R *.res}
 

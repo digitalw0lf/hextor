@@ -32,11 +32,13 @@ uses
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
   uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct,
-  uBookmarksFrame;
+  uBookmarksFrame, uRegionsFrame;
 
 {$I AppVersion.inc}
 
 const
+  Color_NoDataTx    = clGray;  // E.g. unallocated memory range
+  Color_SrcRegionFr = clGray;  // Native regions of Data Source
   Color_ChangedByte = $B0FFFF;
   Color_SelectionBg = $F5DDBF; //clHighlight;
   Color_SelectionTx = clNone; //clHighlightText;
@@ -238,6 +240,8 @@ type
     BookmarksFrame: TBookmarksFrame;
     ActionInvertByteOrder: TAction;
     MIInvertByteOrder: TMenuItem;
+    PgRegions: TTabSheet;
+    RegionsFrame: TRegionsFrame;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -324,6 +328,7 @@ type
     EditorForTabMenu: TEditorForm;
     FEditorsAddingCounter: Integer;
     FNeedUpdateMDITabs: Boolean;
+    PrevActiveEditor: TEditorForm;
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
     procedure WMClipboardUpdate(var Msg: TMessage); message WM_CLIPBOARDUPDATE;
     function GetActiveEditor: TEditorForm;
@@ -336,6 +341,7 @@ type
     procedure ApplyByteColEdit();
     procedure UpdateByteColEdit();
     procedure ActiveControlChanged(Sender: TObject);
+    procedure ActiveEditorChanged();
     procedure ShortCutsWhenEditorActive(const AActions: array of TContainedAction);
     function GetActiveEditorWindowState(): TWindowState;
     procedure AdjustMDITabsHeight();
@@ -353,6 +359,7 @@ type
 //    HextorOle: TCoHextor;
     APIEnv: TAPIEnvironment;
     Utils: THextorUtils;
+    OnActiveEditorChanged: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     [API]
@@ -365,7 +372,7 @@ type
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
     procedure UpdateMsgPanel();
-    procedure ActiveEditorChanged();
+    procedure CheckActiveEditorChanged();
     procedure SelectionChanged();
     procedure VisibleRangeChanged();
     function GetIconIndex(DataSource: THextorDataSource): Integer;
@@ -940,12 +947,17 @@ begin
 end;
 
 procedure TMainForm.ActiveEditorChanged;
+var
+  AEditor: TEditorForm;
 begin
+  AEditor := GetActiveEditorNoEx();
   UpdateMDITabs();
   UpdateByteColEdit();
+  OnActiveEditorChanged.Call(AEditor);
   VisibleRangeChanged();
   SelectionChanged();
   UpdateMsgPanel();
+  PrevActiveEditor := AEditor;
 end;
 
 procedure TMainForm.AddEditor(AEditor: TEditorForm);
@@ -996,6 +1008,15 @@ begin
     ActiveEditorWndState := GetActiveEditorWindowState();
   end;
   Inc(FEditorsAddingCounter);
+end;
+
+procedure TMainForm.CheckActiveEditorChanged;
+var
+  AEditor: TEditorForm;
+begin
+  AEditor := GetActiveEditorNoEx();
+  if AEditor <> PrevActiveEditor then
+    ActiveEditorChanged();
 end;
 
 procedure TMainForm.CheckEnabledActions;
@@ -1142,7 +1163,7 @@ begin
         EditorForTabMenu := nil;
     end);
   // Call ActiveEditorChanged when this editor has DataSource etc.
-  DoAfterEvent(ActiveEditorChanged);
+  DoAfterEvent(CheckActiveEditorChanged);
 end;
 
 function TMainForm.CreateFile: TEditorForm;
@@ -1606,7 +1627,7 @@ procedure TMainForm.RemoveEditor(AEditor: TEditorForm);
 begin
   FEditors.Remove(AEditor);
   // Update tabs and interface when editor form will be destroyed
-  DoAfterEvent(ActiveEditorChanged);
+  DoAfterEvent(CheckActiveEditorChanged);
 end;
 
 procedure TMainForm.RightPanelPageControlChange(Sender: TObject);
