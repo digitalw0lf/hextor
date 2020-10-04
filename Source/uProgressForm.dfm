@@ -15,6 +15,7 @@ object ProgressForm: TProgressForm
   OldCreateOrder = False
   Position = poMainFormCenter
   OnClose = FormClose
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   DesignSize = (
     393

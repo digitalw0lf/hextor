@@ -218,7 +218,7 @@ begin
   // our Action with inversed changes for subsequent redo/undo operation
   Inc(CurPointer, Ord(Direction));
   UndoingNow := Direction;
-  Progress.TaskStart(Self);
+  Progress.TaskStart(Self, 1, False);
   try
     for i:=TmpChanges.Count-1 downto 0 do
     begin

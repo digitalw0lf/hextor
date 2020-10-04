@@ -113,9 +113,11 @@ type
   public type
     TTask = class
       Worker: TObject;
-      Portion: Double;  // What portion of parent task this task occupies
+      Portion: Double;     // What portion of parent task this task occupies
+      Abortable: Boolean;  // Allow user to abort this task ("False" is inherited by sub-tasks)
       TotalWorkFrom, TotalWorkTo: Double; // What portion of overall work this task occupies
-      Progress: Double; // Current (relative) progress of this task
+      StartTime: Cardinal;
+      Progress: Double;    // Current (relative) progress of this task
     end;
   protected
     TaskStack: TObjectStack<TTask>;
@@ -128,13 +130,14 @@ type
     OnTaskStart: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;  // Called with Task already in stack
     OnTaskEnd: TCallbackListP2<{Sender: }TProgressTracker, {Task: }TTask>;    // Called with Task still in stack
     OnDisplay: TCallbackListP3<{Sender: }TProgressTracker, {TotalProgress: }Double, {Text: }string>;
+    OnAborting: TCallbackListP2<{Sender: }TProgressTracker, {CanAbort: }PBoolean>;
     constructor Create();
     destructor Destroy(); override;
     property DisplayInterval: Cardinal read FDisplayInterval write FDisplayInterval;
-    procedure TaskStart(Worker: TObject; PortionOfParent: Double = 1.0);
+    procedure TaskStart(Worker: TObject; PortionOfParent: Double = 1.0; Abortable: Boolean = True);
     procedure TaskEnd();
-    procedure Show({Worker: TObject;} Pos, Total: TFilePointer; Text: string = '-'); overload;
-    procedure Show({Worker: TObject;} AProgress: Double; Text: string = '-'); overload;
+    procedure Show(Pos, Total: TFilePointer; Text: string = '-'); overload;
+    procedure Show(AProgress: Double; Text: string = '-'); overload;
     function CurrentTaskLevel(): Integer;
     property CurrentTask: TTask read GetCurrentTask;
     property TotalProgress: Double read FTotalProgress;
@@ -977,7 +980,7 @@ begin
   inherited;
 end;
 
-procedure TProgressTracker.Show({Worker: TObject;} AProgress: Double; Text: string);
+procedure TProgressTracker.Show(AProgress: Double; Text: string);
 // Task calls this to report it's own progress.
 // '-' => do not change text.
 // Must be surrounded by TaskStart() / TaskEnd()
@@ -1009,7 +1012,7 @@ begin
   end;
 end;
 
-procedure TProgressTracker.Show({Worker: TObject; }Pos, Total: TFilePointer; Text: string = '-');
+procedure TProgressTracker.Show(Pos, Total: TFilePointer; Text: string = '-');
 var
   AProgress: Double;
 begin
@@ -1017,7 +1020,7 @@ begin
     AProgress := Pos/Total
   else
     AProgress := 0;
-  Show({Worker,} AProgress, Text);
+  Show(AProgress, Text);
 end;
 
 procedure TProgressTracker.TaskEnd;
@@ -1029,21 +1032,27 @@ begin
     Assert(False, 'Unbalanced Progress.TaskStart/TaskEnd');
     Exit;
   end;
-  Show({CurrentTask.Worker,} 1.0);
+  Show(1.0);
   Task := TaskStack.Peek();
   OnTaskEnd.Call(Self, Task);
+  if CurrentTaskLevel = 1 then
+    WriteLogFmt('Progress', 'TaskEnd: %s (%d ms)', [Task.Worker.ClassName, GetTickCount() - Task.StartTime]);
   TaskStack.Pop();
 end;
 
-procedure TProgressTracker.TaskStart(Worker: TObject; PortionOfParent: Double = 1.0);
+procedure TProgressTracker.TaskStart(Worker: TObject; PortionOfParent: Double = 1.0; Abortable: Boolean = True);
 var
   Task, ParentTask: TTask;
 begin
   if (PortionOfParent <> 1.0) and (CurrentTask = nil) then
     raise Exception.Create('Top-level task thould have a portion equal to 1.0');
+  if CurrentTask = nil then
+    WriteLogFmt('Progress', 'TaskStart: %s', [Worker.ClassName]);
   Task := TTask.Create();
   Task.Worker := Worker;
   Task.Portion := PortionOfParent;
+  Task.Abortable := Abortable;
+  Task.StartTime := GetTickCount();
   ParentTask := CurrentTask;
   if ParentTask = nil then
   begin
@@ -1056,10 +1065,11 @@ begin
   begin
     Task.TotalWorkFrom := TotalProgress;
     Task.TotalWorkTo := Task.TotalWorkFrom + (ParentTask.TotalWorkTo - ParentTask.TotalWorkFrom) * PortionOfParent;
+    Task.Abortable := Task.Abortable and ParentTask.Abortable;
   end;
   TaskStack.Push(Task);
   OnTaskStart.Call(Self, Task);
-  Show({Worker,} 0.0);
+  Show(0.0);
 end;
 
 initialization

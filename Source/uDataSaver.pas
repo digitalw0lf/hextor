@@ -11,7 +11,7 @@ unit uDataSaver;
 interface
 
 uses
-  Winapi.Windows, System.SysUtils, System.Classes, System.Math,
+  Winapi.Windows, System.SysUtils, System.Classes, System.Math, Vcl.Forms,
 
   uHextorTypes, uEditedData, uHextorDataSources;
 
@@ -144,6 +144,13 @@ begin
   Progress.TaskStart(Data);
   try
 
+    if InplaceSaving then
+      Progress.OnAborting.Add(procedure (Sender: TProgressTracker; CanAbort: PBoolean)
+        begin
+          if Application.MessageBox(PChar('Aborting this operation will most likely corrupt your file and in-memory buffers. Are you sure you want to abort?'), PChar('Abort saving'), MB_ICONWARNING or MB_YESNO) <> IDYES then
+            CanAbort^ := False;
+        end);
+
     // Prepare block lists for saving
     if (InplaceSaving) then
     begin
@@ -176,7 +183,9 @@ begin
         end;
         Progress.Show(0);
       end;
-    end;
+    end
+    else
+      BytesToWrite := Data.GetSize();
 
     // Write blocks to file
     BytesDone := 0;

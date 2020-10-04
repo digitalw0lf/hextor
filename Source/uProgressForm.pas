@@ -25,6 +25,7 @@ type
     procedure BtnAbortClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
   private
     { Private declarations }
     // To save window state before locking screen with progress window
@@ -36,6 +37,7 @@ type
     FOperationAborted: Boolean;
     procedure ShowLikeModal();
     procedure ProgressDisplay(Sender: TProgressTracker; TotalProgress: Double; Text: string);
+    procedure ProgressTaskStart(Sender: TProgressTracker; Task: TProgressTracker.TTask);
     procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
   end;
 
@@ -71,6 +73,13 @@ begin
   end;
 end;
 
+procedure TProgressForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := BtnAbort.Enabled;
+  if CanClose then
+    Progress.OnAborting.Call(Progress, @CanClose);
+end;
+
 procedure TProgressForm.FormCreate(Sender: TObject);
 begin
   Constraints.MinHeight := Height;
@@ -102,8 +111,16 @@ begin
   if Sender.CurrentTaskLevel() = 1 then
   begin
     // Hide progress window when top-level task finishes
+    BtnAbort.Enabled := True;
+    Sender.OnAborting.Clear();
     Close();
   end;
+end;
+
+procedure TProgressForm.ProgressTaskStart(Sender: TProgressTracker;
+  Task: TProgressTracker.TTask);
+begin
+  BtnAbort.Enabled := Task.Abortable;
 end;
 
 procedure TProgressForm.ShowLikeModal;

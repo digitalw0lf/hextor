@@ -455,7 +455,7 @@ procedure TMainForm.ActionCloseAllExecute(Sender: TObject);
 var
   i: Integer;
 begin
-  Progress.TaskStart(Self);
+  Progress.TaskStart(Sender);
   try
     for i:=EditorCount-1 downto 0 do
     begin
@@ -630,7 +630,7 @@ begin
       raise EInvalidUserInput.Create('This operation cannot process more then 2 GB');
     Addr := SelStart;
     Len := SelLength;
-    Progress.TaskStart(Self);
+    Progress.TaskStart(Sender);
     try
       Buf := Data.Get(Addr, Len);
       for i:=0 to Len div 2-1 do
@@ -678,7 +678,7 @@ var
 begin
   if not OpenDialog1.Execute() then Exit;
 
-  Progress.TaskStart(Self);
+  Progress.TaskStart(Sender);
   try
     for i:=0 to OpenDialog1.Files.Count-1 do
     begin
@@ -823,7 +823,7 @@ begin
     ASelStart := SelStart;
     ASelLength := SelLength;
 
-    Progress.TaskStart(Self);
+    Progress.TaskStart(Sender);
     try
       fs := TFileStream.Create(fn, fmCreate);
       try
@@ -1264,6 +1264,7 @@ begin
 //  bWriteLogFile := True;
 //  bThreadedLogWrite := False;
   Progress.OnDisplay.Add(ProgressForm.ProgressDisplay);
+  Progress.OnTaskStart.Add(ProgressForm.ProgressTaskStart);
   Progress.OnTaskEnd.Add(ProgressForm.ProgressTaskEnd);
   Progress.OnTaskStart.Add(Self.ProgressTaskStart);
   Progress.OnTaskEnd.Add(Self.ProgressTaskEnd);

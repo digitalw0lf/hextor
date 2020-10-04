@@ -28,6 +28,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    procedure Clear();
     function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1);
   end;
@@ -41,6 +42,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    procedure Clear();
     function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2);
   end;
@@ -54,6 +56,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    procedure Clear();
     function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2; Param3: T3);
   end;
@@ -67,6 +70,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    procedure Clear();
     function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4);
   end;
@@ -80,6 +84,7 @@ type
   public
     procedure Add(Method: TCallback; Id: Pointer = nil);
     procedure Remove(Id: Pointer);
+    procedure Clear();
     function HasListener(Id: Pointer): Boolean;
     procedure Call(Param1: T1; Param2: T2; Param3: T3; Param4: T4; Param5: T5);
   end;
@@ -111,6 +116,11 @@ begin
   for i:=Length(FList)-1 downto 0 do
     if FList[i].Key = Id then
       Delete(FList, i, 1);
+end;
+
+procedure TCallbackListP1<T1>.Clear();
+begin
+  FList := nil;
 end;
 
 function TCallbackListP1<T1>.HasListener(Id: Pointer): Boolean;
@@ -150,6 +160,11 @@ begin
       Delete(FList, i, 1);
 end;
 
+procedure TCallbackListP2<T1, T2>.Clear();
+begin
+  FList := nil;
+end;
+
 function TCallbackListP2<T1, T2>.HasListener(Id: Pointer): Boolean;
 var
   i: Integer;
@@ -185,6 +200,11 @@ begin
   for i:=Length(FList)-1 downto 0 do
     if FList[i].Key = Id then
       Delete(FList, i, 1);
+end;
+
+procedure TCallbackListP3<T1, T2, T3>.Clear();
+begin
+  FList := nil;
 end;
 
 function TCallbackListP3<T1, T2, T3>.HasListener(Id: Pointer): Boolean;
@@ -224,6 +244,11 @@ begin
       Delete(FList, i, 1);
 end;
 
+procedure TCallbackListP4<T1, T2, T3, T4>.Clear();
+begin
+  FList := nil;
+end;
+
 function TCallbackListP4<T1, T2, T3, T4>.HasListener(Id: Pointer): Boolean;
 var
   i: Integer;
@@ -259,6 +284,11 @@ begin
   for i:=Length(FList)-1 downto 0 do
     if FList[i].Key = Id then
       Delete(FList, i, 1);
+end;
+
+procedure TCallbackListP5<T1, T2, T3, T4, T5>.Clear();
+begin
+  FList := nil;
 end;
 
 function TCallbackListP5<T1, T2, T3, T4, T5>.HasListener(Id: Pointer): Boolean;
