@@ -72,7 +72,6 @@ type
     procedure SetSize(NewSize: TFilePointer); virtual;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
     function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
-    procedure CopyContentFrom(Source: THextorDataSource); virtual;
     function GetRegions(const ARange: TFileRange): TSourceRegionArray; virtual;
   end;
 
@@ -104,7 +103,6 @@ type
     procedure SetSize(NewSize: TFilePointer); override;
     function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
     function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
-    procedure CopyContentFrom(Source: THextorDataSource); override;
   end;
 
   TDiskDataSource = class (TFileDataSource)
@@ -137,11 +135,18 @@ type
     function GetRegions(const ARange: TFileRange): TSourceRegionArray; override;
   end;
 
+function SameDataSource(DataSource1: THextorDataSource; DataSourceType2: THextorDataSourceType; const Path2: string): Boolean;
 
 implementation
 
 uses
   Winapi.PsAPI;
+
+function SameDataSource(DataSource1: THextorDataSource; DataSourceType2: THextorDataSourceType; const Path2: string): Boolean;
+begin
+  Result := (THextorDataSourceType(DataSource1.ClassType) = DataSourceType2) and
+            (SameFileName(DataSource1.Path, Path2));
+end;
 
 { THextorDataSource }
 
@@ -151,26 +156,6 @@ begin
   Result := dspWritable in GetProperties();
 end;
 
-procedure THextorDataSource.CopyContentFrom(Source: THextorDataSource);
-const
-  BlockSize = 10*MByte;
-var
-  Buf: TBytes;
-  SourceSize, Pos: TFilePointer;
-  Size: Integer;
-begin
-  SetLength(Buf, BlockSize);
-  SourceSize := Source.GetSize();
-  Pos := 0;
-
-  while Pos < SourceSize do
-  begin
-    Size := Min(BlockSize, SourceSize - Pos);
-    Source.GetData(Pos, Size, Buf[0]);
-    ChangeData(Pos, Size, Buf[0]);
-    Pos := Pos + Size;
-  end;
-end;
 
 constructor THextorDataSource.Create(const APath: string);
 begin
@@ -214,25 +199,6 @@ function TFileDataSource.CanBeSaved: Boolean;
 begin
   // False if it is just a new empty "file" and not assigned with actual file on disk
   Result := (inherited) and (ExtractFilePath(Path) <> '');
-end;
-
-procedure TFileDataSource.CopyContentFrom(Source: THextorDataSource);
-// Called on closed dest
-//var
-//  Dir: string;
-begin
-//  if (Source is TFileDataSource) and (ExtractFilePath((Source as TFileDataSource).Path) <> '') then
-//  begin
-////    ForceDirectories(ExtractFilePath(Path));
-////    CopyFile(PChar(Source.Path), PChar(Path), False);
-//    if (Source as TFileDataSource).FileStream <> nil then
-//    begin
-//      FileStream.Position := 0;
-//      FileStream.CopyFrom((Source as TFileDataSource).FileStream, -1);
-//    end;
-//  end
-//  else
-    inherited;
 end;
 
 constructor TFileDataSource.Create(const APath: string);

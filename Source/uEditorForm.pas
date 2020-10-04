@@ -158,6 +158,7 @@ type
     property Data: TEditedData read FData write FData;
     destructor Destroy(); override;
     function AskSaveChanges(): TModalResult;
+    procedure Open(DataSourceType: THextorDataSourceType; const APath: string; ResetCaret: Boolean);
     procedure OpenNewEmptyFile(const FileName: string);
     function CloseCurrentFile(AskSave: Boolean): TModalResult;
     procedure SaveAs(DataSourceType: THextorDataSourceType; APath: string);
@@ -1021,9 +1022,19 @@ end;
 
 procedure TEditorForm.SaveAs(DataSourceType: THextorDataSourceType; APath: string);
 begin
-  TDataSaver.Save(Data, DataSourceType, APath);
-  DataSource := Data.DataSource;
-  NewFileOpened(False);
+  if SameDataSource(DataSource, DataSourceType, APath) then
+  begin
+    // Save to same file
+    TDataSaver.Save(Data, DataSource);
+    DataSource := Data.DataSource;
+    NewFileOpened(False);
+  end
+  else
+  begin
+    // Save to another file
+    TDataSaver.Save(Data, DataSourceType, APath);
+    Open(DataSourceType, APath, False);
+  end;
 end;
 
 procedure TEditorForm.SaveAsFile(APath: string);
@@ -1181,7 +1192,6 @@ begin
     FHasUnsavedChanges := Value;
     MainForm.CheckEnabledActions();
     UpdateFormCaption();
-    MainForm.UpdateMsgPanel();
   end;
 end;
 
@@ -1337,7 +1347,6 @@ begin
   HasUnsavedChanges := Data.HasChanges();
   UpdateScrollBars();
   UpdatePanes();
-  MainForm.UpdateMsgPanel();
   if Self = MainForm.ActiveEditor then
     MainForm.CheckEnabledActions();
 end;
@@ -1760,11 +1769,26 @@ begin
   Result := GetVisibleRowsCount() * ByteColumns;
 end;
 
+procedure TEditorForm.Open(DataSourceType: THextorDataSourceType;
+  const APath: string; ResetCaret: Boolean);
+var
+  DS: THextorDataSource;
+begin
+  FreeAndNil(DataSource);
+  DS := DataSourceType.Create(APath);
+  try
+    DS.Open(fmOpenRead);
+  except
+    DS.Free;
+    raise;
+  end;
+  DataSource := DS;
+  NewFileOpened(ResetCaret);
+end;
+
 procedure TEditorForm.OpenNewEmptyFile(const FileName: string);
 begin
-  DataSource := TFileDataSource.Create(FileName);
-
-  NewFileOpened(True);
+  Open(TFileDataSource, FileName, True);
 end;
 
 //function TEditorForm.GetFileSizeOle: TFilePointer;

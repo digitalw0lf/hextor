@@ -678,8 +678,7 @@ begin
         // If something was replaced, save file
         if (Action = saReplace) and (NewCount > 0) then
         begin
-          TDataSaver.Save(Data, TFileDataSource, FileNames[i]);
-          DataSource := Data.DataSource;
+          TDataSaver.Save(Data, DataSource);
         end;
 
       finally

@@ -356,7 +356,6 @@ type
     { Public declarations }
     Settings: TMainFormSettings;
     TempPath: string;
-//    HextorOle: TCoHextor;
     APIEnv: TAPIEnvironment;
     Utils: THextorUtils;
     OnActiveEditorChanged: TCallbackListP1<TEditorForm>;
@@ -364,14 +363,13 @@ type
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
     [API]
     function CreateFile(): TEditorForm;
-    function Open(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
+    function Open(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;
     [API]
     function OpenFile(const AFileName: string): TEditorForm;
     [API]
     procedure SaveAll();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
-    procedure UpdateMsgPanel();
     procedure CheckActiveEditorChanged();
     procedure SelectionChanged();
     procedure VisibleRangeChanged();
@@ -796,7 +794,6 @@ end;
 
 procedure TMainForm.ActionSaveSelectionAsExecute(Sender: TObject);
 // Save selected part to another file.
-// If same file is chosen, re-open it with new content
 var
   SameFile: Boolean;
   AData: TBytes;
@@ -806,6 +803,7 @@ var
 begin
   with ActiveEditor do
   begin
+    // TODO: save any size by blocks
     if SelLength > MaxInt then
       raise EInvalidUserInput.Create('This command is not supported for selection larger then 2 GBytes');
 
@@ -956,7 +954,6 @@ begin
   OnActiveEditorChanged.Call(AEditor);
   VisibleRangeChanged();
   SelectionChanged();
-  UpdateMsgPanel();
   PrevActiveEditor := AEditor;
 end;
 
@@ -1520,22 +1517,14 @@ begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
 end;
 
-function TMainForm.Open(DataSourceType: THextorDataSourceType; const AFileName: string): TEditorForm;
-var
-  DS: THextorDataSource;
+function TMainForm.Open(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;
 begin
-  DS := DataSourceType.Create(AFileName);
-  try
-    DS.Open(fmOpenRead);
-  except
-    DS.Free;
-    raise;
-  end;
   Result := CreateNewEditor();
-  with Result do
-  begin
-    DataSource := DS;
-    NewFileOpened(True);
+  try
+    Result.Open(DataSourceType, APath, True);
+  except
+    Result.Close();
+    raise;
   end;
 end;
 
@@ -1864,42 +1853,6 @@ begin
   MDITabs.TabIndex := Current;
 
   RedrawWindow(Handle, nil, 0, RDW_FRAME or RDW_INVALIDATE);
-end;
-
-procedure TMainForm.UpdateMsgPanel();
-// Show warning for active editor if there is any
-const
-  WarnSize = 100*MByte;
-var
-  InplaceSaving, UseTempFile: Boolean;
-  ShowMsg: Boolean;
-  ASize: TFilePointer;
-begin
-  with ActiveEditor do
-  begin
-    ShowMsg := False;
-    if (DataSource <> nil) then
-    begin
-      if TDataSaver.ChooseSaveMethod(Data, THextorDataSourceType(DataSource.ClassType), DataSource.Path, InplaceSaving, UseTempFile) then
-      begin
-        ASize := Data.GetSize();
-        if ASize > WarnSize then
-        begin
-          if UseTempFile then
-          begin
-            ShowMsg := True;
-            MsgTextBox.Caption := 'Saving your changes will require temporary file of ' + FileSize2Str(ASize);
-          end;
-        end;
-      end
-      else
-      begin
-        ShowMsg := True;
-        MsgTextBox.Caption := 'Cannot save such changes to original source';
-      end;
-    end;
-    MsgPanel.Visible := ShowMsg;
-  end;
 end;
 
 procedure TMainForm.ValueToVariantProc(const AIn: TValue; var AOut: OleVariant;
