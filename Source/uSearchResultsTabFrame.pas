@@ -72,7 +72,7 @@ type
     destructor Destroy(); override;
     procedure StartList(AEditor: TEditorForm; const ASearchText: string);
     function AddListGroup(AEditor: TEditorForm; AData: TEditedData): Pointer;
-    procedure AddListItem(AGroupNode: Pointer; {AEditor: TEditorForm;} AData: TEditedData; const ARange: TFileRange);
+    procedure AddListItem(AGroupNode: Pointer; AData: TEditedData; const ARange: TFileRange; CodePage: Integer);
     procedure DeleteListGroup(AGroupNode: Pointer);
     procedure EndUpdateList();
     function GetLinkedEditors: TArray<TEditorForm>;
@@ -111,7 +111,7 @@ begin
 end;
 
 procedure TSearchResultsTabFrame.AddListItem(AGroupNode: Pointer; AData: TEditedData;
-  const ARange: TFileRange);
+  const ARange: TFileRange; CodePage: Integer);
 // Add found item to list of search results
 const
   ContextBytes = 8;
@@ -120,7 +120,6 @@ var
   RGroupNode, RNode: PResultTreeNode;
   DispRange: TFileRange;
   ABuf: TBytes;
-  TextEncoding: Integer;
 begin
   GroupNode := PVirtualNode(AGroupNode);
   RGroupNode := GroupNode.GetData;
@@ -137,13 +136,9 @@ begin
   RNode.DisplayHex[0] := Data2Hex(Copy(ABuf, 0, ARange.Start-DispRange.Start));
   RNode.DisplayHex[1] := Data2Hex(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size));
   RNode.DisplayHex[2] := Data2Hex(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt));
-  if RNode.FEditor <> nil then
-    TextEncoding := RNode.FEditor.TextEncoding
-  else
-    TextEncoding := 0;  // TODO: TextEncoding when find in files
-  RNode.DisplayText[0] := RemUnprintable(Data2String(Copy(ABuf, 0, ARange.Start-DispRange.Start), TextEncoding));
-  RNode.DisplayText[1] := RemUnprintable(Data2String(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size), TextEncoding));
-  RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), TextEncoding));
+  RNode.DisplayText[0] := RemUnprintable(Data2String(Copy(ABuf, 0, ARange.Start-DispRange.Start), CodePage));
+  RNode.DisplayText[1] := RemUnprintable(Data2String(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size), CodePage));
+  RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), CodePage));
 end;
 
 procedure TSearchResultsTabFrame.AsHex1Click(Sender: TObject);

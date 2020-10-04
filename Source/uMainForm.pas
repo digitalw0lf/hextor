@@ -367,6 +367,8 @@ type
     [API]
     function OpenFile(const AFileName: string): TEditorForm;
     [API]
+    function ShowSaveAsDialog(AEditor: TEditorForm): TModalResult;
+    [API]
     procedure SaveAll();
     procedure CheckEnabledActions();
     procedure UpdateMDITabs();
@@ -767,18 +769,8 @@ begin
 end;
 
 procedure TMainForm.ActionSaveAsExecute(Sender: TObject);
-var
-  fn: string;
 begin
-  with ActiveEditor do
-  begin
-    fn := DataSource.Path;
-    if DataSource.ClassType <> TFileDataSource then
-      fn := MakeValidFileName(fn);
-    SaveDialog1.FileName := fn;
-    if not SaveDialog1.Execute() then Exit;
-    SaveAsFile(SaveDialog1.FileName);
-  end;
+  ShowSaveAsDialog(ActiveEditor);
 end;
 
 procedure TMainForm.ActionSaveExecute(Sender: TObject);
@@ -794,19 +786,20 @@ end;
 
 procedure TMainForm.ActionSaveSelectionAsExecute(Sender: TObject);
 // Save selected part to another file.
+const
+  BlockSize = 10 * MByte;
 var
   SameFile: Boolean;
   AData: TBytes;
   fn: string;
   fs: TFileStream;
   E: EInOutError;
+  ASelStart, ASelLength: TFilePointer;
+  Pos, PortionSize: TFilePointer;
 begin
   with ActiveEditor do
   begin
-    // TODO: save any size by blocks
-    if SelLength > MaxInt then
-      raise EInvalidUserInput.Create('This command is not supported for selection larger then 2 GBytes');
-
+    // Generate file name
     fn := DataSource.Path;
     if DataSource.ClassType <> TFileDataSource then
       fn := MakeValidFileName(fn);
@@ -819,11 +812,6 @@ begin
     SameFile := SameFileName(fn, DataSource.Path);
     if SameFile then
       raise EInvalidUserInput.Create('Cannot save file part under same name');
-//      if Application.MessageBox('Current file will be overwritten and re-opened with new content', 'Replace file', MB_OKCANCEL) <> IDOK then Exit;
-
-    AData := GetEditedData(SelStart, SelLength);
-
-//    if SameFile then CloseCurrentFile(False);
 
     if not System.SysUtils.ForceDirectories(ExtractFilePath(fn)) then
     begin
@@ -832,17 +820,28 @@ begin
       raise E;
     end;
 
-    fs := TFileStream.Create(fn, fmCreate);
-    try
-      fs.WriteBuffer(AData, Length(AData));
-    finally
-      fs.Free;
-    end;
+    ASelStart := SelStart;
+    ASelLength := SelLength;
 
-//    if SameFile then
-//    begin
-//      OpenFile(TFileDataSource, fn);
-//    end;
+    Progress.TaskStart(Self);
+    try
+      fs := TFileStream.Create(fn, fmCreate);
+      try
+        Pos := 0;
+        while Pos < ASelLength do
+        begin
+          PortionSize := Min(BlockSize, ASelLength - Pos);
+          AData := GetEditedData(ASelStart + Pos, PortionSize);
+          fs.WriteBuffer(AData, Length(AData));
+          Pos := Pos + PortionSize;
+          Progress.Show(Pos, ASelLength);
+        end;
+      finally
+        fs.Free;
+      end;
+    finally
+      Progress.TaskEnd();
+    end;
   end;
 end;
 
@@ -1641,9 +1640,13 @@ var
 begin
   for i:=0 to EditorCount-1 do
   begin
-    // TODO: handle never saved editors
     with Editors[i] do
-      Save();
+    begin
+      if DataSource.CanBeSaved() then
+        Save()
+      else
+        ShowSaveAsDialog(Editors[i]);
+    end;
   end;
 end;
 
@@ -1684,6 +1687,22 @@ begin
   if (EditorForTabMenu <> nil) and (EditorForTabMenu.DataSource is TFileDataSource) then
   begin
     ShellExecute(0,'','explorer.exe',PChar('/select,"'+EditorForTabMenu.DataSource.Path+'"'),'',SW_SHOW);
+  end;
+end;
+
+function TMainForm.ShowSaveAsDialog(AEditor: TEditorForm): TModalResult;
+var
+  fn: string;
+begin
+  with AEditor do
+  begin
+    fn := DataSource.Path;
+    if DataSource.ClassType <> TFileDataSource then
+      fn := MakeValidFileName(fn);
+    SaveDialog1.FileName := fn;
+    if not SaveDialog1.Execute() then Exit(mrCancel);
+    SaveAsFile(SaveDialog1.FileName);
+    Result := mrOk;
   end;
 end;
 

@@ -273,33 +273,14 @@ begin
   EncodingsCache.AddOrSetValue(CodePage, Result);
 end;
 
-//function Data2String(Data: PByteArray; Size: Integer; CodePage: Integer = 0): string; overload;
-//// Convert data in specified encoding to WideString
-////var
-////  Buf: RawByteString;
-//begin
-////  SetLength(Buf, Size);
-////  Move(Data[0], Buf[Low(Buf)], Size);  // TODO: how to convert without extra move?
-////  SetCodePage(Buf, CodePage, False);
-////  Result := string(Buf);  // Conversion
-//end;
-
 function Data2String(const Data: TBytes; CodePage: Integer = 0): string; overload;
 // Convert data in specified encoding to WideString
 begin
-//  Result := Data2String(@Data[0], Length(Data), CodePage);
   Result := GetCachedEncoding(CodePage).GetString(Data);
 end;
 
 function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overload;
-//var
-//  Buf: RawByteString;
 begin
-//  // TODO: Does this works for multi-byte codepages?
-//  Buf := RawByteString(Text);
-//  SetCodePage(Buf, CodePage, True);
-//  SetLength(Result, Length(Buf));
-//  Move(Buf[Low(Buf)], Result[0], Length(Buf));
   Result := GetCachedEncoding(CodePage).GetBytes(Text);
 end;
 

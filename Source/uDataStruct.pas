@@ -1093,48 +1093,6 @@ begin
   Self.FieldAlign := Result;
 end;
 
-//function TDSCompoundField.GetNamedFields(Index: Integer): TDSField;
-//// In NamedFields, content of unnamed compound fields (e.g. conditional) is "flattened" into single list.
-//// So, in scripts we can access fields inside unnamed conditional branch as if it was directly
-//// inside parent structure
-//begin
-//  Result := GetNamedFieldsInternal(Index);
-//end;
-
-//function TDSCompoundField.GetNamedFieldsCount: Integer;
-//var
-//  i: Integer;
-//begin
-//  // TODO: Optimize
-//  Result := 0;
-//  for i:=0 to Fields.Count-1 do
-//    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
-//      Inc(Result, (Fields[i] as TDSCompoundField).NamedFieldsCount)
-//    else
-//    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
-//      Inc(Result);
-//end;
-
-//function TDSCompoundField.GetNamedFieldsInternal(var Index: Integer): TDSField;
-//var
-//  i: Integer;
-//begin
-//  // TODO: Optimize
-//  for i:=0 to Fields.Count-1 do
-//    if (Fields[i].Name = '') and (Fields[i] is TDSCompoundField) then
-//    begin
-//      Result := (Fields[i] as TDSCompoundField).GetNamedFieldsInternal(Index);
-//      if Result <> nil then Exit;
-//    end
-//    else
-//    if (Fields[i] is TDSSimpleField) or (Fields[i] is TDSCompoundField) then  // Don't count directives
-//    begin
-//      Dec(Index);
-//      if Index < 0 then Exit(Fields[i]);
-//    end;
-//  Result := nil;
-//end;
-
 function TDSCompoundField.NamedFieldByIndex(Index: Integer): TDSField;
 // Slow for non-arrays
 begin

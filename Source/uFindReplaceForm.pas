@@ -490,7 +490,7 @@ begin
       // Add found item to list. We always add items to list when replacing
       if Action in [saList, saReplace] then
       begin
-        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + NewSize));
+        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + NewSize), Searcher.Params.CodePage);
       end;
 
       Inc(NewCount);
