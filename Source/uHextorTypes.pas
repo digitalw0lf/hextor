@@ -480,7 +480,7 @@ begin
 end;
 
 function TryEvalConst(Expr: string; var Value: Variant): Boolean;
-// Evaluate simple constant expression that does not requires ScriptControl
+// Evaluate simple constant expression that does not requires Script Engine
 var
   N: Integer;
   N64: Int64;
@@ -521,14 +521,14 @@ begin
 end;
 
 function EvalConstDef(Expr: string): Variant;
-// Evaluate simple constant expression that does not requires ScriptControl
+// Evaluate simple constant expression that does not requires Script Engine
 begin
   if not TryEvalConst(Expr, Result) then
     VarClear(Result);
 end;
 
 function EvalConst(Expr: string): Variant;
-// Evaluate simple constant expression that does not requires ScriptControl
+// Evaluate simple constant expression that does not requires Script Engine
 begin
   if not TryEvalConst(Expr, Result) then
     raise EConvertError.CreateFmt('"%s" is not a valid value', [Expr]);

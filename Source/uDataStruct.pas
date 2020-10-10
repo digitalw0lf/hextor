@@ -12,10 +12,10 @@ interface
 
 uses
   System.SysUtils, System.Classes, Winapi.Windows, Generics.Collections,
-  System.Math, Winapi.ActiveX, MSScriptControl_TLB, Variants, ComObj,
+  System.Math, Winapi.ActiveX, Variants, ComObj,
   Generics.Defaults,
 
-  uHextorTypes, uValueInterpretors, {uLogFile,} uCallbackList;
+  uHextorTypes, uValueInterpretors, {uLogFile,} uCallbackList, uActiveScript;
 
 const
   // Synthetic "case" label for "default" branch
@@ -309,7 +309,7 @@ type
   // Expression evaluator for DS module. Use class function Eval() and EvalConst()
   TDSExprEvaluator = class
   protected
-    ScriptControl: TScriptControl;
+    ScriptEngine: TActiveScript;
     class procedure ForceEvaluator();
     procedure PrepareScriptEnv(CurField: TDSField);
     function Evaluate(Expr: string; CurField: TDSField): Variant;
@@ -2058,13 +2058,12 @@ end;
 constructor TDSExprEvaluator.Create;
 begin
   inherited;
-  ScriptControl := TScriptControl.Create(nil);
-  ScriptControl.Language := 'JScript';
+  ScriptEngine := TActiveScript.Create(nil);
 end;
 
 destructor TDSExprEvaluator.Destroy;
 begin
-  ScriptControl.Free;
+  ScriptEngine.Free;
   inherited;
 end;
 
@@ -2078,7 +2077,7 @@ begin
       Exit;
 
     PrepareScriptEnv(CurField);
-    Result := ScriptControl.Eval(Expr);
+    Result := ScriptEngine.Eval(Expr);
 
     if VarIsEmpty(Result) then
       raise EDSParserError.Create('Cannot calculate expression: "'+Expr+'"');
@@ -2103,40 +2102,40 @@ begin
 end;
 
 procedure TDSExprEvaluator.PrepareScriptEnv(CurField: TDSField);
-// Populate ScriptControl with already parsed fields to use them in expressions.
+// Populate ScriptEngine with already parsed fields to use them in expressions.
 // Innermost have higher precedence.
 var
   DS: TDSField;
-  Ok: Boolean;
-  TryCounter: Integer;
+//  Ok: Boolean;
+//  TryCounter: Integer;
 begin
-  Ok := False;
-  TryCounter := 0;
-  // Sometimes MSScriptControl throws EOleException for no reason when adding object.
-  // We just try 3 times.
-  repeat
-    try
-      ScriptControl.Reset();
+//  Ok := False;
+//  TryCounter := 0;
+//  // Sometimes MSScriptControl throws EOleException for no reason when adding object.
+//  // We just try 3 times.
+//  repeat
+//    try
+      ScriptEngine.Reset();
       DS := CurField;
       while DS <> nil do
       begin
         if DS is TDSCompoundField then
-          ScriptControl.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
+          ScriptEngine.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
         DS := DS.Parent;
       end;
-      Ok := True;
-    except
-      on E: EOleException do
-      begin
-//        WriteLogF('Struct_Intepret', AnsiString('TDSInterpretor.PrepareScriptEnv:E: ' + E.Message));
-        if TryCounter <= 3 then
-          Sleep(50)
-        else
-          raise;
-      end;
-    end;
-    Inc(TryCounter);
-  until Ok;
+//      Ok := True;
+//    except
+//      on E: EOleException do
+//      begin
+////        WriteLogF('Struct_Intepret', AnsiString('TDSInterpretor.PrepareScriptEnv:E: ' + E.Message));
+//        if TryCounter <= 3 then
+//          Sleep(50)
+//        else
+//          raise;
+//      end;
+//    end;
+//    Inc(TryCounter);
+//  until Ok;
 end;
 
 initialization

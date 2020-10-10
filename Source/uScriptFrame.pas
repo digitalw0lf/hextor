@@ -13,12 +13,12 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Buttons,
-  Vcl.StdCtrls, Vcl.OleCtrls, MSScriptControl_TLB, Vcl.ComCtrls,
+  Vcl.StdCtrls, Vcl.OleCtrls, Vcl.ComCtrls,
   System.Diagnostics, SynEdit, SynEditHighlighter, SynEditCodeFolding,
   SynHighlighterJScript, Generics.Collections, Vcl.ToolWin, System.IOUtils,
   Vcl.Menus, Winapi.ShellAPI,
 
-  uHextorTypes, uHextorGUI, uModuleSettings;
+  uHextorTypes, uHextorGUI, uModuleSettings, uActiveScript;
 
 const
   ImageIndex_Folder = 23;  // Index in  MainForm.ImageList16
@@ -29,7 +29,6 @@ type
   end;
 
   TScriptFrame = class(TFrame)
-//    ScriptControl1: TScriptControl;
     Timer1: TTimer;
     Splitter1: TSplitter;
     OutputPanel: TPanel;
@@ -61,7 +60,7 @@ type
     procedure MIDummyScriptClick(Sender: TObject);
   private
     { Private declarations }
-    ScriptControl1: TScriptControl;
+    ScriptEngine: TActiveScript;
     CurScriptFileName: string;
     FilesForMenuItems: TDictionary<Integer, string>;  // MenuItem.Tag -> File name
     procedure PrepareScriptEnv();
@@ -171,8 +170,7 @@ begin
   Settings := TScriptSettings.Create();
   FilesForMenuItems := TDictionary<Integer, string>.Create();
 
-  ScriptControl1 := TScriptControl.Create(Self);
-  ScriptControl1.Language := 'JScript';
+  ScriptEngine := TActiveScript.Create(Self);
 end;
 
 destructor TScriptFrame.Destroy;
@@ -187,7 +185,7 @@ function TScriptFrame.Eval(const Text: string): Variant;
 begin
   PrepareScriptEnv();
 
-  Result := ScriptControl1.Eval(Text);
+  Result := ScriptEngine.Eval(Text);
 end;
 
 procedure TScriptFrame.Init;
@@ -251,16 +249,13 @@ end;
 
 procedure TScriptFrame.PrepareScriptEnv;
 begin
-  ScriptControl1.Reset();
+  ScriptEngine.Reset();
   // Main application object
-  ScriptControl1.AddObject('app', MainForm.APIEnv.GetAPIWrapper(MainForm), True);
+  ScriptEngine.AddObject('app', MainForm.APIEnv.GetAPIWrapper(MainForm), True);
   // Utility functions
-  ScriptControl1.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
+  ScriptEngine.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
   // Parsed structure from StructFrame
-  ScriptControl1.AddObject('_StructFrame', MainForm.APIEnv.GetAPIWrapper(MainForm.StructFrame.DSScriptEnv), True);
-//  if (MainForm.StructFrame.ShownDS <> nil) and
-//     (MainForm.StructFrame.ShownDS is TDSCompoundField) then
-//    ScriptControl1.AddObject('ds', (MainForm.StructFrame.ShownDS as TDSCompoundField).GetComWrapper(), False);
+  ScriptEngine.AddObject('_StructFrame', MainForm.APIEnv.GetAPIWrapper(MainForm.StructFrame.DSScriptEnv), True);
 end;
 
 procedure TScriptFrame.BtnClearOutputClick(Sender: TObject);

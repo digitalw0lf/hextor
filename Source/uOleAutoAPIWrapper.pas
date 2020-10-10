@@ -4,7 +4,9 @@ interface
 
 uses
   Winapi.Windows, System.SysUtils, System.Rtti, Generics.Collections,
-  System.TypInfo, Winapi.ActiveX, System.Variants;
+  System.TypInfo, Winapi.ActiveX, System.Variants{,
+
+  uUtil, uDebugUtils, uLogFile};
 
 type
   APIAttribute = class(TCustomAttribute)
@@ -32,6 +34,9 @@ type
     function ValueToVariant(const X: TValue): OleVariant;
     function VariantToValue(const X: Variant): TValue;
     procedure ArgsToValues(var Params: TDispParams; var Values: TValuesArray);
+  protected
+    function _AddRef: Integer; stdcall;
+    function _Release: Integer; stdcall;
   public
     WrappedObject: TObject;
     function GetWrappedObject(): TObject;
@@ -110,6 +115,7 @@ end;
 
 destructor TAPIWrapper.Destroy;
 begin
+//  WriteLogF('Destroy: ' + ThreadStackStr());
   if Environment <> nil then
     Environment.Wrappers.Remove(WrappedObject);
   inherited;
@@ -278,6 +284,18 @@ begin
     begin
       Result := AWrapper.GetWrappedObject();
     end;
+end;
+
+function TAPIWrapper._AddRef: Integer;
+begin
+//  WriteLogF('_AddRef: ' + IntToStr(FRefCount + 1) + ' ' + ThreadStackStr());
+  Result := inherited _AddRef();
+end;
+
+function TAPIWrapper._Release: Integer;
+begin
+//  WriteLogF('_Release: ' + IntToStr(FRefCount - 1) + ' ' + ThreadStackStr());
+  Result := inherited _Release();
 end;
 
 { TAPIEnvironment }

@@ -12,9 +12,10 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, MSScriptControl_TLB,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
 
-  uEditedData, uHextorTypes, uHextorGUI, uEditorForm, uOleAutoAPIWrapper;
+  uEditedData, uHextorTypes, uHextorGUI, uEditorForm, uOleAutoAPIWrapper,
+  uActiveScript;
 
 type
   TModifyWithExpressionForm = class(TForm)
@@ -83,7 +84,7 @@ procedure TModifyWithExpressionForm.ApplyExpr(var AData: TBytes;
   const Expression: string; const Pattern: TBytes; ElementSize: Integer; SrcAddr: TFilePointer);
 // Apply Expression to values in AData
 var
-  ScriptControl: TScriptControl;  // Expression evaluator
+  ScriptEngine: TActiveScript;  // Expression evaluator
   ScriptVars: TFillExpressionVars;
   ElemCount, PatternElemCount, i: Integer;
   x: Int64;
@@ -91,15 +92,12 @@ begin
   ElemCount := Length(AData) div ElementSize;
   PatternElemCount := Length(Pattern) div ElementSize;
 
-  ScriptControl := TScriptControl.Create(nil);
-  ScriptControl.Language := 'JScript';
+  ScriptEngine := TActiveScript.Create(nil);
   ScriptVars := TFillExpressionVars.Create();
   Progress.TaskStart(Self);
   try
     // Container for built-in variables x, p, i, a
-    ScriptControl.AddObject('ScriptVars', MainForm.APIEnv.GetAPIWrapper(ScriptVars), True);
-    // Pre-compile expression as function
-    ScriptControl.AddCode('function calc() { return ('+Expression+sLineBreak+');}');
+    ScriptEngine.AddObject('ScriptVars', MainForm.APIEnv.GetAPIWrapper(ScriptVars), True);
 
     for i:=0 to ElemCount-1 do
     begin
@@ -114,7 +112,7 @@ begin
       ScriptVars.fa := SrcAddr + i * ElementSize;
 
       // Evaluate
-      x := ScriptControl.Eval('calc()');
+      x := ScriptEngine.Eval(Expression);
       PutElement(AData, ElementSize, i, x);
 
       if i mod 10000 = 0 then
@@ -123,9 +121,9 @@ begin
 
   finally
     Progress.TaskEnd();
+    FreeAndNil(ScriptEngine);
     MainForm.APIEnv.ObjectDestroyed(ScriptVars);
     ScriptVars.Free;
-    ScriptControl.Free;
   end;
 
 end;

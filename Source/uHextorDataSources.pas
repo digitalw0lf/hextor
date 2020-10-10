@@ -512,7 +512,7 @@ begin
           Result := Result + [ParentRegion];
         end;
         Region.Parent := ParentRegion;
-        ParentRegion.Range.AEnd := Max(ParentRegion.Range.AEnd, UIntPtr(mbi.BaseAddress) + mbi.RegionSize);
+        ParentRegion.Range.AEnd := Max(ParentRegion.Range.AEnd, IntPtr(mbi.BaseAddress) + Int64(mbi.RegionSize));
       end;
 
       Result := Result + [Region];

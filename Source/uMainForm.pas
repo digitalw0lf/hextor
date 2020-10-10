@@ -24,7 +24,7 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
-  System.StrUtils, MSScriptControl_TLB, System.IOUtils, Vcl.HtmlHelpViewer,
+  System.StrUtils, System.IOUtils, Vcl.HtmlHelpViewer,
   Vcl.StdActns, System.NetEncoding,
 
   uEditorPane, {uLogFile,} superobject, uModuleSettings,
@@ -66,6 +66,7 @@ type
     procedure Sleep(milliseconds: Cardinal);
     procedure Alert(V: Variant);
     function HexToData(const Text: string): TByteBuffer;
+    destructor Destroy(); override;
   end;
 
   TMainForm = class(TForm)
@@ -1314,12 +1315,14 @@ begin
   RemoveClipboardFormatListener(Handle);
 
   ScriptFrame.Uninit();
+  StructFrame.Uninit();
 
   Settings.Free;
   EditorActionShortcuts.Free;
   FEditors.Free;
 
   Utils.Free;
+  APIEnv.ObjectDestroyed(Self);
   APIEnv.Free;
 end;
 
@@ -1947,6 +1950,12 @@ end;
 procedure THextorUtils.Alert(V: Variant);
 begin
   Application.MessageBox(PChar(string(V)), 'Alert', MB_OK);
+end;
+
+destructor THextorUtils.Destroy;
+begin
+  MainForm.APIEnv.ObjectDestroyed(Self);
+  inherited;
 end;
 
 function THextorUtils.HexToData(const Text: string): TByteBuffer;

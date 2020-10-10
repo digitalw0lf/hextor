@@ -132,6 +132,7 @@ type
       FOwner: TStructFrame;
       function GetDS: TDSField;
     public
+      destructor Destroy(); override;
       [API]
       property ds: TDSField read GetDS;
     end;
@@ -178,6 +179,7 @@ type
     DSScriptEnv: TDSScriptEnv;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
+    procedure Uninit();
     [API]
     procedure LoadDescr(FileName: string);
     [API]
@@ -493,7 +495,6 @@ end;
 
 destructor TStructFrame.Destroy;
 begin
-  DSScriptEnv.Free;
   NodesToUpdate.Free;
   NodesForDSs.Free;
   ShownDS.Free;
@@ -566,6 +567,11 @@ begin
 
   // Show value
   Result := Result + ': ' + DS.ToString();
+end;
+
+procedure TStructFrame.Uninit;
+begin
+  DSScriptEnv.Free;
 end;
 
 procedure TStructFrame.UpdateNode(Node: PVirtualNode);
@@ -1183,6 +1189,12 @@ begin
 end;
 
 { TStructFrame.TDSScriptEnv }
+
+destructor TStructFrame.TDSScriptEnv.Destroy;
+begin
+  MainForm.APIEnv.ObjectDestroyed(Self);
+  inherited;
+end;
 
 function TStructFrame.TDSScriptEnv.GetDS: TDSField;
 begin
