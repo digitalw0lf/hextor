@@ -944,7 +944,7 @@ begin
   Result := 1;
 
   // Add childs
-  if DS is TDSCompoundField then
+  if (DS is TDSCompoundField) and (TDSCompoundField(DS).Fields.Count > 0) then
   begin
     n1 := 0;
     n2 := TDSCompoundField(DS).Fields.Count - 1;
