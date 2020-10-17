@@ -1,12 +1,21 @@
+{                          ---BEGIN LICENSE BLOCK---                           }
+{                                                                              }
+{ Hextor - Hexadecimal editor and binary data analyzing toolkit                }
+{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
+{                                                                              }
+{                           ---END LICENSE BLOCK---                            }
+
 unit uUpdaterForm;
 
 interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, mxWebUpdate, Vcl.ExtCtrls,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls,
   Vcl.Samples.Gauges, Vcl.StdCtrls, System.UITypes, System.RegularExpressions,
-  Winapi.WinInet,
+  Winapi.WinInet, Winapi.UrlMon, System.IOUtils, Winapi.ShellAPI,
+  Winapi.ActiveX, Vcl.ComCtrls, Vcl.OleCtrls, SHDocVw,
 
   uHextorTypes, uModuleSettings;
 
@@ -18,31 +27,64 @@ type
     procedure InitDefault(); override;
   end;
 
-  TUpdaterForm = class(TForm)
-    mxWebUpdate1: TmxWebUpdate;
-    Timer1: TTimer;
+  TUpdaterForm = class(TForm, IBindStatusCallback)
+    PageControl1: TPageControl;
+    PgProgress: TTabSheet;
+    PgInfo: TTabSheet;
     Panel1: TPanel;
     Gauge1: TGauge;
     BtnCancel: TButton;
     Memo1: TMemo;
+    Timer1: TTimer;
+    WebBrowser1: TWebBrowser;
+    Panel2: TPanel;
+    BtnCancel2: TButton;
+    BtnUpdate: TButton;
+    LblDownloadSize: TLabel;
+    Panel3: TPanel;
+    LblNewVersion: TLabel;
+    Panel4: TPanel;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure mxWebUpdate1DownloadError(Sender: TObject);
-    procedure mxWebUpdate1Download(Sender: TObject; Total, Downloaded: Integer);
-    procedure mxWebUpdate1NoUpdateFound(Sender: TObject);
-    procedure mxWebUpdate1UpdateAvailable(Sender: TObject; ActualVersion,
-      NewVersion: string; var CanUpdate: Boolean);
-    procedure mxWebUpdate1AfterDownload(Sender: TObject; FileName: string);
-    procedure mxWebUpdate1BeforeDownload(Sender: TObject; FileName: string);
     procedure Timer1Timer(Sender: TObject);
-    procedure mxWebUpdate1BeforeGetInfo(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormDestroy(Sender: TObject);
+    procedure BtnUpdateClick(Sender: TObject);
+    procedure BtnCancelClick(Sender: TObject);
+  private type
+    // Information about available update
+    TUpdateInfo = record
+      Available: Boolean;     // Info html file downloaded successfully
+      DownloadURL: string;
+      DownloadSize: Int64;
+      ClientSideName: string;
+      RunParameters: string;
+      Version: string;
+    end;
   private
     { Private declarations }
     FCheckNow: Boolean;
-    FShouldCloseForm: Boolean;
+    UpdateInfo: TUpdateInfo;
+    InfoTempFileName, UpdateTempFileName: string;
+    FAborted, FBusy: Boolean;
     procedure CheckUpdateAvailable();
+    procedure ShowUpdateAvailable(NewAvailable: Boolean; ErrorMessage: string);
+    procedure ShowStatusText(const Text: string; InProgress: Boolean = False);
+    function DownloadFile(const URL, SaveAs: string; ReturnBytes: Boolean): TBytes;
+    procedure DownloadUpdate(const Info: TUpdateInfo);
+
+    // IBindStatusCallback
+    function OnStartBinding(dwReserved: DWORD; pib: IBinding): HResult; stdcall;
+    function GetPriority(out nPriority): HResult; stdcall;
+    function OnLowResource(reserved: DWORD): HResult; stdcall;
+    function OnProgress(ulProgress, ulProgressMax, ulStatusCode: ULONG;
+      szStatusText: LPCWSTR): HResult; stdcall;
+    function OnStopBinding(hresult: HResult; szError: LPCWSTR): HResult; stdcall;
+    function GetBindInfo(out grfBINDF: DWORD; var bindinfo: TBindInfo): HResult; stdcall;
+    function OnDataAvailable(grfBSCF: DWORD; dwSize: DWORD; formatetc: PFormatEtc;
+      stgmed: PStgMedium): HResult; stdcall;
+    function OnObjectAvailable(const iid: TGUID; punk: IUnknown): HResult; stdcall;
+
   public
     { Public declarations }
     Settings: TUpdaterSettings;
@@ -61,212 +103,248 @@ uses
 const
   UpdateInfoURL = 'https://digitalw0lf.github.io/hextor-pages/download/webupdate.htm';
 
-function DownloadFile( FURL: String; FUserName: String; FPassword: String; FBinary: Boolean; FSaveToFile: Boolean; FFileName: String ): string;
-Var
-{$WARNINGS OFF}
-  hSession, hConnect, hRequest: hInternet;
-  HostName, FileName: String;
-  //mitec begin
-  AcceptType: {$IFDEF UNICODE}LPWSTR{$ELSE}LPStr{$ENDIF};
-  //mitec end
-  Buffer: Pointer;
-  BufferLength, Index: DWord;
-  //mitec begin
-  Data: Array[ 0..1024 ] Of AnsiChar;
-  //mitec end
-  Agent: String;
-  InternetFlag: DWord;
-  RequestMethod: PChar;
-  FReferer: String;
-  TempStr: String;
-  FDownloadResult: Boolean;
-  FStringResult: String;
-  FFileSize: Integer;
-  FDownloadedSize: DWord;
-  FDownloadSize: DWord;
-  F: File;
-
-  Procedure CloseHandles;
-  Begin
-    InternetCloseHandle( hRequest );
-    InternetCloseHandle( hConnect );
-    InternetCloseHandle( hSession );
-  End;
-{$WARNINGS ON}
-
-Begin
+function NormalyzeVersionStr(const S: string): string;
+// v0.1-alpha3 => 0.1.3
+var
+  i: Integer;
+begin
   Result := '';
-  FFileSize := 0;
-  Try
-//    FAborting := False;
-    TmxWebUpdate.ParseURL( FURL, HostName, FileName );
-    Agent := 'Hextor';
-{$WARNINGS OFF}
-    hSession := InternetOpen( PChar( Agent ), INTERNET_OPEN_TYPE_PRECONFIG, Nil, Nil, 0 );
-//mitec begin
-    hConnect := InternetConnect( hSession, PChar( HostName ), 80, PChar( FUserName ), PChar( FPassword ), INTERNET_SERVICE_HTTP, 0, 0 );
-//mitec end
-    RequestMethod := 'GET';
-    InternetFlag := INTERNET_FLAG_RELOAD;
-    AcceptType := PChar( 'Accept: ' + '*/*' );
+  for i:=Low(S) to High(S) do
+  begin
+    if S[i] = '+' then Break
+    else
+    if CharInSet(S[i], ['0'..'9']) then
+      Result := Result + S[i]
+    else
+      if (Result <> '') and (Result[High(Result)] <> '.') then
+        Result := Result + '.';
+  end;
+  if (Result <> '') and (Result[High(Result)] = '.') then
+    Delete(Result, High(Result), 1);
+end;
 
-    hRequest := HttpOpenRequest( hConnect, RequestMethod, PChar( FileName ), 'HTTP/1.0', PChar( FReferer ), @AcceptType, InternetFlag, 0 );
 
-    HttpSendRequest( hRequest, Nil, 0, Nil, 0 );
-{$WARNINGS ON}
+function CompareVersionStr(const Left, Right: string): Integer;
+// Compare two version strings like "v0.1-alpha3"
+var
+  ALeft, ARight: string;
+  Position_Left, Position_Right: Integer;
+  Left_Version, Right_Version: Integer;
+begin
+  ALeft := NormalyzeVersionStr(Left);
+  ARight := NormalyzeVersionStr(Right);
 
-//    If FAborting Then
-//    Begin
-//      CloseHandles;
-//      FDownloadResult := False;
-//      Exit;
-//    End;
+  Repeat
+    Position_Left := Pos( '.', ALeft );
+    Position_Right := Pos( '.', ARight );
 
-    Index := 0;
-    BufferLength := 1024;
-{$WARNINGS OFF}
-    GetMem( Buffer, BufferLength );
-    FDownloadResult := HttpQueryInfo( hRequest, HTTP_QUERY_CONTENT_LENGTH, Buffer, BufferLength, Index );
-{$WARNINGS ON}
+    If Position_Left > 0 Then
+      Left_Version := StrToIntDef( Copy( ALeft, 1, Position_Left - 1 ), 0 ) Else
+      Left_Version := StrToIntDef( ALeft, 0 );
 
-//    If FAborting Then
-//    Begin
-//{$WARNINGS OFF}
-//      FreeMem( Buffer );
-//{$WARNINGS ON}
-//      CloseHandles;
-//      FDownloadResult := False;
-//      Exit;
-//    End;
+    If Position_Right > 0 Then
+      Right_Version := StrToIntDef( Copy( ARight, 1, Position_Right - 1 ), 0 ) Else
+      Right_Version := StrToIntDef( ARight, 0 );
 
-    If FDownloadResult Or Not FBinary Then
+    If Right_Version > Left_Version Then
     Begin
-{$WARNINGS OFF}
-//mitec begin
-      If FDownloadResult Then FFileSize := StrToInt( String( Buffer ) );
-//mitec end
-{$WARNINGS ON}
-
-      FDownloadedSize := 0;
-
-      If FSaveToFile Then
-      Begin
-        AssignFile( F, FFileName );
-        ReWrite( F, 1 );
-      End
-      Else FStringResult := '';
-
-      While True Do
-      Begin
-//        If FAborting Then
-//        Begin
-//          If FSaveToFile Then CloseFile( F );
-//{$WARNINGS OFF}
-//          FreeMem( Buffer );
-//{$WARNINGS ON}
-//          CloseHandles;
-//          FDownloadResult := False;
-//          Exit;
-//        End;
-
-{$WARNINGS OFF}
-        If Not InternetReadFile( hRequest, @Data, SizeOf( Data ), FDownloadSize ) Then Break
-{$WARNINGS ON}
-        Else
-        Begin
-          If FDownloadSize = 0 Then Break Else
-          Begin
-{$WARNINGS OFF}
-            If FSaveToFile Then BlockWrite( f, Data, FDownloadSize ) Else
-{$WARNINGS ON}
-            Begin
-              TempStr := string(Data);
-              SetLength( TempStr, FDownloadSize );
-              FStringResult := FStringResult + TempStr;
-            End;
-
-            Inc( FDownloadedSize, FDownloadSize );
-
-//            DoDownload;
-            Application.ProcessMessages;
-          End;
-        End;
-      End;
-
-      If FSaveToFile Then
-      Begin
-        FDownloadResult := FFileSize = Integer( FDownloadedSize )
-      End
-      Else
-      Begin
-        SetLength( FStringResult, FDownloadedSize );
-        FDownloadResult := FDownloadedSize <> 0;
-      End;
-
-      If FSaveToFile Then CloseFile( f );
+      Result := -1;
+      Exit;
     End;
 
-{$WARNINGS OFF}
-    FreeMem( Buffer );
-{$WARNINGS ON}
-    CloseHandles;
-
-    If FDownloadResult Then
+    If Right_Version < Left_Version Then
     Begin
-      If Not FSaveToFile Then
-      Begin
-        Result := FStringResult;
-      End;
-    End
-//    Else DoDownloadError;
+      Result := 1;
+      Exit;
+    End;
 
-  Except
-//    FDownloadResult := False;
-    Result := '';
-  End;
-End;
+    System.Delete( ALeft, 1, Position_Left );
+    System.Delete( ARight, 1, Position_Right );
+
+  Until Position_Left = 0;
+
+  Result := 0;
+end;
+
+procedure TUpdaterForm.BtnCancelClick(Sender: TObject);
+begin
+  if FBusy then
+    FAborted := True;
+end;
+
+procedure TUpdaterForm.BtnUpdateClick(Sender: TObject);
+begin
+  ShowStatusText('Downloading...', True);
+  Gauge1.Progress := 0;
+
+  TThread.CreateAnonymousThread(procedure ()
+    begin
+      DownloadUpdate(UpdateInfo);
+    end).Start;
+end;
 
 procedure TUpdaterForm.CheckUpdateAvailable;
 // To be called in background thread.
 // Downloads version info file and notifies MainForm if new update is available
 var
-  InfoText, NewVersion: string;
-  Cmp: Integer;
-begin
-  try
-    NewVersion := '';
+  Buf: TBytes;
+  InfoText: string;
+  Info: TUpdateInfo;
+  ErrorMessage: string;
 
-    InfoText := DownloadFile(UpdateInfoURL, '', '', False, False, '');
-
-    with TRegEx.Match(InfoText, '<META NAME="mxVersion" CONTENT="([^"]*)">') do
+  function GetInfo(const Code: string): string;
+  begin
+    with TRegEx.Match(InfoText, '<META NAME="' + Code + '" CONTENT="([^"]*)">') do
       if Success then
+        Exit(Groups[1].Value)
+      else
+        Exit('');
+  end;
+
+begin
+  ErrorMessage := '';
+  FBusy := True;
+  try
+    // Download and parse update information file
+    try
+      Buf := DownloadFile(UpdateInfoURL, InfoTempFileName, True);
+      if Buf = nil then
+        raise Exception.Create('Failed to download update information');
+      InfoText := Data2String(Buf);
+
+      Info.Available := True;
+      Info.DownloadURL := GetInfo('mxDownload');
+      Info.DownloadSize := StrToIntDef(GetInfo('mxDownloadSize'), 0);
+      Info.ClientSideName := GetInfo('mxClientSideName');
+      Info.RunParameters := GetInfo('mxRunParameters');
+      Info.Version := GetInfo('mxVersion');
+    except
+      on E: Exception do
       begin
-        NewVersion := Groups[1].Value;
+        Info.Available := False;
+        ErrorMessage := E.Message;
       end;
-    if NewVersion <> '' then
-    begin
-      Cmp := TmxWebUpdate.CompareVersionStr(AppVersion, NewVersion);
-      if Cmp < 0 then
-        TThread.Queue(nil, procedure
-          begin
-            MainForm.ShowUpdateAvailable(NewVersion);
-          end);
     end;
-  except
-    // Let eat bee
+
+  finally
+    FBusy := False;
+    // Show result
+    TThread.Queue(nil, procedure
+      var
+        Cmp: Integer;
+        NewAvailable: Boolean;
+      begin
+        UpdateInfo := Info;
+        NewAvailable := False;
+        if Info.Available then
+        begin
+          UpdateTempFileName := TPath.Combine(MainForm.TempPath, Info.ClientSideName);
+
+          if Info.Version <> '' then
+          begin
+            Cmp := CompareVersionStr(AppVersion, Info.Version);
+            if Cmp < 0 then
+              NewAvailable := True;
+          end;
+
+          if NewAvailable then
+            MainForm.ShowUpdateAvailable(Info.Version);
+        end;
+        if Visible then
+          ShowUpdateAvailable(NewAvailable, ErrorMessage);
+      end);
+  end;
+end;
+
+function TUpdaterForm.DownloadFile(const URL, SaveAs: string; ReturnBytes: Boolean): TBytes;
+// Download file from URL.
+// If SaveAs specified, save result to file.
+// if ReturnBytes speified, return downloaded data
+var
+  fn: string;
+  res: HRESULT;
+begin
+  if SaveAs <> '' then
+    fn := SaveAs
+  else
+    fn := TPath.Combine(MainForm.TempPath, 'download.tmp');
+  ForceDirectories(ExtractFilePath(fn));
+
+  res := URLDownloadToFile(nil, PChar(URL), PChar(fn), 0, Self as IBindStatusCallback);
+  if res <> S_OK then
+    raise Exception.Create('Download failed');
+
+  if ReturnBytes then
+    Result := TFile.ReadAllBytes(fn)
+  else
+    Result := nil;
+end;
+
+procedure TUpdaterForm.DownloadUpdate(const Info: TUpdateInfo);
+// To be called in background thread.
+// Downloads and launches update.
+var
+  ErrorMessage: string;
+  fn: string;
+  LInfo: TUpdateInfo;
+begin
+  ErrorMessage := '';
+  FBusy := True;
+  try
+    fn := TPath.Combine(MainForm.TempPath, Info.ClientSideName);
+    try
+      DeleteFile(fn);
+
+      DownloadFile(Info.DownloadURL, fn, False);
+
+      if not FileExists(fn) then
+        raise Exception.Create('Failed to download update');
+    except
+      on E: Exception do
+      begin
+        ErrorMessage := E.Message;
+      end;
+    end;
+
+  finally
+    FBusy := False;
+    // Process result
+    LInfo := Info;  // Capture parameter
+    TThread.Queue(nil, procedure
+      begin
+        if ErrorMessage <> '' then
+        begin
+          ShowStatusText(ErrorMessage);
+        end
+        else
+        begin
+          Gauge1.Progress := 100;
+          ShowStatusText('Installing...', True);
+          If ShellExecute( Application.MainForm.Handle, PChar( 'open' ), PChar( fn ), PChar( LInfo.RunParameters ),
+                           PChar( '' ), SW_SHOWNORMAL ) <= 32 Then
+          begin
+            ShowStatusText('Failed to start installation');
+            Exit;
+          end;
+          Application.MainForm.Close();
+        end;
+      end);
   end;
 end;
 
 procedure TUpdaterForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  if mxWebUpdate1.Active then
-    mxWebUpdate1.Abort();
+  if FBusy then
+    FAborted := True;
 end;
 
 procedure TUpdaterForm.FormCreate(Sender: TObject);
+var
+  i: Integer;
 begin
-  mxWebUpdate1.ProductInfo.Version := AppVersion;
-  mxWebUpdate1.ProductInfo.URL := UpdateInfoURL;
+  for i:=0 to PageControl1.PageCount-1 do
+    PageControl1.Pages[i].TabVisible := False;
+  PageControl1.ActivePage := PgProgress;
 
   Settings := TUpdaterSettings.Create();
 end;
@@ -278,95 +356,134 @@ end;
 
 procedure TUpdaterForm.FormShow(Sender: TObject);
 begin
+  if InfoTempFileName = '' then
+    InfoTempFileName := TPath.Combine(MainForm.TempPath, 'UpdateInfo.htm');
   Gauge1.Progress := 0;
   // Start update check
   Timer1.Interval := 10;
   FCheckNow := True;
 end;
 
-procedure TUpdaterForm.mxWebUpdate1AfterDownload(Sender: TObject;
-  FileName: string);
+function TUpdaterForm.GetBindInfo(out grfBINDF: DWORD;
+  var bindinfo: TBindInfo): HResult;
 begin
-  Memo1.Text := 'Installing...';
+//  WriteLog('Updater', 'GetBindInfo');
+  grfBINDF := BINDF_GETNEWESTVERSION or BINDF_PRAGMA_NO_CACHE;
+  Result := S_OK;
 end;
 
-procedure TUpdaterForm.mxWebUpdate1BeforeDownload(Sender: TObject;
-  FileName: string);
+function TUpdaterForm.GetPriority(out nPriority): HResult;
 begin
-  Memo1.Text := 'Downloading...';
+//  WriteLog('Updater', 'GetPriority');
+  Result := S_OK;
 end;
 
-procedure TUpdaterForm.mxWebUpdate1BeforeGetInfo(Sender: TObject);
+function TUpdaterForm.OnDataAvailable(grfBSCF, dwSize: DWORD;
+  formatetc: PFormatEtc; stgmed: PStgMedium): HResult;
 begin
-  Memo1.Text := 'Checking for available update...';
+//  WriteLog('Updater', 'OnDataAvailable');
+  Result := S_OK;
 end;
 
-procedure TUpdaterForm.mxWebUpdate1Download(Sender: TObject; Total,
-  Downloaded: Integer);
+function TUpdaterForm.OnLowResource(reserved: DWORD): HResult;
 begin
-  if Total > 0 then
-    Gauge1.Progress := Round(Downloaded / Total * 100)
+//  WriteLog('Updater', 'OnLowResource');
+  Result := S_OK;
+end;
+
+function TUpdaterForm.OnObjectAvailable(const iid: TGUID;
+  punk: IInterface): HResult;
+begin
+//  WriteLog('Updater', 'OnObjectAvailable');
+  Result := S_OK;
+end;
+
+function TUpdaterForm.OnProgress(ulProgress, ulProgressMax, ulStatusCode: ULONG;
+  szStatusText: LPCWSTR): HResult;
+begin
+//  WriteLogFmt('Updater', 'OnProgress %d / %d (%d) %s', [ulProgress, ulProgressMax, ulStatusCode, szStatusText]);
+  TThread.Queue(nil, procedure
+    begin
+      Gauge1.Progress := Round(ulProgress / ulProgressMax * 100);
+    end);
+  if FAborted then
+    Result := E_ABORT
   else
-    Gauge1.Progress := 0;
+    Result := S_OK;
 end;
 
-procedure TUpdaterForm.mxWebUpdate1DownloadError(Sender: TObject);
+function TUpdaterForm.OnStartBinding(dwReserved: DWORD; pib: IBinding): HResult;
 begin
-  if Visible then
+//  WriteLog('Updater', 'OnStartBinding');
+  Result := S_OK;
+end;
+
+function TUpdaterForm.OnStopBinding(hresult: HResult;
+  szError: LPCWSTR): HResult;
+begin
+//  WriteLog('Updater', 'OnStopBinding');
+  Result := S_OK;
+end;
+
+procedure TUpdaterForm.ShowStatusText(const Text: string; InProgress: Boolean = False);
+begin
+  Memo1.Text := Text;
+  if InProgress then
+    BtnCancel.Caption := 'Cancel'
+  else
   begin
-    MessageDlg( 'Error while downloading update', mtError, [ mbOK ], 0 );
+    Gauge1.Progress := 100;
+    BtnCancel.Caption := 'Close';
   end;
+  PageControl1.ActivePage := PgProgress;
 end;
 
-procedure TUpdaterForm.mxWebUpdate1NoUpdateFound(Sender: TObject);
+procedure TUpdaterForm.ShowUpdateAvailable(NewAvailable: Boolean;
+  ErrorMessage: string);
 begin
-  Gauge1.Progress := 100;
-  Memo1.Text := 'Your version is up-to-date';
-  FShouldCloseForm := False;
-end;
-
-procedure TUpdaterForm.mxWebUpdate1UpdateAvailable(Sender: TObject;
-  ActualVersion, NewVersion: string; var CanUpdate: Boolean);
-begin
-  if Visible then
+  if NewAvailable then
   begin
-    CanUpdate := MessageDlg( Format( 'New version is available:  %s' + sLineBreak +
-      sLineBreak +
-      'You are using:  %s' + sLineBreak +
-      sLineBreak +
-      'Do you want to update now?', [ NewVersion, ActualVersion ] ), mtInformation, [ mbYes, mbNo ], 0 ) = mrYes;
+    LblNewVersion.Caption := Format('New version is available:  %s' + sLineBreak +
+                                    sLineBreak +
+                                    'You are using:  %s' + sLineBreak +
+                                    sLineBreak +
+                                    'Additional information:',
+                                    [UpdateInfo.Version, AppVersion]);
+    LblDownloadSize.Caption := 'Download size: ' + FileSize2Str(UpdateInfo.DownloadSize);
+    PageControl1.ActivePage := PgInfo;
+    WebBrowser1.Navigate(InfoTempFileName);
   end
   else
   begin
-    MainForm.ShowUpdateAvailable(NewVersion);
+    if ErrorMessage <> '' then ShowStatusText(ErrorMessage)
+                          else ShowStatusText('Your version is up-to-date');
   end;
 end;
 
 procedure TUpdaterForm.Timer1Timer(Sender: TObject);
 begin
+  if FBusy then Exit;  // Previous operation in progress
+
   Timer1.Enabled := False;
   Timer1.Interval := 30000;
   try
     if (FCheckNow) or
-       ((Settings.CheckInterval > 0) and
+       ((not Visible) and
+        (Settings.CheckInterval > 0) and
         (Now() - Settings.LastCheck >= Settings.CheckInterval * cDay)) then
     begin
       Settings.LastCheck := Now();
       Settings.Changed(False);
       FCheckNow := False;
-      FShouldCloseForm := True;
+
       if Visible then
       begin
-        if mxWebUpdate1.CheckForAnUpdate() then
-          // Returns True if update was downloaded and launched
-          MainForm.Close()
-        else
-          if FShouldCloseForm then
-            Close();
-      end
-      else
-        // If window not visible, check in background and notify main form
-        TThread.CreateAnonymousThread(CheckUpdateAvailable).Start;
+        Gauge1.Progress := 0;
+        ShowStatusText('Checking for available update...', True);
+      end;
+      FAborted := False;
+
+      TThread.CreateAnonymousThread(CheckUpdateAvailable).Start;
     end;
   finally
     Timer1.Enabled := True;
