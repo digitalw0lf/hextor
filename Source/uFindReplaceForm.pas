@@ -18,7 +18,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
   System.UITypes, System.IOUtils, System.Types, Vcl.Buttons, System.StrUtils,
-  System.Masks, Winapi.ShellAPI,
+  System.Masks, Winapi.ShellAPI, Generics.Collections,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
   uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver,
@@ -603,10 +603,28 @@ begin
 end;
 
 procedure TFindReplaceForm.FormCreate(Sender: TObject);
+var
+  Sizes: TDictionary<TControl, TRect>;
+  i: Integer;
+  CS: TPair<TControl, TRect>;
 begin
   Searcher := TExtPatternDataSearcher.Create();
+
+  // Crunch for a bug in TCategoryPanel: after first Collapse, right-aligned child controls disappear.
+  // We save their sizes and restore it afterwards.
+  Sizes := TDictionary<TControl, TRect>.Create();
+  for i:=0 to CPFindInFiles.ControlCount-1 do
+    Sizes.AddOrSetValue(CPFindInFiles.Controls[i], CPFindInFiles.Controls[i].BoundsRect);
+  for i:=0 to CPReplace.ControlCount-1 do
+    Sizes.AddOrSetValue(CPReplace.Controls[i], CPReplace.Controls[i].BoundsRect);
+
   CPReplace.Collapsed := True;
   CPFindInFiles.Collapsed := True;
+
+  for CS in Sizes do
+    CS.Key.BoundsRect := CS.Value;
+  Sizes.Free;
+
   AutosizeForm();
 
   // We will catch drag'n'dropped directories and add them to "Search in:" edit field

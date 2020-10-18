@@ -38,7 +38,6 @@ object FindReplaceForm: TFindReplaceForm
     HeaderFont.Style = []
     HeaderStyle = hsThemed
     TabOrder = 0
-    ExplicitHeight = 508
     object CPFindInFiles: TCategoryPanel
       Top = 289
       Height = 224
@@ -58,6 +57,7 @@ object FindReplaceForm: TFindReplaceForm
         Top = 81
         Width = 23
         Height = 23
+        Anchors = [akTop, akRight]
         Caption = '...'
         OnClick = BtnSelectDirectoryClick
       end
