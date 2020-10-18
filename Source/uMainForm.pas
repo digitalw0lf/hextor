@@ -1158,6 +1158,7 @@ begin
     begin
       if Sender = EditorForTabMenu then
         EditorForTabMenu := nil;
+      DoAfterEvent(UpdateMDITabs);
     end);
   // Call ActiveEditorChanged when this editor has DataSource etc.
   DoAfterEvent(CheckActiveEditorChanged);
