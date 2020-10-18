@@ -16,6 +16,8 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE.txt
@@ -34,8 +36,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "..\Build\Win32\Release\Hextor.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\Build\Win32\Release\Zydis32.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\Build\Win64\Release\Hextor.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\Build\Win64\Release\Zydis64.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\DefaultSettings\*"; DestDir: "{app}\DefaultSettings"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
