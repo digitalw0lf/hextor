@@ -58,6 +58,9 @@ type
     EditFileNameMask: TComboBox;
     FileOpenDialog1: TFileOpenDialog;
     ImageProxy1: THintedImageProxy;
+    Label5: TLabel;
+    CBFilesSearchMode: TComboBox;
+    HintedImageProxy1: THintedImageProxy;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -75,10 +78,12 @@ type
   private type
     TSearchAction = (saCount, saList, saReplace);
     TFindWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
+    TFileSearchMode = (fsAllItems, fsFirstItem, fsFilesNotContaining);
     TFindWhere = record
       AType: TFindWhereType;
       Directories: TArray<string>;
       FileMasks: TArray<string>;
+      SearchMode: TFileSearchMode;
     end;
   private
     { Private declarations }
@@ -223,9 +228,10 @@ begin
   CBReplaceInSelection.Enabled := CBFindInSelection.Enabled;
   CBAskReplace.Enabled := not RBInSelectedDirectories.Checked;
 
-  EditInDirectories.Enabled := (RBInSelectedDirectories.Checked);
+  EditInDirectories.Enabled := RBInSelectedDirectories.Checked;
   BtnSelectDirectory.Enabled := EditInDirectories.Enabled;
-  EditFileNameMask.Enabled := (RBInSelectedDirectories.Checked);
+  EditFileNameMask.Enabled := RBInSelectedDirectories.Checked;
+  CBFilesSearchMode.Enabled := RBInAllOpenFiles.Checked or RBInSelectedDirectories.Checked;
 end;
 
 function TFindReplaceForm.ConfirmReplace(AEditor: TEditorForm; Ptr,
@@ -315,6 +321,8 @@ begin
   end;
 
   // Where to search - editor or files
+  Finalize(FindWhere);
+  FillChar(FindWhere, SizeOf(FindWhere), 0);
   with FindWhere do
   begin
     if RBInCurrentEditor.Checked       then  AType := fwCurrentFile
@@ -336,6 +344,11 @@ begin
       FileMasks := SplitPathList(EditFileNameMask.Text);
       AddComboBoxHistory(EditFileNameMask);
     end;
+
+    if AType in [fwAllOpenFiles, fwSelectedDirectories] then
+    begin
+      SearchMode := TFileSearchMode(CBFilesSearchMode.ItemIndex);
+    end;
   end;
 end;
 
@@ -354,11 +367,14 @@ begin
   Result := 0;
   InFilesCount := 0;
 
+  if (Action = saReplace) and ( FindWhere.SearchMode = fsFilesNotContaining) then
+    raise EInvalidUserInput.Create('"Find files NOT containing..." option is not applicable to "Replace" command');
+
   // Confirmation for "Replace in directories" - in contrast to "replace in open editor(s)", this is
   // saved immediately to files and can't be easily undone
   if (Action = saReplace) and (FindWhere.AType = fwSelectedDirectories) then
   begin
-    s := 'Replace all occurances of "' + Searcher.Params.Text + '" to "' +
+    s := 'Replace ' + IfThen(FindWhere.SearchMode = fsFirstItem, 'first occurrence', 'all occurances') + ' of "' + Searcher.Params.Text + '" to "' +
          Searcher.Params.Replace + '" in selected directories/files?' + sLineBreak + sLineBreak +
          'This can''t be undone.';
     if Application.MessageBox(PChar(s), 'Replace', MB_OKCANCEL) <> IDOK then Exit;
@@ -406,14 +422,22 @@ begin
   end;
 
   // Result count message box
-  if Result = 0 then
-    s := 'Search string not found'
+  if FindWhere.SearchMode = fsFilesNotContaining then
+    s := 'Found ' + IntToStr(InFilesCount) + ' file(s) which do NOT contain given pattern'
   else
   begin
-    s := 'Search string ' + IfThen(Action = saReplace, 'replaced', 'found') + ' '+IntToStr(Result)+' time(s)';
-    if (FindWhere.AType <> fwCurrentFile) then
-      s := s + ' in ' + IntToStr(InFilesCount) + ' file(s)';
+    if Result = 0 then
+      s := 'Search pattern not found'
+    else
+    begin
+      s := 'Search pattern ' + IfThen(Action = saReplace, 'replaced', 'found');
+      if FindWhere.SearchMode <> fsFirstItem then
+        s := s + ' '+IntToStr(Result)+' time(s)';
+      if (FindWhere.AType <> fwCurrentFile) then
+        s := s + ' in ' + IntToStr(InFilesCount) + ' file(s)';
+    end;
   end;
+
   Application.MessageBox(PChar(s), 'Search', MB_OK);
 end;
 
@@ -487,15 +511,28 @@ begin
         end;
       end;
 
+      Inc(NewCount);
+
+      // "Find files NOT containing..." mode
+      if (FindWhere.SearchMode = fsFilesNotContaining) then
+      begin
+        Break;
+      end;
+
       // Add found item to list. We always add items to list when replacing
       if Action in [saList, saReplace] then
       begin
         ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + NewSize), Searcher.Params.CodePage);
       end;
 
-      Inc(NewCount);
       Start := Ptr + NewSize;
       Progress.Show(Start - Searcher.Range.Start, Searcher.Range.Size, ProgressText());
+
+      // "Find first occurrence in each file" mode
+      if FindWhere.SearchMode = fsFirstItem then
+      begin
+        Break;
+      end;
     end;
   finally
     // Move caret to where operation ended
@@ -506,8 +543,20 @@ begin
     end;
     if Assigned(AEditor) then
       AEditor.EndUpdate();
-    if NewCount = 0 then
+
+    // In "Find files NOT containing...", we invert "NewCount": it will be 1 if we found nothing
+    if FindWhere.SearchMode = fsFilesNotContaining then
+    begin
+      if NewCount = 0 then
+        NewCount := 1
+      else
+        NewCount := 0;
+    end;
+
+    if (NewCount = 0) then
+    begin
       ResultsFrame.DeleteListGroup(ResultsGroupNode);
+    end;
     Progress.TaskEnd();
   end;
 end;
@@ -620,6 +669,7 @@ begin
   Count := 0;
   InFilesCount := 0;
   TotalSize := 0;
+
   // Collect a list of files matching requested directory/mask
   FileNames := [];
   Progress.TaskStart(Self, 0);

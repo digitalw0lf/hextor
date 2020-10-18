@@ -3,7 +3,7 @@ object FindReplaceForm: TFindReplaceForm
   Top = 200
   BorderIcons = [biSystemMenu, biMinimize, biMaximize, biHelp]
   Caption = 'Find/Replace'
-  ClientHeight = 508
+  ClientHeight = 554
   ClientWidth = 542
   Color = clBtnFace
   Constraints.MinHeight = 294
@@ -26,7 +26,7 @@ object FindReplaceForm: TFindReplaceForm
     Left = 0
     Top = 0
     Width = 542
-    Height = 508
+    Height = 554
     HorzScrollBar.Visible = False
     VertScrollBar.Tracking = True
     VertScrollBar.Visible = False
@@ -38,9 +38,10 @@ object FindReplaceForm: TFindReplaceForm
     HeaderFont.Style = []
     HeaderStyle = hsThemed
     TabOrder = 0
+    ExplicitHeight = 508
     object CPFindInFiles: TCategoryPanel
       Top = 289
-      Height = 192
+      Height = 224
       Caption = 'Find in Files'
       TabOrder = 0
       OnCollapse = CPFindExpand
@@ -66,6 +67,25 @@ object FindReplaceForm: TFindReplaceForm
         Width = 60
         Height = 13
         Caption = 'File mask(s):'
+      end
+      object Label5: TLabel
+        Left = 16
+        Top = 171
+        Width = 66
+        Height = 13
+        Caption = 'Search mode:'
+      end
+      object HintedImageProxy1: THintedImageProxy
+        Left = 307
+        Top = 170
+        Width = 16
+        Height = 16
+        Image = MainForm.HintImage
+        ImageIndex = 0
+        HintFmt = 
+          '"Find first occurrence in each file" mode is useful to find all ' +
+          'files containing some pattern.<br>It also works with "Replace al' +
+          'l" command to replace first occurrence of pattern in each file.'
       end
       object RBInCurrentEditor: TRadioButton
         Left = 16
@@ -113,6 +133,20 @@ object FindReplaceForm: TFindReplaceForm
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
         TabOrder = 4
+      end
+      object CBFilesSearchMode: TComboBox
+        Left = 88
+        Top = 168
+        Width = 209
+        Height = 21
+        Style = csDropDownList
+        ItemIndex = 0
+        TabOrder = 5
+        Text = 'Find all occurrences'
+        Items.Strings = (
+          'Find all occurrences'
+          'Find first occurrence in each file'
+          'Find files NOT containing this pattern')
       end
     end
     object CPReplace: TCategoryPanel
