@@ -1015,9 +1015,14 @@ procedure TStructFrame.MICopyFieldValueClick(Sender: TObject);
 var
   DS: TDSField;
 begin
-  DS := GetNodeDS(DSTreeView.FocusedNode);
-  if DS <> nil then
-    Clipboard.AsText := RemUnprintable(DS.ToString());
+  if DSTreeView.SelectedCount = 1 then
+  begin
+    DS := GetNodeDS(DSTreeView.FocusedNode);
+    if DS <> nil then
+      Clipboard.AsText := RemUnprintable(DS.ToString());
+  end
+  else
+    DSTreeView.CopyToClipboard();
 end;
 
 procedure TStructFrame.MIDummyDataStructClick(Sender: TObject);

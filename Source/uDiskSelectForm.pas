@@ -364,7 +364,7 @@ begin
       deviceInterfaceDetailData :=  PSP_DEVICE_INTERFACE_DETAIL_DATA ( GetMemory( requiredSize ));
 
       ZeroMemory( deviceInterfaceDetailData, requiredSize );
-      deviceInterfaceDetailData.cbSize := SizeOf( SP_DEVICE_INTERFACE_DETAIL_DATA );
+      deviceInterfaceDetailData.cbSize := 8; //SizeOf( SP_DEVICE_INTERFACE_DETAIL_DATA );
       // Get disk name into deviceInterfaceDetailData.DevicePath
       if not SetupDiGetDeviceInterfaceDetail( diskClassDevices,
                                             deviceInterfaceData,

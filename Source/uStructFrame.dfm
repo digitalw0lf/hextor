@@ -111,6 +111,8 @@ object StructFrame: TStructFrame
     Width = 297
     Height = 334
     Align = alClient
+    ClipboardFormats.Strings = (
+      'Plain text')
     Header.AutoSizeIndex = 0
     Header.MainColumn = -1
     HintMode = hmHint
@@ -119,7 +121,7 @@ object StructFrame: TStructFrame
     ShowHint = True
     TabOrder = 3
     TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
-    TreeOptions.SelectionOptions = [toRightClickSelect]
+    TreeOptions.SelectionOptions = [toMultiSelect, toRightClickSelect]
     OnBeforeItemErase = DSTreeViewBeforeItemErase
     OnChange = DSTreeViewChange
     OnDrawText = DSTreeViewDrawText
