@@ -113,6 +113,15 @@ begin
   RegisterComponents('DWF', [TEditorPane]);
 end;
 
+function AverageColor(Color1, Color2: TColor): TColor;
+begin
+  if Color1 = clNone then Exit(Color2);
+  if Color2 = clNone then Exit(Color1);
+  Result := RGB((GetRValue(Color1) + GetRValue(Color2)) div 2,
+                (GetGValue(Color1) + GetGValue(Color2)) div 2,
+                (GetBValue(Color1) + GetBValue(Color2)) div 2);
+end;
+
 { TEditorPane }
 
 procedure TEditorPane.BeginUpdate;
@@ -466,13 +475,10 @@ begin
   CalcTextLength();
   SetLength(CharAttr, TextLength);
 
-  // Default colors
-  DefBgColor := Color;
-  DefTxColor := Font.Color;
   for i:=0 to TextLength-1 do
   begin
-    CharAttr[i].TxColor := DefTxColor;
-    CharAttr[i].BgColor := DefBgColor;
+    CharAttr[i].TxColor := clNone;
+    CharAttr[i].BgColor := clNone;
   end;
 
   // Fill char attributes with colors from ranges
@@ -484,11 +490,18 @@ begin
 
     for j:=n1 to n2-1 do
     begin
-      if FVisRegions[i].TextColor <> clNone then
-        CharAttr[j].TxColor := FVisRegions[i].TextColor;
-      if FVisRegions[i].BgColor <> clNone then
-        CharAttr[j].BgColor := FVisRegions[i].BgColor;
+      CharAttr[j].TxColor := AverageColor(CharAttr[j].TxColor, FVisRegions[i].TextColor);
+      CharAttr[j].BgColor := AverageColor(CharAttr[j].BgColor, FVisRegions[i].BgColor);
     end;
+  end;
+
+  // Default colors
+  DefBgColor := Color;
+  DefTxColor := Font.Color;
+  for i:=0 to TextLength-1 do
+  begin
+    if CharAttr[i].TxColor = clNone then CharAttr[i].TxColor := DefTxColor;
+    if CharAttr[i].BgColor = clNone then CharAttr[i].BgColor := DefBgColor;
   end;
 end;
 

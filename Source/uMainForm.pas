@@ -39,7 +39,7 @@ uses
 const
   Color_NoDataTx    = clGray;  // E.g. unallocated memory range
   Color_SrcRegionFr = clGray;  // Native regions of Data Source
-  Color_ChangedByte = $B0FFFF;
+  Color_ChangedByte = $B0F0FF;
   Color_SelectionBg = $F5DDBF; //clHighlight;
   Color_SelectionTx = clNone; //clHighlightText;
   Color_SelectionFr = $D77800;

@@ -452,7 +452,7 @@ object MainForm: TMainForm
             Width = 412
             ExplicitWidth = 412
           end
-          inherited VertScrollBar: TScrollBar
+          inherited VertScrollBar: TScrollBar64
             Left = 395
             Height = 470
             ExplicitLeft = 395
@@ -583,10 +583,13 @@ object MainForm: TMainForm
           ExplicitHeight = 519
           inherited ToolPanel: TPanel
             Width = 412
+            ExplicitWidth = 412
           end
           inherited RegionsTreeView: TVirtualStringTree
             Width = 412
             Height = 478
+            ExplicitWidth = 412
+            ExplicitHeight = 478
           end
         end
       end
@@ -1253,7 +1256,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01011A004001D00310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01011A004001D40310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       000000000000000000000072000000720000006F0000006D0000006C00000000
