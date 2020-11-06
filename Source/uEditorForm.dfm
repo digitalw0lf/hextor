@@ -226,18 +226,6 @@ object EditorForm: TEditorForm
       Visible = False
     end
   end
-  object VertScrollBar: TScrollBar
-    Left = 1032
-    Top = 0
-    Width = 17
-    Height = 627
-    Align = alRight
-    Kind = sbVertical
-    Max = 0
-    PageSize = 0
-    TabOrder = 3
-    OnChange = VertScrollBarChange
-  end
   object StatusBar: TStatusBar
     Left = 0
     Top = 644
@@ -260,9 +248,24 @@ object EditorForm: TEditorForm
     Height = 17
     Align = alBottom
     PageSize = 0
-    TabOrder = 5
+    TabOrder = 4
     Visible = False
     OnChange = HorzScrollBarChange
+  end
+  object VertScrollBar: TScrollBar64
+    Left = 1032
+    Top = 0
+    Width = 17
+    Height = 627
+    Align = alRight
+    Kind = sbVertical
+    Max = 0
+    PageSize = 0
+    TabOrder = 5
+    OnChange = VertScrollBarChange
+    ExplicitLeft = 905
+    ExplicitTop = 232
+    ExplicitHeight = 121
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286
@@ -292,7 +295,7 @@ object EditorForm: TEditorForm
     Left = 878
     Top = 304
     Bitmap = {
-      494C010102000800140133001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010102000800400133001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000CC0000001A0000000100200000000000E052
       000000000000000000000000000000000000B9B9B90082828200858585008585
       8500858585008585850085858500858585008585850085858500858585008585

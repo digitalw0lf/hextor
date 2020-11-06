@@ -350,7 +350,7 @@ object BitmapFrame: TBitmapFrame
       OnChange = EditWidthChange
     end
   end
-  object VertScrollBar: TScrollBar
+  object VertScrollBar: TScrollBar64
     Left = 732
     Top = 49
     Width = 17
@@ -361,5 +361,6 @@ object BitmapFrame: TBitmapFrame
     PageSize = 0
     TabOrder = 2
     OnChange = VertScrollBarChange
+    ExplicitLeft = 731
   end
 end

@@ -19,7 +19,7 @@ uses
 
   uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
   uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper,
-  uDataSaver, uModuleSettings;
+  uDataSaver, uModuleSettings, uHextorGUI;
 
 type
   TEditorForm = class;
@@ -43,7 +43,6 @@ type
     PaneHex: TEditorPane;
     PaneAddr: TEditorPane;
     PaneText: TEditorPane;
-    VertScrollBar: TScrollBar;
     StatusBar: TStatusBar;
     EditorPopupMenu: TPopupMenu;
     PMICut: TMenuItem;
@@ -60,6 +59,7 @@ type
     Image1: TImage;
     ImgListSkipBtn: TImageList;
     TypingActionChangeTimer: TTimer;
+    VertScrollBar: TScrollBar64;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -102,7 +102,6 @@ type
     FNeedCallSomeDataChanged: Boolean;  // We need to call SomeDataChanged() when long operation ends
     FNeedCallSelectionChanged: Boolean; // We need to call SelectionChanged() when long operation ends
     FByteColumns: Integer;
-    FLinesPerScrollBarTick: Integer;
     FInsertMode: Boolean;
     FByteColumnsSetting: Integer;
     FPrevVisibleRange: TFileRange;
@@ -220,7 +219,7 @@ type
     procedure RemoveEventListener(Id: Pointer);
   end;
 
-procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
+procedure ConfigureScrollbar(AScrollBar: TScrollBar64; AMax, APageSize: Int64);
 
 var
   EditorForm: TEditorForm;
@@ -232,7 +231,7 @@ uses
 
 {$R *.dfm}
 
-procedure ConfigureScrollbar(AScrollBar: TScrollBar; AMax, APageSize: Integer);
+procedure ConfigureScrollbar(AScrollBar: TScrollBar64; AMax, APageSize: Int64);
 begin
   APageSize := Min(APageSize, AMax);
   if AMax < AScrollBar.PageSize then
@@ -1010,7 +1009,7 @@ end;
 
 procedure TEditorForm.VertScrollBarChange(Sender: TObject);
 begin
-  TopVisibleRow := TFilePointer(VertScrollBar.Position) * FLinesPerScrollBarTick;
+  TopVisibleRow := TFilePointer(VertScrollBar.Position);
 end;
 
 procedure TEditorForm.Save;
@@ -1292,11 +1291,11 @@ begin
     FTopVisibleRow := Value;
 
     // Move scroll bar if scrolled programmatically
-    if VertScrollBar.Position<>FTopVisibleRow div FLinesPerScrollBarTick then
+    if VertScrollBar.Position<>FTopVisibleRow then
     begin
       VertScrollBar.OnChange := nil;
       try
-        VertScrollBar.Position:=FTopVisibleRow div FLinesPerScrollBarTick;
+        VertScrollBar.Position:=FTopVisibleRow;
       finally
         VertScrollBar.OnChange := VertScrollBarChange;
       end;
@@ -1710,16 +1709,12 @@ begin
   ScreenRows := GetVisibleRowsCount();
   if (FileRows > ScreenRows) then
   begin
-    // ScrollBar.Position is limited by 2^32, so for large files make
-    // one scrollbar step more then one line
-    FLinesPerScrollBarTick := Max(FileRows div 100000000{100 M lines}, 1);
-    VertScrollBar.Max := (FileRows div FLinesPerScrollBarTick) - 1;
-    VertScrollBar.PageSize := (ScreenRows div FLinesPerScrollBarTick);
+    VertScrollBar.Max := FileRows - 1;
+    VertScrollBar.PageSize := ScreenRows;
     VertScrollBar.LargeChange := VertScrollBar.PageSize;
   end
   else
   begin
-    FLinesPerScrollBarTick := 1;
     VertScrollBar.PageSize := 0;
     VertScrollBar.Max := 0;
   end;

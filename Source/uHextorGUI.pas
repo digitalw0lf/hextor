@@ -14,7 +14,7 @@ uses
   System.Classes, System.SysUtils, System.IOUtils, Vcl.Controls, Vcl.Menus,
   Vcl.Forms, System.Types, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls,
   WinApi.Messages, Vcl.Graphics, Winapi.Windows, System.Math, Winapi.ShellAPI,
-  Generics.Collections,
+  Generics.Collections, Vcl.Themes,
 
   uFormattedTextDraw;
 
@@ -84,6 +84,94 @@ type
     property DropPoint: TPoint read GetPoint;
   end;
 
+  TScrollEvent64 = procedure(Sender: TObject; ScrollCode: TScrollCode;
+    var ScrollPos: Int64) of object;
+
+  TScrollBar64 = class(TWinControl)
+  private
+    FKind: TScrollBarKind;
+    FPosition: Int64;
+    FMin: Int64;
+    FMax: Int64;
+    FPageSize: Int64;
+    FRTLFactor: Integer;
+    FSmallChange: Int64;
+    FLargeChange: Int64;
+    FOnChange: TNotifyEvent;
+    FOnScroll: TScrollEvent64;
+    class constructor Create;
+    class destructor Destroy;
+    procedure DoScroll(var Message: TWMScroll);
+    function NotRightToLeft: Boolean;
+    procedure SetKind(Value: TScrollBarKind);
+    procedure SetMax(Value: Int64);
+    procedure SetMin(Value: Int64);
+    procedure SetPosition(Value: Int64);
+    procedure SetPageSize(Value: Int64);
+    procedure CNHScroll(var Message: TWMHScroll); message CN_HSCROLL;
+    procedure CNVScroll(var Message: TWMVScroll); message CN_VSCROLL;
+    procedure CNCtlColorScrollBar(var Message: TMessage); message CN_CTLCOLORSCROLLBAR;
+    procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
+    procedure WMPaint(var Message: TWMPaint); message WM_PAINT;
+  protected
+    InternalRange: Int64;  // MAX value for underlying win32 SCROLLBAR (fits in 32 bits)
+    procedure ChooseInternalRange();
+    function Param64to32(Value: Int64): Integer;
+    function Param32to64(Value: Integer): Int64;
+    function CanObserve(const ID: Integer): Boolean; override;
+    procedure CreateParams(var Params: TCreateParams); override;
+    procedure CreateWnd; override;
+    procedure Change; dynamic;
+    procedure Scroll(ScrollCode: TScrollCode; var ScrollPos: Int64); dynamic;
+  public
+    constructor Create(AOwner: TComponent); override;
+    procedure SetParams(APosition, AMin, AMax: Int64);
+  published
+    property Align;
+    property Anchors;
+    property BiDiMode;
+    property Constraints;
+    property Ctl3D;
+    property DoubleBuffered;
+    property DragCursor;
+    property DragKind;
+    property DragMode;
+    property Enabled;
+    property Kind: TScrollBarKind read FKind write SetKind default sbHorizontal;
+    property LargeChange: Int64 read FLargeChange write FLargeChange default 1;
+    property Max: Int64 read FMax write SetMax default 100;
+    property Min: Int64 read FMin write SetMin default 0;
+    property PageSize: Int64 read FPageSize write SetPageSize;
+    property ParentBiDiMode;
+    property ParentCtl3D;
+    property ParentDoubleBuffered;
+    property ParentShowHint;
+    property PopupMenu;
+    property Position: Int64 read FPosition write SetPosition default 0;
+    property ShowHint;
+    property SmallChange: Int64 read FSmallChange write FSmallChange default 1;
+    property TabOrder;
+    property TabStop default True;
+    property Visible;
+    property StyleElements;
+    property OnContextPopup;
+    property OnChange: TNotifyEvent read FOnChange write FOnChange;
+    property OnDragDrop;
+    property OnDragOver;
+    property OnEndDock;
+    property OnEndDrag;
+    property OnEnter;
+    property OnExit;
+    property OnKeyDown;
+    property OnKeyPress;
+    property OnKeyUp;
+    property OnMouseEnter;
+    property OnMouseLeave;
+    property OnScroll: TScrollEvent64 read FOnScroll write FOnScroll;
+    property OnStartDock;
+    property OnStartDrag;
+  end;
+
 const
   sTextFromControl = '%%TextFromControl%%';  // Used as default parameter value
 
@@ -101,9 +189,12 @@ procedure Register;
 
 implementation
 
+uses
+  Vcl.Consts;
+
 procedure Register;
 begin
-  RegisterComponents('DWF', [THintedImageProxy]);
+  RegisterComponents('DWF', [THintedImageProxy, TScrollBar64]);
 end;
 
 procedure PopupFromControl(Menu:tPopupMenu; Control:tControl);
@@ -525,6 +616,320 @@ end;
 function TDropFileCatcher.GetPoint: TPoint;
 begin
   DragQueryPoint(fDropHandle, {$IFDEF FPC}@{$ENDIF}Result);
+end;
+
+{ TScrollBar64 }
+
+constructor TScrollBar64.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  Width := 121;
+  Height := GetSystemMetrics(SM_CYHSCROLL);
+  TabStop := True;
+  ControlStyle := [csFramed, csDoubleClicks, csOpaque];
+  FKind := sbHorizontal;
+  FPosition := 0;
+  FMin := 0;
+  FMax := 100;
+  InternalRange := FMax;
+  FSmallChange := 1;
+  FLargeChange := 1;
+  if SysLocale.FarEast and (Win32Platform = VER_PLATFORM_WIN32_NT) then
+    ImeMode := imDisable;
+end;
+
+class constructor TScrollBar64.Create;
+begin
+  TCustomStyleEngine.RegisterStyleHook(TScrollBar64, TScrollBarStyleHook);
+end;
+
+class destructor TScrollBar64.Destroy;
+begin
+  TCustomStyleEngine.UnRegisterStyleHook(TScrollBar64, TScrollBarStyleHook);
+end;
+
+procedure TScrollBar64.CreateParams(var Params: TCreateParams);
+const
+  Kinds: array[TScrollBarKind] of DWORD = (SBS_HORZ, SBS_VERT);
+begin
+  inherited CreateParams(Params);
+  CreateSubClass(Params, 'SCROLLBAR');
+  Params.Style := Params.Style or Kinds[FKind];
+  if FKind = sbVertical then
+    if not UseRightToLeftAlignment then
+      Params.Style := Params.Style or SBS_RIGHTALIGN
+    else
+      Params.Style := Params.Style or SBS_LEFTALIGN;
+  if NotRightToLeft then
+    FRTLFactor := 1
+  else
+    FRTLFactor := -1;
+end;
+
+//[UIPermission(SecurityAction.LinkDemand, Window=UIPermissionWindow.AllWindows)]
+procedure TScrollBar64.CreateWnd;
+var
+  ScrollInfo: TScrollInfo;
+  LBounds: TRect;
+begin
+  // Windows' does not always create the window size we ask for, so we have
+  //  insist sometimes.  Setting BoundsRect will only adjust the size if needed.
+  LBounds := BoundsRect;
+  inherited CreateWnd;
+  BoundsRect := LBounds;
+
+  SetScrollRange(Handle, SB_CTL, Param64to32(FMin), Param64to32(FMax), False);
+{$IF DEFINED(CLR)}
+  ScrollInfo.cbSize := Marshal.SizeOf(TypeOf(ScrollInfo));
+{$ELSE}
+  ScrollInfo.cbSize := SizeOf(ScrollInfo);
+{$ENDIF}
+  ScrollInfo.nPage := Param64to32(FPageSize);
+  ScrollInfo.fMask := SIF_PAGE;
+  SetScrollInfo(Handle, SB_CTL, ScrollInfo, False);
+  if NotRightToLeft then
+    SetScrollPos(Handle, SB_CTL, Param64to32(FPosition), True)
+  else
+    SetScrollPos(Handle, SB_CTL, Param64to32(FMax - FPosition), True);
+end;
+
+function TScrollBar64.NotRightToLeft: Boolean;
+begin
+  Result := (not IsRightToLeft) or (FKind = sbVertical);
+end;
+
+function TScrollBar64.Param32to64(Value: Integer): Int64;
+var
+  d: Double;
+begin
+  d := Value * (FMax / InternalRange);
+  if d > High(Int64) - 1 then Result := High(Int64) //Int64(High(Int64)) + 1  // Prevent invalid FP operation
+                         else Result := Round(d);
+end;
+
+function TScrollBar64.Param64to32(Value: Int64): Integer;
+begin
+  Result := Round(Value * (InternalRange / FMax));
+end;
+
+procedure TScrollBar64.SetKind(Value: TScrollBarKind);
+begin
+  if FKind <> Value then
+  begin
+    FKind := Value;
+    if not (csLoading in ComponentState) then
+      SetBounds(Left, Top, Height, Width);
+    RecreateWnd;
+  end;
+end;
+
+procedure TScrollBar64.SetParams(APosition, AMin, AMax: Int64);
+var
+  PrevValue: Int64;
+  UpdatePageSize: Boolean;
+begin
+  if (AMax < AMin) or (AMax < FPageSize) then
+    raise EInvalidOperation.Create(SScrollBarRange);
+  if APosition < AMin then APosition := AMin;
+  if APosition > AMax - FPageSize + 1 then APosition := AMax - FPageSize + 1;
+  UpdatePageSize := False;
+  if (FMin <> AMin) or (FMax <> AMax) then
+  begin
+    FMin := AMin;
+    FMax := AMax;
+    PrevValue := InternalRange;
+    ChooseInternalRange();
+    if InternalRange <> PrevValue then
+      UpdatePageSize := True;
+    if HandleAllocated then
+      SetScrollRange(Handle, SB_CTL, Param64to32(AMin), Param64to32(AMax), FPosition = APosition);
+  end;
+  if FPosition <> APosition then
+  begin
+    FPosition := APosition;
+    if HandleAllocated then
+    begin
+      if sfHandleMessages in StyleServices.Flags then
+      begin
+        if NotRightToLeft then
+          SetScrollPos(Handle, SB_CTL, Param64to32(FPosition), False)
+        else
+          SetScrollPos(Handle, SB_CTL, Param64to32(FMax - FPosition), False);
+        RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_UPDATENOW);
+      end
+      else
+        begin
+          if NotRightToLeft then
+            SetScrollPos(Handle, SB_CTL, Param64to32(FPosition), True)
+          else
+            SetScrollPos(Handle, SB_CTL, Param64to32(FMax - FPosition), True);
+        end;
+    end;
+    Enabled := True;
+    Change;
+  end;
+  if UpdatePageSize then
+  begin
+    PrevValue := FPageSize;
+    FPageSize := 0;
+    PageSize := PrevValue;
+  end;
+end;
+
+procedure TScrollBar64.SetPosition(Value: Int64);
+begin
+  SetParams(Value, FMin, FMax);
+end;
+
+procedure TScrollBar64.SetPageSize(Value: Int64);
+var
+  ScrollInfo: TScrollInfo;
+begin
+  if (FPageSize = Value) or (Value > FMax) then exit;
+  FPageSize := Value;
+{$IF DEFINED(CLR)}
+  ScrollInfo.cbSize := Marshal.SizeOf(TypeOf(ScrollInfo));
+{$ELSE}
+  ScrollInfo.cbSize := SizeOf(ScrollInfo);
+{$ENDIF}
+  if Value = 0 then
+   ScrollInfo.nPage := 0
+  else
+    ScrollInfo.nPage := System.Math.Max(Param64to32(Value), 1);
+  ScrollInfo.fMask := SIF_PAGE;
+  if HandleAllocated then
+   if sfHandleMessages in StyleServices.Flags then
+   begin
+     SetScrollInfo(Handle, SB_CTL, ScrollInfo, False);
+     RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_UPDATENOW);
+   end
+    else
+      SetScrollInfo(Handle, SB_CTL, ScrollInfo, True);
+end;
+
+procedure TScrollBar64.SetMin(Value: Int64);
+begin
+  SetParams(FPosition, Value, FMax);
+end;
+
+procedure TScrollBar64.SetMax(Value: Int64);
+begin
+  SetParams(FPosition, FMin, Value);
+end;
+
+function TScrollBar64.CanObserve(const ID: Integer): Boolean;
+begin
+  Result := False;
+  if ID = TObserverMapping.PositionLinkID then
+    Result := True
+  else if ID = TObserverMapping.ControlValueID then
+    Result := True;
+end;
+
+procedure TScrollBar64.Change;
+begin
+  inherited Changed;
+  if Assigned(FOnChange) then FOnChange(Self);
+end;
+
+procedure TScrollBar64.ChooseInternalRange;
+begin
+  InternalRange := System.Math.Min(FMax, 32767);
+end;
+
+procedure TScrollBar64.Scroll(ScrollCode: TScrollCode; var ScrollPos: Int64);
+begin
+  if Assigned(FOnScroll) then FOnScroll(Self, ScrollCode, ScrollPos);
+end;
+
+procedure TScrollBar64.DoScroll(var Message: TWMScroll);
+var
+  ScrollPos: Int64;
+  NewPos: Int64;
+  ScrollInfo: TScrollInfo;
+begin
+  with Message do
+  begin
+    NewPos := FPosition;
+    case TScrollCode(ScrollCode) of
+      scLineUp:
+        Dec(NewPos, Int64(FSmallChange) * FRTLFactor);
+      scLineDown:
+        Inc(NewPos, Int64(FSmallChange) * FRTLFactor);
+      scPageUp:
+        Dec(NewPos, Int64(FLargeChange) * FRTLFactor);
+      scPageDown:
+        Inc(NewPos, Int64(FLargeChange) * FRTLFactor);
+      scPosition, scTrack:
+        with ScrollInfo do
+        begin
+{$IF DEFINED(CLR)}
+          cbSize := Marshal.SizeOf(TypeOf(ScrollInfo));
+{$ELSE}
+          cbSize := SizeOf(ScrollInfo);
+{$ENDIF}
+          fMask := SIF_ALL;
+          GetScrollInfo(Handle, SB_CTL, ScrollInfo);
+          NewPos := Param32to64(nTrackPos);
+          { We need to reverse the positioning because SetPosition below
+            calls SetParams that reverses the position. This acts as a
+            double negative. }
+          if not NotRightToLeft then NewPos := FMax - NewPos;
+        end;
+      scTop:
+        NewPos := FMin;
+      scBottom:
+        NewPos := FMax - FPageSize + 1;
+    end;
+    if NewPos < FMin then NewPos := FMin;
+    if NewPos > FMax - FPageSize + 1 then NewPos := FMax - FPageSize + 1;
+    ScrollPos := NewPos;
+    Scroll(TScrollCode(ScrollCode), ScrollPos);
+    SetPosition(ScrollPos);
+  end;
+end;
+
+procedure TScrollBar64.CNHScroll(var Message: TWMHScroll);
+begin
+  DoScroll(Message);
+  if Observers.IsObserving(TObserverMapping.PositionLinkID) then
+    TLinkObservers.PositionLinkPosChanged(Observers);
+  if Observers.IsObserving(TObserverMapping.ControlValueID) then
+  begin
+    TLinkObservers.ControlValueModified(Observers);
+    TLinkObservers.ControlValueUpdate(Observers);
+  end;
+end;
+
+procedure TScrollBar64.CNVScroll(var Message: TWMVScroll);
+begin
+  DoScroll(Message);
+  if Observers.IsObserving(TObserverMapping.PositionLinkID) then
+    TLinkObservers.PositionLinkPosChanged(Observers);
+  if Observers.IsObserving(TObserverMapping.ControlValueID) then
+  begin
+    TLinkObservers.ControlValueModified(Observers);
+    TLinkObservers.ControlValueUpdate(Observers);
+  end;
+end;
+
+procedure TScrollBar64.CNCtlColorScrollBar(var Message: TMessage);
+begin
+  with Message do
+    CallWindowProc(DefWndProc, Handle, Msg, WParam, LParam);
+end;
+
+procedure TScrollBar64.WMPaint(var Message: TWMPaint);
+begin
+  if DoubleBuffered then
+    DefaultHandler(Message)
+  else
+    inherited;
+end;
+
+procedure TScrollBar64.WMEraseBkgnd(var Message: TWMEraseBkgnd);
+begin
+  DefaultHandler(Message);
 end;
 
 end.

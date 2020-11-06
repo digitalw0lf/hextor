@@ -16,7 +16,7 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls,
   Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Samples.Spin, Math, System.Types,
 
-  uHextorTypes, uEditorForm, Vcl.Buttons;
+  uHextorTypes, uEditorForm, Vcl.Buttons, uHextorGUI;
 
 type
   TBitmapFrame = class(TFrame, IHextorToolFrame)
@@ -34,7 +34,6 @@ type
     EditBPP: TComboBox;
     Label5: TLabel;
     EditPalette: TComboBox;
-    VertScrollBar: TScrollBar;
     BtnFlipVert: TSpeedButton;
     BtnFlipHorz: TSpeedButton;
     Label6: TLabel;
@@ -43,6 +42,7 @@ type
     BtnZoomOut: TSpeedButton;
     Label7: TLabel;
     LblScaleValue: TLabel;
+    VertScrollBar: TScrollBar64;
     procedure TrackBarWidthChange(Sender: TObject);
     procedure EditWidthChange(Sender: TObject);
     procedure TrackBarHScrollChange(Sender: TObject);
@@ -80,7 +80,7 @@ type
     FEditor: TEditorForm;
     ScrBmp: TBitmap;
     BmpData: PCardinalArray;
-    PrevFileSize, FBitsPerScrollBarTick: TFilePointer;
+    PrevFileSize: TFilePointer;
     BaseVisibleBit, FirstVisibleBit: TFilePointer;
     Data: TBytes;
     BitsPerPixel: Integer;
@@ -290,15 +290,12 @@ begin
   if CLockControls > 0 then Exit;
 
   // When selection in editor moves, scroll bitmap view to new selection
-  if FBitsPerScrollBarTick <> 0 then
-  begin
-    Inc(CLockControls);
-    try
-      p := FEditor.SelStart;
-      VertScrollBar.Position := BoundValue(p * 8 div FBitsPerScrollBarTick - VertScrollBar.PageSize div 2, 0, VertScrollBar.Max - VertScrollBar.PageSize);
-    finally
-      Dec(CLockControls);
-    end;
+  Inc(CLockControls);
+  try
+    p := FEditor.SelStart;
+    VertScrollBar.Position := BoundValue(p * 8 - VertScrollBar.PageSize div 2, 0, VertScrollBar.Max - VertScrollBar.PageSize);
+  finally
+    Dec(CLockControls);
   end;
 end;
 
@@ -340,7 +337,7 @@ procedure TBitmapFrame.FrameMouseWheel(Sender: TObject; Shift: TShiftState;
 begin
   if ControlAtPos(ScreenToClient(MousePos), False, True, True) = MainPaintBox then
   begin
-    VertScrollBar.Position := VertScrollBar.Position - WheelDelta * GetBitsPerRow() div FBitsPerScrollBarTick;
+    VertScrollBar.Position := VertScrollBar.Position - WheelDelta * GetBitsPerRow();
   end;
 end;
 
@@ -361,7 +358,7 @@ begin
 
   if FEditor = nil then Exit;
 
-  BaseVisibleBit := TFilePointer(VertScrollBar.Position) * FBitsPerScrollBarTick;
+  BaseVisibleBit := TFilePointer(VertScrollBar.Position);
 
   BitsPerLine := BitsPerPixel * AWidth;
 
@@ -521,14 +518,13 @@ begin
   end;
 
   // Adjust vertical scrollbar
-  FBitsPerScrollBarTick := Max(FEditor.Data.GetSize() * 8 div 1000000000, 1);
   PrevFileSize := FEditor.Data.GetSize();
   if PrevFileSize = 0 then
     ConfigureScrollbar(VertScrollBar, 0, 0)
   else
   begin
-    ConfigureScrollbar(VertScrollBar, (PrevFileSize * 8 div FBitsPerScrollBarTick) - 1,
-                       (GetMaxVisibleBytesCount() * 8 div FBitsPerScrollBarTick));
+    ConfigureScrollbar(VertScrollBar, (PrevFileSize * 8) - 1,
+                       (GetMaxVisibleBytesCount() * 8));
   end;
   VertScrollBar.LargeChange := Min(VertScrollBar.PageSize, High(VertScrollBar.LargeChange));
   VertScrollBar.SmallChange := Max(VertScrollBar.LargeChange div Max(MainPaintBox.Height, 1), 1);
