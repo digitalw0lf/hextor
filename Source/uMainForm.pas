@@ -45,6 +45,8 @@ const
   Color_SelectionFr = $D77800;
   Color_ValueHighlightBg = $FFD0A0;
   Color_DiffBg = $05CBEF;
+  Color_FoundItemBg = $79EBFF;
+  Color_FoundItemFr = $00D7FD;
 
 //  MAX_TAB_WIDTH = 200;
 
@@ -243,6 +245,7 @@ type
     MIInvertByteOrder: TMenuItem;
     PgRegions: TTabSheet;
     RegionsFrame: TRegionsFrame;
+    MIHighlightMatches: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -312,6 +315,8 @@ type
     procedure ActionSettingsExecute(Sender: TObject);
     procedure FormDblClick(Sender: TObject);
     procedure ActionInvertByteOrderExecute(Sender: TObject);
+    procedure MIViewClick(Sender: TObject);
+    procedure MIHighlightMatchesClick(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -546,6 +551,7 @@ begin
   // Show Find/Replace dialog and select "Find in current editor" mode
   FindReplaceForm.RBInCurrentEditor.Checked := True;
   FindReplaceForm.CPFindInFiles.Collapsed := True;
+  FindReplaceForm.ActiveControl := FindReplaceForm.EditFindText;
   FindReplaceForm.Show();
 end;
 
@@ -1516,9 +1522,21 @@ begin
     MIEncodingMenu.Items[i].Checked := (MIEncodingMenu.Items[i].Tag = AEncoding);
 end;
 
+procedure TMainForm.MIHighlightMatchesClick(Sender: TObject);
+begin
+  TEditorForm.Settings.HighlightMatches := not TEditorForm.Settings.HighlightMatches;
+  TEditorForm.Settings.Changed();
+  ActiveEditor.UpdatePanes();
+end;
+
 procedure TMainForm.MIRecentFilesMenuClick(Sender: TObject);
 begin
   GenerateRecentFilesMenu(MIRecentFilesMenu);
+end;
+
+procedure TMainForm.MIViewClick(Sender: TObject);
+begin
+  MIHighlightMatches.Checked := TEditorForm.Settings.HighlightMatches;
 end;
 
 function TMainForm.Open(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;

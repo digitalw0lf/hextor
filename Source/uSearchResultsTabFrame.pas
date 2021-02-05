@@ -265,7 +265,7 @@ begin
     for Node in ResultsList.ChildNodes(GroupNode) do
     begin
       RNode := Node.GetData;
-      Regions.AddRegion(Self, RNode.Range.Start, RNode.Range.AEnd, clNone, $79EBFF, $00D7FD);
+      Regions.AddRegion(Self, RNode.Range.Start, RNode.Range.AEnd, clNone, Color_FoundItemBg, Color_FoundItemFr);
     end;
 end;
 

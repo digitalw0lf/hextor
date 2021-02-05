@@ -28,6 +28,7 @@ type
   public
     ScrollWithWheel: Integer;
     ByteColumns: Integer;  // -1 - auto
+    HighlightMatches: Boolean;
     procedure InitDefault(); override;
   end;
 
@@ -110,6 +111,7 @@ type
     FFSkipSearcher: TFFSkipSearcher;
     FFSkipBackByte, FFSkipFwdByte: Byte;
     FTextEncoding: Integer;
+    FNowSelecting: Boolean;
     class var FSettings: TEditorSettings;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
@@ -141,6 +143,8 @@ type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
   public type
     TCaretInSelection = (CaretNoMove, CaretAtStart, CaretAtEnd);
+  public const
+    MaxHighlightedSelMatch = 65536;
   public
     { Public declarations }
     DataSource: THextorDataSource;
@@ -190,6 +194,7 @@ type
     [API]
     property SelLength: TFilePointer read FSelLength;
     property SelectedRange: TFileRange read GetSelectedRange write SetSelectedRange;
+    property NowSelecting: Boolean read FNowSelecting;
     [API]
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
@@ -677,6 +682,7 @@ begin
   if (Sender <> PaneAddr) and (Button = mbLeft) then
   begin
     WasLeftMouseDown := True;
+    FNowSelecting := True;
     PaneMouseMove(Sender, True, Shift+[ssLeft], X, Y);
   end;
 end;
@@ -692,7 +698,11 @@ procedure TEditorForm.PaneHexMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   if Button=mbLeft then
+  begin
     WasLeftMouseDown := False;
+    FNowSelecting := False;
+    UpdatePanesCarets();
+  end;
 end;
 
 procedure TEditorForm.PaneHexMouseWheel(Sender: TObject; Shift: TShiftState;
@@ -908,6 +918,7 @@ end;
 
 procedure TEditorForm.PaneMouseMove(Sender: TObject; IsMouseDown: Boolean;
   Shift: TShiftState; X, Y: Integer);
+// Called only while left mouse button is pressed
 var
   p: TPoint;
   ACaretPos: TFilePointer;
@@ -1360,7 +1371,9 @@ procedure TEditorForm.EditorGetTaggedRegions(Editor: TEditorForm; Start,
 var
   SrcRegions: TSourceRegionArray;
   Parts: TEditedData.TDataPartList;
-  i: Integer;
+  i, Len: Integer;
+  Sel: TFileRange;
+  Pattern: TBytes;
 begin
   // Data Source native regions
   if DataSource <> nil then
@@ -1387,6 +1400,33 @@ begin
   finally
     Parts.Free;
   end;
+
+  // Blocks matching selection
+  if Settings.HighlightMatches and not NowSelecting then
+  begin
+    Sel := Editor.SelectedRange;
+    if (Sel.Size > 0) and (Sel.Size <= MaxHighlightedSelMatch) then
+    begin
+      Pattern := Editor.Data.Get(Sel.Start, Sel.Size);
+      Len := Length(Pattern);
+      if Len > 0 then
+      begin
+        i := 0;
+        while i <= AEnd - Start - Len do
+        begin
+          if CompareMem(@AData[i], @Pattern[0], Len) then
+          begin
+            if Start + i <> Sel.Start then
+              Regions.AddRegion(Self, Start + i, Start + i + Len, clNone, Color_FoundItemBg, Color_FoundItemFr);
+            Inc(i, Len);
+          end
+          else
+            Inc(i);
+        end;
+      end;
+    end;
+  end;
+
 end;
 
 class function TEditorForm.Settings: TEditorSettings;
@@ -1625,6 +1665,7 @@ var
   p, FirstVis: TFilePointer;
   VisSize: Integer;
   TaggedRegions: TTaggedDataRegionList;
+  AData: TBytes;
 
   procedure Update(Pane: TEditorPane; CharsPerByte: Integer);
   var
@@ -1655,10 +1696,13 @@ begin
   p := FCaretPos - FirstVis;
   cp := Point(p mod ByteColumns, p div ByteColumns);
 
+  // TODO: cache this inside EditorForm?
+  AData := Data.Get(FirstVis, VisSize);
+
   TaggedRegions := TTaggedDataRegionList.Create(TFileRange.Create(FirstVis, FirstVis + VisSize));
   try
     // Collect tagged regions (Bookmarks, Structure fields etc.) from tools
-    OnGetTaggedRegions.Call(Self, FirstVis, FirstVis + VisSize, nil, TaggedRegions);
+    OnGetTaggedRegions.Call(Self, FirstVis, FirstVis + VisSize, @AData[0], TaggedRegions);
 
     // Selection background - on top
     if SelLength > 0 then
@@ -1837,6 +1881,7 @@ begin
   inherited;
   ScrollWithWheel := 3;
   ByteColumns := -1;
+  HighlightMatches := True;
 end;
 
 initialization

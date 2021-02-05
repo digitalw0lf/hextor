@@ -487,8 +487,16 @@ begin
     // update changed fields in tree
     if FDSChanging = 0 then
     begin
-      for i:=0 to ChangedFields.Count-1 do
-        ChangedFields[i].DoChanged(nil);
+      Progress.TaskStart(Self);
+      try
+        for i:=0 to ChangedFields.Count-1 do
+        begin
+          ChangedFields[i].DoChanged(nil);
+          Progress.Show(i+1, ChangedFields.Count);
+        end;
+      finally
+        Progress.TaskEnd();
+      end;
     end;
   finally
     ChangedFields.Free;

@@ -652,6 +652,14 @@ begin
       Key := 0;
     end;
   end;
+  if Key = VK_ESCAPE then
+  begin
+    if (ActiveControl is TComboBox) and ((ActiveControl as TComboBox).DroppedDown) then
+    begin
+    end
+    else
+      Close();
+  end;
 end;
 
 procedure TFindReplaceForm.FormShow(Sender: TObject);
