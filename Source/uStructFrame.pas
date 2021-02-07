@@ -452,6 +452,8 @@ var
   ChangedFields: TList<TDSField>;
   i: Integer;
 begin
+  if (ShownDS = nil) or (ShownDS.EventSet.DataContext <> Sender) then Exit;
+
   ChangedFields := TList<TDSField>.Create();
   try
     // Get a list of fields whose data was changed
@@ -573,7 +575,7 @@ begin
   // For array: show length
   if DS is TDSArray then
   with TDSArray(DS) do
-    Result := Result + '[' + IntToStr(Fields.Count) + ']';
+    Result := Result + '[' + IntToStr(FieldsCount) + ']';
 
   // Show value
   Result := Result + ': ' + DS.ToString();
@@ -597,7 +599,7 @@ begin
 
   // When array length changes, update node childs
   if (DS is TDSArray) and (DSTreeView.ChildrenInitialized[Node]) and
-     (DSTreeView.ChildCount[Node] <> Cardinal((DS as TDSArray).Fields.Count)) then
+     (DSTreeView.ChildCount[Node] <> Cardinal((DS as TDSArray).FieldsCount)) then
   begin
     DSTreeView.ReinitChildren(Node, False);
   end;
@@ -632,7 +634,7 @@ begin
     if EditFieldValue.Visible then
       EditFieldValueExit(Sender);
     // When user clicks DS node in tree, scroll editor to its data
-    if (GetNodeDS(Node) <> nil) then
+    if (Node <> nil) and (GetNodeDS(Node) <> nil) then
       FEditor.ScrollToShow(GetNodeDS(Node).BufAddr, -1, -1);
     FEditor.UpdatePanes();
   finally
@@ -721,13 +723,16 @@ procedure TStructFrame.DSTreeViewInitChildren(Sender: TBaseVirtualTree;
 var
   DS, ChildDS: TDSField;
   ChildNode: PVirtualNode;
+  i: Integer;
 begin
   DS := GetNodeDS(Node);
   if (DS <> nil) and (DS is TDSCompoundField) then
   begin
+    Progress.TaskStart(Self);
     Sender.BeginUpdate();
     try
       Sender.DeleteChildren(Node);
+      i := 0;
       for ChildDS in (DS as TDSCompoundField).NamedFields do
       begin
         ChildNode := Sender.AddChild(Node);
@@ -736,11 +741,14 @@ begin
           DSField := ChildDS;
           NodesForDSs.AddOrSetValue(ChildDS, ChildNode);
         end;
+        Inc(i);
+        Progress.Show(i, (DS as TDSCompoundField).FieldsCount);
       end;
 
       ChildCount := Sender.ChildCount[Node];
     finally
       Sender.EndUpdate();
+      Progress.TaskEnd();
     end;
   end
   else
@@ -755,7 +763,7 @@ begin
     Progress.Show(DSField.BufAddr - ShownDS.BufAddr, ShownDS.BufSize, 'Showing tree');
 
     Caption := DSNodeText(DSField);
-    if (DSField is TDSCompoundField) and ((DSField as TDSCompoundField).Fields.Count > 0) then
+    if (DSField is TDSCompoundField) and ((DSField as TDSCompoundField).FieldsCount > 0) then
       InitialStates := InitialStates + [ivsHasChildren];
   end;
 end;
@@ -793,8 +801,13 @@ function TStructFrame.DSValueAsJson(DS: TDSField): string;
 var
   json: ISuperObject;
 begin
-  json := DSValueAsJsonObject(DS);
-  Result := json.AsJSon(True, False);
+  Progress.TaskStart(Self);
+  try
+    json := DSValueAsJsonObject(DS);
+    Result := json.AsJSon(True, False);
+  finally
+    Progress.TaskEnd();
+  end;
 end;
 
 function TStructFrame.DSValueAsJsonObject(DS: TDSField): ISuperObject;
@@ -811,6 +824,7 @@ var
   s: string;
   Field: TDSField;
 begin
+  Progress.Show(0, 'Generating JSON');
   Result := nil;
   if DS is TDSArray then
   begin
@@ -818,14 +832,14 @@ begin
     // Special case - show array of chars as string
     begin
       s := '';
-      for i:=0 to (DS as TDSArray).Fields.Count-1 do
+      for i:=0 to (DS as TDSArray).FieldsCount-1 do
         s := s + (DS as TDSArray).Fields[i].ToString();
       Result := TSuperObject.Create(s);
     end
     else
     begin
       Result := SA([]);
-      for i:=0 to (DS as TDSArray).Fields.Count-1 do
+      for i:=0 to (DS as TDSArray).FieldsCount-1 do
         Result.AsArray.Add(DSValueAsJsonObject((DS as TDSArray).Fields[i]));
     end;
   end
@@ -961,18 +975,18 @@ begin
   end;
 
   // Add childs
-  if (DS is TDSCompoundField) and (TDSCompoundField(DS).Fields.Count > 0) then
+  if (DS is TDSCompoundField) and (TDSCompoundField(DS).FieldsCount > 0) then
   begin
     n1 := 0;
-    n2 := TDSCompoundField(DS).Fields.Count - 1;
+    n2 := TDSCompoundField(DS).FieldsCount - 1;
     // For arrays with fixed-size elements, we can calculate exact item range
     if (DS is TDSArray) then
     begin
       ElemSize := (DS as TDSArray).ElementType.GetFixedSize();
       if ElemSize > 0 then
       begin
-        n1 := BoundValue( (Range.Start - DS.BufAddr) div ElemSize, 0, (DS as TDSArray).Fields.Count - 1);
-        n2 := BoundValue( DivRoundUp(Range.AEnd - DS.BufAddr, ElemSize) - 1, 0, (DS as TDSArray).Fields.Count - 1);
+        n1 := BoundValue( (Range.Start - DS.BufAddr) div ElemSize, 0, (DS as TDSArray).FieldsCount - 1);
+        n2 := BoundValue( DivRoundUp(Range.AEnd - DS.BufAddr, ElemSize) - 1, 0, (DS as TDSArray).FieldsCount - 1);
       end;
     end;
 
@@ -1207,7 +1221,7 @@ begin
   if DS is TDSCompoundField then
   with TDSCompoundField(DS) do
   begin
-    for i:=0 to Fields.Count-1 do
+    for i:=0 to FieldsCount-1 do
     begin
       ShowStructTree(Fields[i], Node);
     end;

@@ -84,17 +84,19 @@ type
   TDSSimpleField = class (TDSField)
   private
     FInterpretor: TValueInterpretor;
+    FValidationStr: string;
     function GetData: TBytes;
     procedure SetData(const Value: TBytes; AChanger: TObject = nil);
+    procedure SetValidationStr(const Value: string);
   public
     DataType: TDSSimpleDataType;
     BigEndian: Boolean;
-    ValidationStr: string;
     constructor Create(); override;
     procedure Assign(Source: TDSField); override;
     // Data for field is requested from underlying buffer every time it is needed,
     // using callbacks in EventSet
     property Data: TBytes read GetData;
+    property ValidationStr: string read FValidationStr write SetValidationStr;
     function ToVariant(): Variant;
     function ToString(): string; override;
     function ToQuotedString(): string; override;
@@ -134,15 +136,21 @@ type
   private
     FComWrapper: TDSComWrapper;
     FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
-
+    FFields: TObjectList<TDSField>;
+    function GetFields(Index: Integer): TDSField; virtual;
+    procedure SetFields(Index: Integer; const Value: TDSField);
+    function GetFieldsCount: Integer;
+    procedure SetFieldsCount(const Value: Integer);
   public
-    Fields: TObjectList<TDSField>;
     FieldAlign: Integer;  // Alignment of fields relative to structure start
     ChildsWithErrors: Integer;  // Total count of childs (recursively) with non-empty ErrorText
+    ChildsWithValidations: Integer;  // Total count of childs (recursively) with "#valid" directive
     constructor Create(); override;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
+    property Fields[Index: Integer]: TDSField read GetFields write SetFields;
+    property FieldsCount: Integer read GetFieldsCount write SetFieldsCount;
     function AddField(Field: TDSField): Integer;
     function GetComWrapper(): TDSComWrapper;
     function GetFieldAlign(): Integer;
@@ -151,6 +159,8 @@ type
   end;
 
   TDSArray = class (TDSCompoundField)
+  private
+    function GetFields(Index: Integer): TDSField; override;
   public
     ACount: string;  // Count as it is written in description. Interpreted during population of structures
     ElementType: TDSField;
@@ -915,10 +925,9 @@ begin
   inherited;
   if Source is TDSSimpleField then
   begin
-    DataType := (Source as TDSSimpleField).DataType;
-    BigEndian := (Source as TDSSimpleField).BigEndian;
-    ValidationStr := (Source as TDSSimpleField).ValidationStr;
-    ErrorText := (Source as TDSSimpleField).ErrorText;
+    DataType := TDSSimpleField(Source).DataType;
+    BigEndian := TDSSimpleField(Source).BigEndian;
+    ValidationStr := TDSSimpleField(Source).ValidationStr;
   end;
 end;
 
@@ -982,6 +991,31 @@ begin
   SetData(AData, AChanger);
 end;
 
+procedure TDSSimpleField.SetValidationStr(const Value: string);
+var
+  DS: TDSCompoundField;
+  d: integer;
+begin
+  if FValidationStr <> Value then
+  begin
+    // Update "Childs with validation" count in parents
+    if (Value <> '') and (FValidationStr = '') then d := 1
+    else if (Value = '') and (FValidationStr <> '') then d := -1
+    else d := 0;
+    if d <> 0 then
+    begin
+      DS := Self.Parent;
+      while DS <> nil do
+      begin
+        Inc(DS.ChildsWithValidations, d);
+        DS := DS.Parent;
+      end;
+    end;
+
+    FValidationStr := Value;
+  end;
+end;
+
 function TDSSimpleField.ToQuotedString(): string;
 begin
   Result := ToString();
@@ -1029,7 +1063,7 @@ end;
 function TDSCompoundField.AddField(Field: TDSField): Integer;
 begin
   Field.Parent := Self;
-  Result := Fields.Add(Field);
+  Result := FFields.Add(Field);
   Field.FIndex := Result;
 end;
 
@@ -1040,26 +1074,28 @@ begin
   inherited;
   if Source is TDSCompoundField then
   begin
-    Fields.Clear();
-    for i:=0 to (Source as TDSCompoundField).Fields.Count-1 do
+    FFields.Clear();
+    for i:=0 to TDSCompoundField(Source).FieldsCount-1 do
     begin
-      AddField( (Source as TDSCompoundField).Fields[i].Duplicate() );
+      AddField( TDSCompoundField(Source).Fields[i].Duplicate() );
     end;
-    FieldAlign := (Source as TDSCompoundField).FieldAlign;
+    FieldAlign := TDSCompoundField(Source).FieldAlign;
+    ChildsWithErrors := TDSCompoundField(Source).ChildsWithErrors;
+    ChildsWithValidations := TDSCompoundField(Source).ChildsWithValidations;
   end;
 end;
 
 constructor TDSCompoundField.Create;
 begin
   inherited;
-  Fields := TObjectList<TDSField>.Create(True);
+  FFields := TObjectList<TDSField>.Create(True);
 end;
 
 destructor TDSCompoundField.Destroy;
 begin
   if Assigned(FComWrapper) then
     FComWrapper._Release();
-  Fields.Free;
+  FFields.Free;
   inherited;
 end;
 
@@ -1093,12 +1129,22 @@ begin
   Self.FieldAlign := Result;
 end;
 
+function TDSCompoundField.GetFields(Index: Integer): TDSField;
+begin
+  Result := FFields[Index];
+end;
+
+function TDSCompoundField.GetFieldsCount: Integer;
+begin
+  Result := FFields.Count;
+end;
+
 function TDSCompoundField.NamedFieldByIndex(Index: Integer): TDSField;
 // Slow for non-arrays
 begin
   if (Self is TDSArray) then
   begin
-    if (Index >= 0) and (Index < Fields.Count) then
+    if (Index >= 0) and (Index < FieldsCount) then
       Result := Fields[Index]
     else
       Result := nil;
@@ -1117,6 +1163,16 @@ begin
   Result := TNamedFieldsEnumerable.Create(Self);
 end;
 
+procedure TDSCompoundField.SetFields(Index: Integer; const Value: TDSField);
+begin
+  FFields[Index] := Value;
+end;
+
+procedure TDSCompoundField.SetFieldsCount(const Value: Integer);
+begin
+  FFields.Count := Value;
+end;
+
 function TDSCompoundField.ToString(): string;
 const
   MaxDispLen = 100;
@@ -1124,7 +1180,7 @@ var
   i: Integer;
 begin
   Result := '(';
-  for i:=0 to Fields.Count-1 do
+  for i:=0 to FieldsCount-1 do
   begin
     if Fields[i] is TDSDirective then Continue;
     if Length(Result) >= MaxDispLen then
@@ -1146,9 +1202,9 @@ begin
   inherited;
   if Source is TDSArray then
   begin
-    ElementType := (Source as TDSArray).ElementType.Duplicate();
+    ElementType := TDSArray(Source).ElementType.Duplicate();
     ElementType.Parent := Self;
-    ACount := (Source as TDSArray).ACount;
+    ACount := TDSArray(Source).ACount;
   end;
 
 end;
@@ -1163,6 +1219,32 @@ destructor TDSArray.Destroy;
 begin
   ElementType.Free;
   inherited;
+end;
+
+function TDSArray.GetFields(Index: Integer): TDSField;
+var
+  Interpretor: TDSInterpretor;
+  Sz: TFilePointer;
+begin
+  Result := inherited;
+  if Result = nil then
+  // If this element is not created, create it now
+  begin
+    Sz := ElementType.GetFixedSize();
+    if Sz < 0 then
+      raise EDSParserError.Create('Cannot dynamically load array with variable-sized elements');
+    Interpretor := TDSInterpretor.Create();
+    try
+      Result := ElementType.Duplicate();
+      Result.Parent := Self;
+      FFields[Index] := Result;
+      Result.FIndex := Index;
+      FCurParsedItem := Index;
+      Interpretor.Interpret(Result, BufAddr + Sz * Index, Sz);
+    finally
+      Interpretor.Free;
+    end;
+  end;
 end;
 
 function TDSArray.GetFixedSize: TFilePointer;
@@ -1191,7 +1273,7 @@ var
 begin
   if NewLength < 0 then
     raise EDSParserError.Create('Invalid array length');
-  OldLength := Fields.Count;
+  OldLength := FieldsCount;
   if NewLength = OldLength then Exit;
   Sz := ElementType.GetFixedSize();
   if Sz < 0 then
@@ -1199,7 +1281,7 @@ begin
 
   if NewLength < OldLength then
   begin  // Delete elements
-    Fields.Count := NewLength;
+    FieldsCount := NewLength;
     with EventSet do
       DataChangeProc(DataContext, BufAddr + Sz * NewLength, Sz * (OldLength - NewLength), 0, nil);
   end
@@ -1210,7 +1292,7 @@ begin
     with EventSet do
       DataChangeProc(DataContext, BufAddr + Sz * OldLength, 0, Length(Buf), @Buf[0]);
     // Initialyze elements from this data
-    Fields.Capacity := NewLength;
+    FFields.Capacity := NewLength;
     Interpretor := TDSInterpretor.Create();
     Progress.TaskStart(Self);
     try
@@ -1256,9 +1338,9 @@ begin
       ((ElementType as TDSSimpleField).DataType = 'unicode')) then
   begin
     Result := '';
-    for i:=0 to Min(Fields.Count, MaxDispLen)-1 do
+    for i:=0 to Min(FieldsCount, MaxDispLen)-1 do
       Result := Result + Fields[i].ToString();
-    if Fields.Count > MaxDispLen then
+    if FieldsCount > MaxDispLen then
       Result := Result + '...';
   end
   else
@@ -1280,7 +1362,7 @@ var
   Sz: TFilePointer;
 begin
   Result := 0;
-  for i:=0 to Fields.Count-1 do
+  for i:=0 to FieldsCount-1 do
   begin
     Sz := Fields[i].GetFixedSize();
     if Sz < 0 then Exit(-1);
@@ -1298,6 +1380,7 @@ begin
   DescrLineNum := Source.DescrLineNum;
   DisplayFormat := Source.DisplayFormat;
   FEventSet := Source.FEventSet;
+  ErrorText := Source.ErrorText;
 end;
 
 constructor TDSField.Create;
@@ -1448,10 +1531,10 @@ begin
   inherited;
   if Source is TDSConditional then
   begin
-    ACondition := (Source as TDSConditional).ACondition;
+    ACondition := TDSConditional(Source).ACondition;
     Branches.Clear();
     // Clone all conditional branches
-    for ABranch in (Source as TDSConditional).Branches do
+    for ABranch in TDSConditional(Source).Branches do
     begin
       Branch.Keys.Ranges := Copy(ABranch.Keys.Ranges);
       Branch.Fields := DuplicateDSFieldArray(ABranch.Fields);
@@ -1542,7 +1625,7 @@ begin
   Text.Add(s);
   if DS is TDSCompoundField then
   begin
-    for i:=0 to (DS as TDSCompoundField).Fields.Count-1 do
+    for i:=0 to (DS as TDSCompoundField).FieldsCount-1 do
       DbgDescribe((DS as TDSCompoundField).Fields[i], Text, Indent + '  ', DS);
   end;
 end;
@@ -1630,32 +1713,66 @@ var
   Count: Integer;
   i: Integer;
   Element: TDSField;
+  ElementSize: TFilePointer;
+  BufferLeft: TFilePointer;
+  NeedsValidation: Boolean;
 begin
+  ElementSize := DS.ElementType.GetFixedSize();
   // Calculate element count
-  if Trim(DS.ACount) = '' then
-    Count := -1
+  if Trim(DS.ACount) = '' then  // Till end of buffer
+  begin
+    BufferLeft := (FStartAddr + FMaxSize - FCurAddr);
+    if ElementSize < 0 then  // Cannot pre-calculate array size with variable-sized elements
+      Count := -1
+    else
+    if BufferLeft = 0 then
+      Count := 0
+    else
+    begin
+      if ElementSize = 0 then
+        raise EDSParserError.CreateFmt('Array of zero-length elements cannot have size %d', [BufferLeft]);
+      if (BufferLeft mod ElementSize) <> 0 then
+        raise EDSParserError.CreateFmt('Buffer size (%d) is not a multiplier of element size (%d)', [BufferLeft, ElementSize]);
+      Count := BufferLeft div ElementSize;
+    end;
+  end
   else
     Count := TDSExprEvaluator.Eval(DS.ACount, DS);
 
   i := 0;
-  DS.Fields.Clear();
+  DS.FFields.Clear();
   if Count > 0 then
-    DS.Fields.Capacity := Count;
-  while True do
+    DS.FFields.Capacity := Count;
+
+  // This field or some of its childs has "#valid" directive
+  NeedsValidation := ((DS.ElementType is TDSSimpleField) and (TDSSimpleField(DS.ElementType).ValidationStr <> '')) or
+                     ((DS.ElementType is TDSCompoundField) and (TDSCompoundField(DS.ElementType).ChildsWithValidations > 0));
+
+  if (ElementSize >= 0) and (Count >= 0) and (not NeedsValidation) then
   begin
-    if Count >= 0 then
+    // If we know element size and array length, we can optimize loading by deferring
+    // actual element creation until they are used by someone
+    DS.FieldsCount := Count;
+    Seek(FCurAddr + Count * ElementSize);
+  end
+  else
+  begin
+    while True do
     begin
-      if (i >= Count) then Break;
-    end
-    else
-    begin
-      // If empty count specified "[]", parse this array until end of buffer
-      if EndOfData then Break;
+      if Count >= 0 then
+      begin
+        if (i >= Count) then Break;
+      end
+      else
+      begin
+        // If empty count specified "[]", parse this array until end of buffer
+        if EndOfData then Break;
+      end;
+      Element := DS.ElementType.Duplicate();
+      DS.FCurParsedItem := DS.AddField(Element);
+      InternalInterpret(Element);
+      Inc(i);
     end;
-    Element := DS.ElementType.Duplicate();
-    DS.FCurParsedItem := DS.AddField(Element);
-    InternalInterpret(Element);
-    Inc(i);
   end;
 end;
 
@@ -1692,7 +1809,7 @@ procedure TDSInterpretor.InterpretStruct(DS: TDSStruct);
 var
   i: Integer;
 begin
-  for i:=0 to DS.Fields.Count-1 do
+  for i:=0 to DS.FieldsCount-1 do
   begin
     DS.FCurParsedItem := i;
     InternalInterpret(DS.Fields[i]);
@@ -1815,7 +1932,7 @@ begin
       PInteger(DispIDs)^ := DISPID_LENGTH;
       Exit(S_OK);
     end;
-    if (TryStrToInt(AName, i)) and (i >= 0) and (i < (DSField as TDSArray).Fields.Count) then
+    if (TryStrToInt(AName, i)) and (i >= 0) and (i < (DSField as TDSArray).FieldsCount) then
     begin
       PInteger(DispIDs)^ := i;
       Exit(S_OK);
@@ -1896,7 +2013,7 @@ begin
       if Put then
         (DSField as TDSArray).SetLength(Variant(TDispParams(Params).rgvarg[0]))
       else
-        POleVariant(VarResult)^ := (DSField as TDSArray).Fields.Count;
+        POleVariant(VarResult)^ := (DSField as TDSArray).FieldsCount;
       Exit(S_OK);
     end;
 
@@ -1952,7 +2069,7 @@ begin
   inherited;
   if Source is TDSDirective then
   begin
-    Value := (Source as TDSDirective).Value;
+    Value := TDSDirective(Source).Value;
   end;
 end;
 
@@ -1969,7 +2086,7 @@ constructor TDSCompoundField.TNamedFieldsEnumerator.Create(
 begin
   inherited Create();
   FTopLevel := TopLevelField;
-  if FTopLevel.Fields.Count = 0 then
+  if FTopLevel.FieldsCount = 0 then
   begin
     FCurrentParent := nil;
     Exit;
@@ -1999,7 +2116,7 @@ begin
   Inc(FIndex);
   // Skip unnamed fields
   repeat
-    if FIndex >= FCurrentParent.Fields.Count then
+    if FIndex >= FCurrentParent.FieldsCount then
     // No more fields in current parent
     begin
       if FCurrentParent = FTopLevel then
