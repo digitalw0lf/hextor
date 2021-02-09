@@ -401,6 +401,7 @@ begin
   ElemSize := Elem.DataType.MinSize;
   if DataSize < ElemSize * Elem.MinCount then Exit(False);
   MaxCount := Min(DataSize div ElemSize, Elem.MaxCount);
+  if Elem.Ranges.Ranges <> nil then
   for i:=0 to MaxCount-1 do
   begin
     try
