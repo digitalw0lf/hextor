@@ -164,6 +164,7 @@ function AdjustPositionInData(var Range: TFileRange; Addr, OldSize, NewSize: TFi
 function DataEqual(const Data1, Data2: TBytes): Boolean;
 function MakeBytes(const Buf; BufSize:integer):tBytes; overload;
 function MakeZeroBytes(Size: NativeInt): TBytes;
+procedure SwapValues(var Value1, Value2: Integer); inline;
 procedure InvertByteOrder(var Buf; BufSize:Integer);
 function VariantRange(const AStart, AEnd: Variant): TVariantRange; overload;
 function VariantRange(const AValue: Variant): TVariantRange; overload;
@@ -422,6 +423,15 @@ function MakeZeroBytes(Size: NativeInt): TBytes;
 begin
   SetLength(Result, Size);
   FillChar(Result[0], Size, 0);
+end;
+
+procedure SwapValues(var Value1, Value2: Integer); inline;
+var
+  Tmp: Integer;
+begin
+  Tmp := Value1;
+  Value1 := Value2;
+  Value2 := Tmp;
 end;
 
 procedure InvertByteOrder(var Buf; BufSize:Integer);

@@ -29,18 +29,26 @@ type
     Ranges: TVariantRanges;  // for peRanges
     Inverse: Boolean;        // for peRanges - match all except ranges
     MinCount, MaxCount: Integer;  // for peAny, peRanges, peScript
+    Greedy: Boolean;         // for peAny, peRanges, peScript
   end;
 
   TExtMatchPattern = class
   // "Compiled" extended syntax match pattern.
   // Supports wildcards "??", data elements "{i32:100}" etc.
   private const
-    cAnyByte  = '?';
-    cTagStart = '{';
-    cTagEnd   = '}';
-    cTagDelim = ':';
-    cEscape   = '\';
-    cNot      = '!';
+    cAnyByte   = '?';
+    cTagStart  = '{';
+    cTagEnd    = '}';
+    cTagDelim  = ':';
+    cEscape    = '\';
+    cNot       = '!';
+    cNonGreedy = '?';
+  private type
+    TPossibleElemMatches = record
+      // Result of element matcher
+      WorstSize, BestSize, SizeStep: Integer;
+      constructor Create(WorstSize, BestSize, SizeStep: Integer);
+    end;
   private
     bHex, bIgnoreCase, bExtSyntax: Boolean;
     CodePage: Integer;
@@ -50,10 +58,11 @@ type
     function CombineElements(var Elem1: TExtMatchPatternElement; const Elem2: TExtMatchPatternElement): Boolean;
     function ParseTag(const Text: string): TExtMatchPatternElement;
     procedure Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
+    function MatchElementsFrom(const Data: PByte; DataSize: Integer; ElemIndex: Integer; var Size: Integer): Boolean;
     function MatchElement(const Data: PByte; DataSize: Integer;
-      const Elem: TExtMatchPatternElement; var Size: Integer): Boolean; inline;
-    function ElemCompareStr(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
-    function ElemCompareValues(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+      const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean; inline;
+    function ElemCompareStr(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
+    function ElemCompareValues(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
   public
     constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
     destructor Destroy(); override;
@@ -374,7 +383,7 @@ begin
 end;
 
 function TExtMatchPattern.ElemCompareStr(const Data: PByte; DataSize: Integer;
-  const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+  const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
 // Compare Data with Element's text using pattern's CodePage.
 var
   s: string;
@@ -388,11 +397,11 @@ begin
     // Actually, if not IgnoreCase then element will be converted to peBytes and we won't get here
     Result := (CompareStr(s, Elem.Text) = 0);
   if Result then
-    Size := Elem.SizeInBytes;
+    PossibleMatches := TPossibleElemMatches.Create(Elem.SizeInBytes, Elem.SizeInBytes, 0);
 end;
 
 function TExtMatchPattern.ElemCompareValues(const Data: PByte; DataSize: Integer;
-  const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+  const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
 // Compare Data with Element's value ranges.
 var
   i, ElemSize, MaxCount: Integer;
@@ -401,23 +410,32 @@ begin
   ElemSize := Elem.DataType.MinSize;
   if DataSize < ElemSize * Elem.MinCount then Exit(False);
   MaxCount := Min(DataSize div ElemSize, Elem.MaxCount);
-  if Elem.Ranges.Ranges <> nil then
-  for i:=0 to MaxCount-1 do
+  PossibleMatches.WorstSize := Elem.MinCount * ElemSize;
+  PossibleMatches.SizeStep := -ElemSize;
+  Result := True;
+  PossibleMatches.BestSize := MaxCount * ElemSize;
+  if Elem.Ranges.Ranges <> nil then  // Empty range treated as "match any"
   begin
-    try
-      v := Elem.DataType.ToVariant(Data[ElemSize * i], ElemSize);
-    except
-      Exit(False);
-    end;
-    if (not Elem.Ranges.Contains(v)) xor (Elem.Inverse) then  // Found item that do not falls in ranges
+    for i:=0 to MaxCount-1 do
     begin
-      Result := (i >= Elem.MinCount);
-      if Result then Size := i * ElemSize;
-      Exit;
+      try
+        v := Elem.DataType.ToVariant(Data[ElemSize * i], ElemSize);
+      except
+        Exit(False);
+      end;
+      if (not Elem.Ranges.Contains(v)) xor (Elem.Inverse) then  // Found item that do not falls in ranges
+      begin
+        Result := (i >= Elem.MinCount);
+        if Result then PossibleMatches.BestSize := i * ElemSize;
+        Break;
+      end;
     end;
   end;
-  Result := True;
-  Size := MaxCount * ElemSize;
+  if (Result) and (not Elem.Greedy) then
+  begin
+    SwapValues(PossibleMatches.WorstSize, PossibleMatches.BestSize);
+    PossibleMatches.SizeStep := -PossibleMatches.SizeStep;
+  end;
 end;
 
 const
@@ -580,51 +598,44 @@ end;
 
 function TExtMatchPattern.Match(Data: PByte; DataSize: Integer;
   var Size: Integer): Boolean;
-var
-  i, sz: Integer;
 begin
-  Size := 0;
-  for i:=0 to Length(Elements)-1 do
-  begin
-    if not MatchElement(Data, DataSize, Elements[i], sz) then Exit(False);
-    Inc(Data, sz);
-    Dec(DataSize, sz);
-    Inc(Size, sz);
-  end;
-  Result := True;
+  Result := MatchElementsFrom(Data, DataSize, 0, Size);
 end;
 
 function TExtMatchPattern.MatchElement(const Data: PByte; DataSize: Integer;
-  const Elem: TExtMatchPatternElement; var Size: Integer): Boolean;
+  const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
 // Match specified Element with data buffer.
 // Returns True if data matches this element.
 // For variable-sized elements, match is always "greedy".
+var
+  Len: Integer;
 begin
   Result := False;
   case Elem._type of
     peBytes:  // Match exact bytes
       begin
-        if (DataSize >= Length(Elem.Data)) and (CompareMem(Data, @Elem.Data[0], Length(Elem.Data))) then
+        Len := Length(Elem.Data);
+        if (DataSize >= Len) and (CompareMem(Data, @Elem.Data[0], Len)) then
         begin
           Result := True;
-          Size := Length(Elem.Data);
+          PossibleMatches := TPossibleElemMatches.Create(Len, Len, 0);
         end;
       end;
     peStr:  // Match text, possible ignoring case
       begin
-        Result := ElemCompareStr(Data, DataSize, Elem, Size);
+        Result := ElemCompareStr(Data, DataSize, Elem, PossibleMatches);
       end;
     peAny:  // Match any bytes
       begin
         if (DataSize >= Elem.MinCount) then
         begin
           Result := True;
-          Size := Min(Elem.MaxCount, DataSize);
+          PossibleMatches := TPossibleElemMatches.Create(Elem.MinCount, Min(Elem.MaxCount, DataSize), 1);
         end;
       end;
     peRanges:  // Match specified count of elements by ranges
       begin
-        Result :=  ElemCompareValues(Data, DataSize, Elem, Size);
+        Result :=  ElemCompareValues(Data, DataSize, Elem, PossibleMatches);
       end;
     peScript:
       begin
@@ -633,8 +644,41 @@ begin
   end;
 end;
 
-procedure ThirdElemToMinMaxCount(const a: TArray<string>; var MinCount, MaxCount: Integer);
+function TExtMatchPattern.MatchElementsFrom(const Data: PByte; DataSize,
+  ElemIndex: Integer; var Size: Integer): Boolean;
+// Recursive function - find a best match for subset of elements from ElemIndex to end of pattern
+var
+  PossibleMatches: TPossibleElemMatches;
+  CurSize, RestSize: Integer;
+begin
+  if ElemIndex >= Length(Elements) then
+  begin
+    Size := 0;
+    Exit(True);
+  end;
+
+  // Find possible matches for current element
+  if not MatchElement(Data, DataSize, Elements[ElemIndex], PossibleMatches) then Exit(False);
+
+  // If current element can match variable number of bytes (e.g. "{u8:0:1..10}"),
+  // try all possible variants and choose best one
+  CurSize := PossibleMatches.BestSize;
+  repeat
+    if MatchElementsFrom(@Data[CurSize], DataSize - CurSize, ElemIndex + 1, RestSize) then
+    begin
+      Size := CurSize + RestSize;
+      Exit(True);
+    end;
+    if CurSize = PossibleMatches.WorstSize then Exit(False);
+    Inc(CurSize, PossibleMatches.SizeStep);
+  until False;
+
+  Result := False;
+end;
+
+procedure ThirdElemToMinMaxCount(const a: TArray<string>; var MinCount, MaxCount: Integer; var Greedy: Boolean);
 // number or number1..number2
+// non-greedy if ends with "?"
 var
   Text: string;
   i: Integer;
@@ -646,6 +690,13 @@ begin
     Exit;
   end;
   Text := a[2];
+  if Text.EndsWith(TExtMatchPattern.cNonGreedy) then
+  begin
+    Greedy := False;
+    Delete(Text, High(Text), Length(TExtMatchPattern.cNonGreedy));
+  end
+  else
+    Greedy := True;
   i := Pos('..', Text);
   if i > 0 then
   begin
@@ -693,7 +744,7 @@ begin
         else
           Result.Inverse := False;
         Result.Ranges := StrToVariantRanges(a[1]);
-        ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount);
+        ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
       end;
     2:  // Type and name specified - this is a scripted condition
       begin
@@ -703,7 +754,7 @@ begin
           raise EMatchPatternException.Create('Invalid type specifier: a1[0]');
         Result.Name := a1[1];
         Result.Text := a[1];  // Script text
-        ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount);
+        ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
       end;
     else
       raise EMatchPatternException.Create('Error in tag');
@@ -800,6 +851,16 @@ end;
 function TExtPatternDataSearcher.ParamsDefined: Boolean;
 begin
   Result := (Pattern <> nil);
+end;
+
+{ TExtMatchPattern.TPossibleElemMatches }
+
+constructor TExtMatchPattern.TPossibleElemMatches.Create(WorstSize, BestSize,
+  SizeStep: Integer);
+begin
+  Self.WorstSize := WorstSize;
+  Self.BestSize := BestSize;
+  Self.SizeStep := SizeStep;
 end;
 
 end.
