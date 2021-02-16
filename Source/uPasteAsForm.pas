@@ -175,7 +175,7 @@ begin
   if RBText.Checked then
   begin
     // TODO: Choose encodings
-    Result := String2Data(Text, TEncoding.ANSI.CodePage);
+    Result := String2Data(Text, TEncoding.Default.CodePage);
   end
   else
 

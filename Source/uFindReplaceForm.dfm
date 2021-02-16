@@ -228,7 +228,7 @@ object FindReplaceForm: TFindReplaceForm
         Caption = 'Find:'
       end
       object ImageProxy1: THintedImageProxy
-        Left = 391
+        Left = 407
         Top = 48
         Width = 16
         Height = 16
@@ -254,16 +254,8 @@ object FindReplaceForm: TFindReplaceForm
         ParentFont = False
         TabOrder = 0
       end
-      object CBFindHex: TCheckBox
-        Left = 16
-        Top = 48
-        Width = 84
-        Height = 17
-        Caption = 'Hex'
-        TabOrder = 1
-      end
       object CBExtSyntax: TCheckBox
-        Left = 286
+        Left = 302
         Top = 48
         Width = 107
         Height = 17
@@ -272,15 +264,15 @@ object FindReplaceForm: TFindReplaceForm
         ParentShowHint = False
         ShowHint = False
         State = cbChecked
-        TabOrder = 2
+        TabOrder = 1
       end
       object CBIgnoreCase: TCheckBox
-        Left = 196
+        Left = 212
         Top = 48
         Width = 84
         Height = 17
         Caption = 'Ignore case'
-        TabOrder = 3
+        TabOrder = 2
       end
       object BtnFindNext: TButton
         Tag = 1
@@ -293,7 +285,7 @@ object FindReplaceForm: TFindReplaceForm
         Default = True
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 4
+        TabOrder = 3
         OnClick = BtnFindNextClick
       end
       object BtnFindPrev: TButton
@@ -306,7 +298,7 @@ object FindReplaceForm: TFindReplaceForm
         Caption = '<< Find prev'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 5
+        TabOrder = 4
         OnClick = BtnFindNextClick
       end
       object BtnFindCount: TButton
@@ -315,16 +307,8 @@ object FindReplaceForm: TFindReplaceForm
         Width = 90
         Height = 25
         Caption = 'Count'
-        TabOrder = 6
+        TabOrder = 5
         OnClick = BtnFindCountClick
-      end
-      object CBUnicode: TCheckBox
-        Left = 106
-        Top = 48
-        Width = 84
-        Height = 17
-        Caption = 'Unicode'
-        TabOrder = 7
       end
       object CBFindInSelection: TCheckBox
         Left = 447
@@ -332,7 +316,7 @@ object FindReplaceForm: TFindReplaceForm
         Width = 84
         Height = 17
         Caption = 'In selection'
-        TabOrder = 8
+        TabOrder = 6
         OnClick = CBFindInSelectionClick
       end
       object BtnFindList: TButton
@@ -341,8 +325,41 @@ object FindReplaceForm: TFindReplaceForm
         Width = 90
         Height = 25
         Caption = 'List'
-        TabOrder = 9
+        TabOrder = 7
         OnClick = BtnFindListClick
+      end
+      object CBFindEncoding: TComboBox
+        Left = 117
+        Top = 46
+        Width = 71
+        Height = 21
+        Style = csDropDownList
+        ItemIndex = 0
+        TabOrder = 8
+        Text = 'ansi'
+        Items.Strings = (
+          'ansi'
+          'oem'
+          'ucs2'
+          'utf8')
+      end
+      object RBFindHex: TRadioButton
+        Left = 16
+        Top = 48
+        Width = 48
+        Height = 17
+        Caption = 'HEX'
+        TabOrder = 9
+      end
+      object RBFindText: TRadioButton
+        Left = 70
+        Top = 48
+        Width = 47
+        Height = 17
+        Caption = 'Text:'
+        Checked = True
+        TabOrder = 10
+        TabStop = True
       end
     end
   end

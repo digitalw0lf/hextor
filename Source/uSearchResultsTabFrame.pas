@@ -136,9 +136,9 @@ begin
   RNode.DisplayHex[0] := Data2Hex(Copy(ABuf, 0, ARange.Start-DispRange.Start));
   RNode.DisplayHex[1] := Data2Hex(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size));
   RNode.DisplayHex[2] := Data2Hex(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt));
-  RNode.DisplayText[0] := RemUnprintable(Data2String(Copy(ABuf, 0, ARange.Start-DispRange.Start), CodePage));
-  RNode.DisplayText[1] := RemUnprintable(Data2String(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size), CodePage));
-  RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), CodePage));
+  RNode.DisplayText[0] := RemUnprintable(Data2String(Copy(ABuf, 0, ARange.Start-DispRange.Start), CodePage, True));
+  RNode.DisplayText[1] := RemUnprintable(Data2String(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size), CodePage, True));
+  RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), CodePage, True));
 end;
 
 procedure TSearchResultsTabFrame.AsHex1Click(Sender: TObject);

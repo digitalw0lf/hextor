@@ -25,21 +25,27 @@ type
   TValueInterpretors = class;
   TDataToVariantFunc = reference to function(const Data; Size: Integer): Variant;
   TVariantToDataFunc = reference to procedure(const V: Variant; var Data; Size: Integer);  // Raises EConvertError if failed
+  TVariantToDataAutosizeFunc = reference to function(const V: Variant): TBytes;
 
   TValueInterpretor = class
   private
     FOwner: TValueInterpretors;
+    FToVariant: TDataToVariantFunc;
+    FFromVariant: TVariantToDataFunc;
+    FFromVariantAutosize: TVariantToDataAutosizeFunc;  // Allocates required amount of memory
     function GetName: string;
   public
     Names: TStringList;
     MinSize, MaxSize: Integer;
 //    Greedy: Boolean;
-    ToVariant: TDataToVariantFunc;
-    FromVariant: TVariantToDataFunc;
     constructor Create(AOwner: TValueInterpretors);
     destructor Destroy(); override;
     property Name: string read GetName;
     function AddNames(const ANames: array of string): TValueInterpretor;
+    function SetFromVariantAutosize(AFromVariantAutosize: TVariantToDataAutosizeFunc): TValueInterpretor;
+    function ToVariant(const Data; Size: Integer): Variant;
+    procedure FromVariant(const V: Variant; var Data; Size: Integer); overload;
+    function FromVariant(const V: Variant): TBytes; overload;
   end;
 
   TValueInterpretors = class (TObjectList<TValueInterpretor>)
@@ -251,7 +257,15 @@ begin
   Move(tmp[Low(tmp)], Data, Size);
 end;
 
-// Unicode
+function Variant2AnsiAutosize(const V: Variant): TBytes;
+var
+  tmp: AnsiString;
+begin
+  tmp := AnsiString(V);
+  Result := MakeBytes(tmp[Low(tmp)], Length(tmp) * SizeOf(tmp[Low(tmp)]));
+end;
+
+// Ucs-2 (Unicode)
 
 function Unicode2Variant(const Data; Size: Integer): Variant;
 var
@@ -273,6 +287,38 @@ begin
   Move(tmp[Low(tmp)], Data, Size);
 end;
 
+function Variant2UnicodeAutosize(const V: Variant): TBytes;
+var
+  tmp: string;
+begin
+  tmp := string(V);
+  Result := MakeBytes(tmp[Low(tmp)], Length(tmp) * SizeOf(tmp[Low(tmp)]));
+end;
+
+// Utf-8
+
+function Utf82Variant(const Data; Size: Integer): Variant;
+begin
+  Result := Data2String(MakeBytes(Data, Size), TEncoding.UTF8.CodePage);
+end;
+
+procedure Variant2Utf8(const V: Variant; var Data; Size: Integer);
+var
+  tmp: UTF8String;
+begin
+  tmp := UTF8String(V);
+  if Length(tmp)*SizeOf(tmp[Low(tmp)]) <> Size then
+    raise EInvalidUserInput.Create('Cannot change string length, only content');
+  Move(tmp[Low(tmp)], Data, Size);
+end;
+
+function Variant2Utf8Autosize(const V: Variant): TBytes;
+var
+  tmp: UTF8String;
+begin
+  tmp := UTF8String(V);
+  Result := MakeBytes(tmp[Low(tmp)], Length(tmp));
+end;
 
 { TValueInterpretor }
 
@@ -303,12 +349,41 @@ begin
   inherited;
 end;
 
+procedure TValueInterpretor.FromVariant(const V: Variant; var Data;
+  Size: Integer);
+begin
+  FFromVariant(V, Data, Size);
+end;
+
+function TValueInterpretor.FromVariant(const V: Variant): TBytes;
+begin
+  if Assigned(FFromVariantAutosize) then
+    Result := FFromVariantAutosize(V)
+  else
+  begin
+    SetLength(Result, MinSize);
+    FFromVariant(V, Result[0], MinSize);
+  end;
+end;
+
 function TValueInterpretor.GetName: string;
 begin
   if Names.Count > 0 then
     Result := Names[0]
   else
     Result := '';
+end;
+
+function TValueInterpretor.SetFromVariantAutosize(
+  AFromVariantAutosize: TVariantToDataAutosizeFunc): TValueInterpretor;
+begin
+  FFromVariantAutosize := AFromVariantAutosize;
+  Result := Self;
+end;
+
+function TValueInterpretor.ToVariant(const Data; Size: Integer): Variant;
+begin
+  Result := FToVariant(Data, Size);
 end;
 
 { TValueInterpretors }
@@ -325,8 +400,8 @@ begin
   else
     Result.MaxSize := AMaxSize;
 //  Result.Greedy := AGreedy;
-  Result.ToVariant := AToVariant;
-  Result.FromVariant := AFromVariant;
+  Result.FToVariant := AToVariant;
+  Result.FFromVariant := AFromVariant;
   Add(Result);
 end;
 
@@ -376,8 +451,12 @@ begin
   RegisterInterpretor(['float', 'single'], Float2Variant, Variant2Float, 4);
   RegisterInterpretor(['double'], Double2Variant, Variant2Double, 8);
 
-  RegisterInterpretor(['ansi'], Ansi2Variant, Variant2Ansi, 1, MAX_STR_VALUE_LENGTH{, True});
-  RegisterInterpretor(['unicode'], Unicode2Variant, Variant2Unicode, 2, MAX_STR_VALUE_LENGTH{, True});
+  RegisterInterpretor(['ansi'], Ansi2Variant, Variant2Ansi, 1, MAX_STR_VALUE_LENGTH{, True})
+    .SetFromVariantAutosize(Variant2AnsiAutosize);
+  RegisterInterpretor(['unicode', 'ucs2'], Unicode2Variant, Variant2Unicode, 2, MAX_STR_VALUE_LENGTH{, True})
+    .SetFromVariantAutosize(Variant2UnicodeAutosize);
+  RegisterInterpretor(['utf8'], Utf82Variant, Variant2Utf8, 1, MAX_STR_VALUE_LENGTH{, True})
+    .SetFromVariantAutosize(Variant2Utf8Autosize);
 end;
 
 initialization

@@ -1747,9 +1747,13 @@ end;
 procedure TMainForm.Something1Click(Sender: TObject);
 var
   s: string;
+  u8: UTF8String;
+  v: Variant;
 begin
-  s := {IntToStr(Low(Int64) + 1) + ' ' +} IntToStr(Low(Int64));
-  Application.MessageBox(PChar(s), '', MB_OK);
+  u8 := 'ßß ZZ';
+  s := string(u8);
+  v := u8;
+  Application.MessageBox(PChar(string(string(u8)+' '+s+' '+v+';'+IntToStr(Length(u8))+' '+IntToStr(Length(UTF8String(v))))), '');
 end;
 
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;

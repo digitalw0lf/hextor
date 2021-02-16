@@ -60,6 +60,7 @@ type
   TVariantRanges = record
     Ranges: TArray<TVariantRange>;
     function Contains(const Value: Variant): Boolean;
+    function IsEmpty(): Boolean;
   end;
 
   TValueDisplayNotation = (nnDefault, nnBin, nnOct, nnDec, nnHex, nnAChar, nnWChar);
@@ -146,8 +147,7 @@ type
 function Data2Hex(Data: PByteArray; Size: Integer; InsertSpaces: Boolean = False): string; overload;
 function Data2Hex(const Data: TBytes; InsertSpaces: Boolean = False): string; overload;
 function Hex2Data(const Text: string): TBytes;
-//function Data2String(Data: PByteArray; Size: Integer; CodePage: Integer = 0): string; overload;
-function Data2String(const Data: TBytes; CodePage: Integer = 0): string; overload;
+function Data2String(const Data: TBytes; CodePage: Integer = 0; AnsiIfFail: Boolean = False): string;
 function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overload;
 
 function MakeValidFileName(const S: string): string;
@@ -277,10 +277,17 @@ begin
   EncodingsCache.AddOrSetValue(CodePage, Result);
 end;
 
-function Data2String(const Data: TBytes; CodePage: Integer = 0): string; overload;
+function Data2String(const Data: TBytes; CodePage: Integer = 0; AnsiIfFail: Boolean = False): string;
 // Convert data in specified encoding to WideString
 begin
-  Result := GetCachedEncoding(CodePage).GetString(Data);
+  try
+    Result := GetCachedEncoding(CodePage).GetString(Data);
+  except
+    if AnsiIfFail then
+      Result := GetCachedEncoding(TEncoding.Default.CodePage).GetString(Data)
+    else
+      raise;
+  end;
 end;
 
 function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overload;
@@ -519,11 +526,19 @@ begin
     Exit(True);
   end;
 
-  // Ansi char
+  // Character
   if (Length(Expr) = 3) and (Expr[Low(Expr)] = '''') and
      (Expr[High(Expr)] = '''') then
   begin
-    Value := AnsiChar(Expr[Low(Expr)+1]);
+    Value := Char(Expr[Low(Expr)+1]);
+    Exit(True);
+  end;
+
+  // String
+  if (Length(Expr) >= 2) and (Expr[Low(Expr)] = '"') and
+     (Expr[High(Expr)] = '"') then
+  begin
+    Value := Copy(Expr, Low(Expr) + 1, Length(Expr) - 2);
     Exit(True);
   end;
 
@@ -872,7 +887,7 @@ begin
         if IsNaN(Double(Value1)) or IsNaN(Double(Value2)) then Exit(False);
         Result := (CompareValue(Double(Value1), Double(Value2)) <= 0);
       end
-    else       
+    else
       Result := (Value1 <= Value2);
   end;
 end;
@@ -889,6 +904,11 @@ begin
        (VarLessOrEqual(Ranges[i].AStart, Value, VarType)) and (VarLessOrEqual(Value, Ranges[i].AEnd, VarType)) then
       Exit(True);
   Result := False;
+end;
+
+function TVariantRanges.IsEmpty: Boolean;
+begin
+  Result := (Ranges = nil);
 end;
 
 { tJsonRtti }

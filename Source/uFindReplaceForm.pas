@@ -32,13 +32,11 @@ type
     CPReplace: TCategoryPanel;
     Label1: TLabel;
     EditFindText: TComboBox;
-    CBFindHex: TCheckBox;
     CBExtSyntax: TCheckBox;
     CBIgnoreCase: TCheckBox;
     BtnFindNext: TButton;
     BtnFindPrev: TButton;
     BtnFindCount: TButton;
-    CBUnicode: TCheckBox;
     CBFindInSelection: TCheckBox;
     BtnFindList: TButton;
     Label2: TLabel;
@@ -61,6 +59,9 @@ type
     Label5: TLabel;
     CBFilesSearchMode: TComboBox;
     HintedImageProxy1: THintedImageProxy;
+    CBFindEncoding: TComboBox;
+    RBFindHex: TRadioButton;
+    RBFindText: TRadioButton;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -85,6 +86,8 @@ type
       FileMasks: TArray<string>;
       SearchMode: TFileSearchMode;
     end;
+  private
+    SearchCodePages: array of Integer;
   private
     { Private declarations }
     FindWhere: TFindWhere;
@@ -272,9 +275,9 @@ begin
     // Search text
     Params.Text := EditFindText.Text;
     AddComboBoxHistory(EditFindText);
-    Params.bHex := CBFindHex.Checked;
+    Params.bHex := RBFindHex.Checked;
+    Params.FindCodePage := IfThen(RBFindText.Checked, SearchCodePages[CBFindEncoding.ItemIndex], 0);
     Params.bExtSyntax := CBExtSyntax.Checked;
-    Params.bUnicode := CBUnicode.Checked;
     Params.bIgnoreCase := CBIgnoreCase.Checked;
     Params.bFindInSel := aCanFindInSel and CBFindInSelection.Enabled and CBFindInSelection.Checked;
 
@@ -283,16 +286,8 @@ begin
     Params.Replace := EditReplaceText.Text;
     AddComboBoxHistory(EditReplaceText);
     Params.bRepHex := CBReplaceHex.Checked;
+    Params.ReplaceCodePage := Params.FindCodePage;
     Params.bAskEachReplace := CBAskReplace.Checked;
-
-    // Encoding
-    if Params.bUnicode then
-      Params.CodePage := TEncoding.Unicode.CodePage
-    else
-    if TargetEditorNoEx <> nil then
-      Params.CodePage := TargetEditorNoEx.TextEncoding
-    else
-      Params.CodePage := TEncoding.Default.CodePage;
 
     // Range inside data
     if Params.bFindInSel then
@@ -305,7 +300,7 @@ begin
 
     // Parse search pattern
     try
-      Pattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase, Params.bExtSyntax, Params.CodePage);
+      Pattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase, Params.bExtSyntax, Params.FindCodePage);
       if Pattern.IsEmpty() then
         raise EMatchPatternException.Create('Specify search string');
       Pattern.CalcMinMaxMatchSize(MinMatchSize, MaxMatchSize);
@@ -522,7 +517,7 @@ begin
       // Add found item to list. We always add items to list when replacing
       if Action in [saList, saReplace] then
       begin
-        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + NewSize), Searcher.Params.CodePage);
+        ResultsFrame.AddListItem(ResultsGroupNode, Searcher.Haystack, TFileRange.Create(Ptr, Ptr + NewSize), Searcher.Params.FindCodePage);
       end;
 
       Start := Ptr + NewSize;
@@ -608,6 +603,11 @@ var
   i: Integer;
   CS: TPair<TControl, TRect>;
 begin
+  SearchCodePages := [0, //TEncoding.ANSI.CodePage,
+                      1, //TEncoding.ASCII.CodePage,
+                      TEncoding.Unicode.CodePage,
+                      TEncoding.UTF8.CodePage];
+
   Searcher := TExtPatternDataSearcher.Create();
 
   // Crunch for a bug in TCategoryPanel: after first Collapse, right-aligned child controls disappear.

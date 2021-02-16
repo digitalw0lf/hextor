@@ -23,7 +23,7 @@ type
     _type: TExtMatchPatternElementType;
     Data: TBytes;            // for peBytes
     Text: string;            // for peStr, peScript (temporary)
-    SizeInBytes: Integer;    // for peStr - size of Text in bytes in specified CodePage
+    SizeInBytes: Integer;    // for peStr - size of Text in bytes in specified CodePage; for peRanges - size of single value (e.g. {u16::10..15} -> SizeInBytes=2)
     DataType: TValueInterpretor;  // for peRanges, peScript
     Name: string;            // for peRanges, peScript
     Ranges: TVariantRanges;  // for peRanges
@@ -56,6 +56,7 @@ type
     function GetNextElement(var P: PChar; var Element: TExtMatchPatternElement): Boolean;
     function SimplifyElement(var Element: TExtMatchPatternElement): Boolean;
     function CombineElements(var Elem1: TExtMatchPatternElement; const Elem2: TExtMatchPatternElement): Boolean;
+    function GetElementSize(DataType: TValueInterpretor; const Ranges: TVariantRanges): Integer;
     function ParseTag(const Text: string): TExtMatchPatternElement;
     procedure Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
     function MatchElementsFrom(const Data: PByte; DataSize: Integer; ElemIndex: Integer; var Size: Integer): Boolean;
@@ -73,13 +74,13 @@ type
 
   TSearchParams = record
     Text: string;
-    bHex, bUnicode, bIgnoreCase, bExtSyntax: Boolean;
+    bHex, bIgnoreCase, bExtSyntax: Boolean;
     bFindInSel: Boolean;
     bReplace: Boolean;
     Replace: string;
     bRepHex: Boolean;
     bAskEachReplace: Boolean;
-    CodePage: Integer;
+    FindCodePage, ReplaceCodePage: Integer;
 
     Range: TFileRange;
   end;
@@ -254,10 +255,7 @@ begin
   if Params.bRepHex then
     Result := Hex2Data(Params.Replace)
   else
-  if Params.bUnicode then
-    Result := String2Data(Params.Replace, TEncoding.Unicode.CodePage)
-  else
-    Result := String2Data(Params.Replace, Params.CodePage);
+    Result := String2Data(Params.Replace, Params.ReplaceCodePage);
 end;
 
 function TCustomDataSearcher.ParamsDefined: Boolean;
@@ -282,6 +280,32 @@ begin
 end;
 
 { TExtMatchPattern }
+
+function TExtMatchPattern.GetElementSize(DataType: TValueInterpretor;
+  const Ranges: TVariantRanges): Integer;
+// Get size of elements of given DataType that can fall into Ranges.
+// In case of fixed-size types, this does not depends on Ranges.
+// In case of variable-size characters, this function fails if values in Ranges
+// have different sizes (e.g. {utf8:'z'..'ß'})
+var
+  i: Integer;
+begin
+  // Simple fixed-size types
+  if (DataType.MinSize = DataType.MaxSize) then Exit(DataType.MinSize);
+
+  if (Ranges.IsEmpty()) then
+    raise EMatchPatternException.CreateFmt('Cannot use empty range for variable-sized type %s', [DataType.Name]);
+
+  // Size of values specified in Ranges
+  Result := Length(DataType.FromVariant(Ranges.Ranges[0].AStart));
+
+  for i := 0 to Length(Ranges.Ranges) - 1 do
+  begin
+    if (Length(DataType.FromVariant(Ranges.Ranges[0].AStart)) <> Result) or
+       (Length(DataType.FromVariant(Ranges.Ranges[0].AEnd)) <> Result) then
+      raise EMatchPatternException.Create('Values in range have different size');
+  end;
+end;
 
 procedure TExtMatchPattern.CalcMinMaxMatchSize(var MinSize, MaxSize: Integer);
 var
@@ -313,7 +337,7 @@ begin
         end;
       peRanges, peScript:
         begin
-          Sz := Elements[i].DataType.MinSize;
+          Sz := Elements[i].SizeInBytes;
           Inc(MinSize, Elements[i].MinCount * Sz);
           Inc(MaxSize, Elements[i].MaxCount * Sz);
         end;
@@ -390,7 +414,11 @@ var
 begin
   if (DataSize < Elem.SizeInBytes) then Exit(False);
   // To compare case-insensitive, we have to convert file data to string using selected CodePage
-  s := Data2String(MakeBytes(Data[0], Elem.SizeInBytes), CodePage);
+  try
+    s := Data2String(MakeBytes(Data[0], Elem.SizeInBytes), CodePage);
+  except
+    Exit(False);
+  end;
   if bIgnoreCase then
     Result := (AnsiCompareText(s, Elem.Text) = 0)
   else
@@ -406,8 +434,9 @@ function TExtMatchPattern.ElemCompareValues(const Data: PByte; DataSize: Integer
 var
   i, ElemSize, MaxCount: Integer;
   v: Variant;
+  Match: Boolean;
 begin
-  ElemSize := Elem.DataType.MinSize;
+  ElemSize := Elem.SizeInBytes;
   if DataSize < ElemSize * Elem.MinCount then Exit(False);
   MaxCount := Min(DataSize div ElemSize, Elem.MaxCount);
   PossibleMatches.WorstSize := Elem.MinCount * ElemSize;
@@ -420,10 +449,11 @@ begin
     begin
       try
         v := Elem.DataType.ToVariant(Data[ElemSize * i], ElemSize);
+        Match := Elem.Ranges.Contains(v) xor Elem.Inverse;
       except
-        Exit(False);
+        Match := False;
       end;
-      if (not Elem.Ranges.Contains(v)) xor (Elem.Inverse) then  // Found item that do not falls in ranges
+      if (not Match) then  // Found item that do not falls in ranges
       begin
         Result := (i >= Elem.MinCount);
         if Result then PossibleMatches.BestSize := i * ElemSize;
@@ -687,6 +717,7 @@ begin
   begin
     MinCount := 1;
     MaxCount := 1;
+    Greedy := True;
     Exit;
   end;
   Text := a[2];
@@ -744,6 +775,7 @@ begin
         else
           Result.Inverse := False;
         Result.Ranges := StrToVariantRanges(a[1]);
+        Result.SizeInBytes := GetElementSize(Result.DataType, Result.Ranges);
         ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
       end;
     2:  // Type and name specified - this is a scripted condition
@@ -792,8 +824,7 @@ begin
            (not Element.Inverse) then
         begin
           Element._type := peBytes;
-          SetLength(b, Element.DataType.MinSize);
-          Element.DataType.FromVariant(Element.Ranges.Ranges[0].AStart, b[0], Length(b));
+          b := Element.DataType.FromVariant(Element.Ranges.Ranges[0].AStart);
           SetLength(Element.Data, Length(b) * Element.MinCount);
           for i:=0 to Element.MinCount-1 do
             Move(b[0], Element.Data[i*Length(b)], Length(b));
