@@ -147,7 +147,7 @@ begin
 //    TByteArray(Data)[i] := BinToInt(s1);
 //    Inc(i);
 //  end;
-  Arr := S.Split([' '], ExcludeEmpty);
+  Arr := S.Split([' '], TStringSplitOptions.ExcludeEmpty);
   if Length(Arr) <> Size then raise EConvertError.CreateFmt('Expected %d values', [Size]);
   for i:=0 to Length(Arr)-1 do
     TByteArray(Data)[i] := BinToInt(Arr[i]);

@@ -53,6 +53,7 @@ type
     bHex, bIgnoreCase, bExtSyntax: Boolean;
     CodePage: Integer;
     Elements: array of TExtMatchPatternElement;
+    OptimizedSimpleMatch: Boolean;  // True if pattern is a constant without variable ranges etc.
     function GetNextElement(var P: PChar; var Element: TExtMatchPatternElement): Boolean;
     function SimplifyElement(var Element: TExtMatchPatternElement): Boolean;
     function CombineElements(var Elem1: TExtMatchPatternElement; const Elem2: TExtMatchPatternElement): Boolean;
@@ -392,6 +393,11 @@ begin
       Continue;
     Elements := Elements + [Elem];
   end;
+
+  if (Length(Elements) = 1) and (Elements[0]._type = peBytes) then
+    OptimizedSimpleMatch := True
+  else
+    OptimizedSimpleMatch := False;
 end;
 
 constructor TExtMatchPattern.Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
@@ -628,7 +634,23 @@ end;
 
 function TExtMatchPattern.Match(Data: PByte; DataSize: Integer;
   var Size: Integer): Boolean;
+var
+  Elem: ^TExtMatchPatternElement;
+  Len: Integer;
 begin
+  // If we have a trivial case - just a constant expression without variable ranges,
+  // case-insensitive strings etc., we can skip complex logic
+  if OptimizedSimpleMatch then
+  begin
+    Elem := @Elements[0];
+    Len := Length(Elem.Data);
+    if (DataSize >= Len) and (CompareMem(Data, @Elem.Data[0], Len)) then
+    begin
+      Size := Len;
+      Exit(True);
+    end;
+  end;
+
   Result := MatchElementsFrom(Data, DataSize, 0, Size);
 end;
 
@@ -758,7 +780,7 @@ begin
     Result.Data := Hex2Data(a[0]);
     Exit;
   end;
-  a1 := a[0].Split([' '], ExcludeEmpty);
+  a1 := a[0].Split([' '], TStringSplitOptions.ExcludeEmpty);
   // How many words are in first part of tag?
   case Length(a1) of
     1:  // Type specified - this is a "ranges" condition
