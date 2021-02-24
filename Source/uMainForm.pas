@@ -23,7 +23,7 @@ uses
   System.Math, Generics.Collections, Clipbrd, System.Actions, Vcl.ActnList,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ToolWin, System.Types, System.ImageList,
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
-  Vcl.FileCtrl, KControls, KGrids, Vcl.Buttons, Vcl.Samples.Gauges,
+  Vcl.FileCtrl, Vcl.Buttons, Vcl.Samples.Gauges,
   System.StrUtils, System.IOUtils, Vcl.HtmlHelpViewer,
   Vcl.StdActns, System.NetEncoding,
 

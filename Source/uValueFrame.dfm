@@ -4,28 +4,42 @@ object ValueFrame: TValueFrame
   Width = 328
   Height = 598
   TabOrder = 0
-  object ValuesGrid: TKGrid
+  object ValuesTreeView: TVirtualStringTree
     Left = 0
     Top = 0
     Width = 328
     Height = 598
     Align = alClient
-    ColCount = 2
-    Options = [goAlignLastCol, goColSizing, goDrawFocusSelected, goEditing, goFixedHorzLine, goFixedVertLine, goHeader, goHeaderAlignment, goHorzLine, goIndicateHiddenCells, goMouseOverCells, goThemes, goThemedCells, goVertLine]
-    RowCount = 2
+    DefaultNodeHeight = 20
+    Header.AutoSizeIndex = 1
+    Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    HintMode = hmHint
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 0
-    OnClick = ValuesGridClick
-    OnEditorDataToGrid = ValuesGridEditorDataToGrid
-    OnEditorSelect = ValuesGridEditorSelect
-    OnExit = ValuesGridExit
-    OnMouseDown = ValuesGridMouseDown
-    OnMouseUp = ValuesGridMouseUp
-    ColWidths = (
-      64
-      263)
-    RowHeights = (
-      10
-      21)
+    TreeOptions.MiscOptions = [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toEditOnDblClick]
+    TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toShowVertGridLines, toThemeAware, toUseBlendedImages]
+    TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toRightClickSelect]
+    OnEditing = ValuesTreeViewEditing
+    OnExit = ValuesTreeViewExit
+    OnFocusChanged = ValuesTreeViewFocusChanged
+    OnFocusChanging = ValuesTreeViewFocusChanging
+    OnFreeNode = ValuesTreeViewFreeNode
+    OnGetText = ValuesTreeViewGetText
+    OnGetHint = ValuesTreeViewGetHint
+    OnGetPopupMenu = ValuesTreeViewGetPopupMenu
+    OnNewText = ValuesTreeViewNewText
+    Columns = <
+      item
+        Position = 0
+        Text = 'Type'
+        Width = 67
+      end
+      item
+        Position = 1
+        Text = 'Value'
+        Width = 257
+      end>
   end
   object ValuePopupMenu: TPopupMenu
     Left = 96

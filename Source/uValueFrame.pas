@@ -12,38 +12,51 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, KControls, KGrids, Math,
+  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Math,
   Generics.Collections, Vcl.StdCtrls, Clipbrd, System.Types, Vcl.Menus,
 
-  uHextorTypes, uEditorForm, uValueInterpretors;
+  uHextorTypes, uEditorForm, uValueInterpretors, VirtualTrees;
 
 const
   SUndefinedValue = 'N/A';
 
 type
   TValueFrame = class(TFrame, IHextorToolFrame)
-    ValuesGrid: TKGrid;
     ValuePopupMenu: TPopupMenu;
     MICopyValue: TMenuItem;
-    procedure ValuesGridEditorDataToGrid(Sender: TObject; AEditor: TWinControl;
-      ACol, ARow: Integer; var AssignText: Boolean);
-    procedure ValuesGridMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
-    procedure ValuesGridMouseUp(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
+    ValuesTreeView: TVirtualStringTree;
     procedure MICopyValueClick(Sender: TObject);
-    procedure ValuesGridEditorSelect(Sender: TObject; AEditor: TWinControl;
-      ACol, ARow: Integer; SelectAll, CaretToLeft, SelectedByMouse: Boolean);
-    procedure ValuesGridClick(Sender: TObject);
-    procedure ValuesGridExit(Sender: TObject);
+    procedure ValuesTreeViewFreeNode(Sender: TBaseVirtualTree;
+      Node: PVirtualNode);
+    procedure ValuesTreeViewGetText(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
+      var CellText: string);
+    procedure ValuesTreeViewNewText(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+    procedure ValuesTreeViewEditing(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex; var Allowed: Boolean);
+    procedure ValuesTreeViewFocusChanging(Sender: TBaseVirtualTree; OldNode,
+      NewNode: PVirtualNode; OldColumn, NewColumn: TColumnIndex;
+      var Allowed: Boolean);
+    procedure ValuesTreeViewFocusChanged(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex);
+    procedure ValuesTreeViewExit(Sender: TObject);
+    procedure ValuesTreeViewGetPopupMenu(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex; const P: TPoint;
+      var AskParent: Boolean; var PopupMenu: TPopupMenu);
+    procedure ValuesTreeViewGetHint(Sender: TBaseVirtualTree;
+      Node: PVirtualNode; Column: TColumnIndex;
+      var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string);
   private
     type
-      TValueGridRow = class (TKGridRow)
+      TValueNodeData = record
       public
+        TypeName, Value: string;
         OrigDataSize: Integer;
         Defined: Boolean;
         Hint: string;
       end;
+      PValueNodeData = ^TValueNodeData;
   private
     { Private declarations }
     FEditor: TEditorForm;
@@ -52,6 +65,9 @@ type
     procedure EditorSelectionChanged(Sender: TEditorForm);
     procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
+    procedure ShowTypesList();
+    procedure ClearInfo();
+    function ValueNode(Node: PVirtualNode; RequireDefined: Boolean = False; AbortIfNone: Boolean = False): PValueNodeData;
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -68,11 +84,30 @@ uses uMainForm;
 
 { TValueFrame }
 
+procedure TValueFrame.ClearInfo;
+var
+  Node: PVirtualNode;
+  NodeData: PValueNodeData;
+begin
+  ValuesTreeView.BeginUpdate();
+  try
+    for Node in ValuesTreeView.ChildNodes(nil) do
+    begin
+      NodeData := Node.GetData();
+      NodeData.Value := '';
+      NodeData.Defined := False;
+      NodeData.Hint := '';
+    end;
+  finally
+    ValuesTreeView.EndUpdate();
+  end;
+end;
+
 constructor TValueFrame.Create(AOwner: TComponent);
 begin
   inherited;
-  ValuesGrid.RowClass := TValueGridRow;
-  ValuesGrid.RealizeRowClass;
+  ValuesTreeView.NodeDataSize := SizeOf(TValueNodeData);
+  ShowTypesList();
   MainForm.OnSelectionChanged.Add(EditorSelectionChanged);
 end;
 
@@ -90,25 +125,29 @@ end;
 procedure TValueFrame.EditorClosed(Sender: TEditorForm);
 begin
   FEditor := nil;
-  SetKGridRowCount(ValuesGrid, 1);
+  ClearInfo();
 end;
 
 procedure TValueFrame.EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
   AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
 var
-  VRow: TValueGridRow;
+  NodeData: PValueNodeData;
 begin
-  if Screen.ActiveControl <> ValuesGrid then Exit;
+  if Screen.ActiveControl <> ValuesTreeView then Exit;
 
-  VRow := ValuesGrid.Rows[ValuesGrid.Row] as TValueGridRow;
-  if not VRow.Defined then Exit;
+  NodeData := ValueNode(ValuesTreeView.FocusedNode, True);
+  if NodeData = nil then Exit;
 
-  Regions.AddRegion(Self, FShownRange.Start, FShownRange.Start+VRow.OrigDataSize, clNone, Color_ValueHighlightBg, clNone);
+  Regions.AddRegion(Self, FShownRange.Start, FShownRange.Start+NodeData.OrigDataSize, clNone, Color_ValueHighlightBg, clNone);
 end;
 
 procedure TValueFrame.MICopyValueClick(Sender: TObject);
+var
+  NodeData: PValueNodeData;
 begin
-  Clipboard.AsText := ValuesGrid.Cells[ValuesGrid.Col, ValuesGrid.Row];
+  NodeData := ValueNode(ValuesTreeView.FocusedNode, True, True);
+
+  Clipboard.AsText := NodeData.Value;
 end;
 
 procedure TValueFrame.OnShown;
@@ -116,34 +155,69 @@ begin
   UpdateInfo();
 end;
 
+procedure TValueFrame.ShowTypesList;
+// List all available data types
+var
+  i: Integer;
+  Node: PVirtualNode;
+  NodeData: PValueNodeData;
+begin
+  ValuesTreeView.BeginUpdate();
+  try
+    ValuesTreeView.Clear();
+    for i:=0 to ValueInterpretors.Count-1 do
+    begin
+      Node := ValuesTreeView.AddChild(nil);
+      NodeData := Node.GetData;
+      NodeData.TypeName := ValueInterpretors[i].Name;
+      NodeData.Value := '';
+      NodeData.OrigDataSize := 0;
+      NodeData.Defined := False;
+      NodeData.Hint := '';
+    end;
+  finally
+    ValuesTreeView.EndUpdate();
+  end;
+end;
+
 procedure TValueFrame.UpdateInfo;
 // Show selection/data under cursor as values
 var
+  AEditor: TEditorForm;
   AData: TBytes;
   Greedy: Boolean;
-  i, Size: Integer;
+  Size: Integer;
   S: string;
-  VRow: TValueGridRow;
+  AName: string;
+  AOrigDataSize: Integer;
+  ADefined: Boolean;
+  AHint: string;
+  NodeData: PValueNodeData;
+  Node: PVirtualNode;
+  Interp: TValueInterpretor;
 begin
-  ValuesGrid.EditorMode := False;
+  ValuesTreeView.CancelEditNode();
 
-  if Assigned(FEditor) then
+  AEditor := MainForm.GetActiveEditorNoEx();
+
+  if AEditor <> FEditor then
   begin
-    FEditor.OnGetTaggedRegions.Remove(Self);
-    FEditor.OnClosed.Remove(Self);
+    if Assigned(FEditor) then
+      FEditor.RemoveEventListener(Self);
+
+    FEditor := AEditor;
+
+    if Assigned(FEditor) then
+    begin
+      FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
+      FEditor.OnClosed.Add(EditorClosed, Self);
+    end;
   end;
 
-  try
-    FEditor := MainForm.ActiveEditor;
-
-    FEditor.OnGetTaggedRegions.Add(EditorGetTaggedRegions, Self);
-    FEditor.OnClosed.Add(EditorClosed, Self);
-  except
-    on E: ENoActiveEditor do
-    begin
-      SetKGridRowCount(ValuesGrid, 1);
-      Exit;
-    end;
+  if not Assigned(FEditor) then
+  begin
+    ClearInfo();
+    Exit;
   end;
 
   with FEditor do
@@ -151,112 +225,176 @@ begin
     AData := GetSelectedOrAfterCaret(MAX_STR_VALUE_LENGTH, MAX_STR_VALUE_LENGTH, FShownRange.Start, True);
     Greedy := (SelLength > 0);
 
-    SetKGridRowCount(ValuesGrid, ValueInterpretors.Count + 1);
-    for i:=0 to ValueInterpretors.Count-1 do
-    begin
-      VRow := ValuesGrid.Rows[i+1] as TValueGridRow;
-      VRow.Defined := False;
-      VRow.Hint := '';
-      if Length(AData) < ValueInterpretors[i].MinSize then
+    ValuesTreeView.BeginUpdate();
+    try
+      for Node in ValuesTreeView.ChildNodes(nil) do
       begin
-        S := SUndefinedValue;
-        VRow.Hint := 'Not enough data';
-      end
-      else
-      try
-        if (Greedy) {and (ValueInterpretors[i].Greedy)} then
-          Size := Min(ValueInterpretors[i].MaxSize, Length(AData))
-        else
-          Size := ValueInterpretors[i].MinSize;
-        VRow.OrigDataSize := Size;
+        // Generate value description
+        NodeData := Node.GetData();
+        AName := NodeData.TypeName;
+        Interp := ValueInterpretors.FindInterpretor(AName);
 
-        S := ValueInterpretors[i].ToVariant(AData[0], Size);  // <--
-
-        VRow.Defined := True;
-      except
-        on E:Exception do
+        S := '';
+        ADefined := False;
+        AHint := '';
+        AOrigDataSize := 0;
+        if Length(AData) < Interp.MinSize then
         begin
           S := SUndefinedValue;
-          VRow.Hint := E.Message;
+          AHint := 'Not enough data';
+        end
+        else
+        try
+          if (Greedy) {and (ValueInterpretors[i].Greedy)} then
+            Size := Min(Interp.MaxSize, Length(AData))
+          else
+            Size := Interp.MinSize;
+          AOrigDataSize := Size;
+
+          S := Interp.ToVariant(AData[0], Size);  // <--
+
+          ADefined := True;
+        except
+          on E:Exception do
+          begin
+            S := SUndefinedValue;
+            AHint := E.Message;
+          end;
         end;
+
+        // Show in list
+        NodeData.Value := S;
+        NodeData.OrigDataSize := AOrigDataSize;
+        NodeData.Defined := ADefined;
+        NodeData.Hint := AHint;
       end;
-      ValuesGrid.Cells[0, i+1] := ValueInterpretors[i].Name;
-      ValuesGrid.Cells[1, i+1] := S;
+    finally
+      ValuesTreeView.EndUpdate();
     end;
   end;
 end;
 
-procedure TValueFrame.ValuesGridClick(Sender: TObject);
+function TValueFrame.ValueNode(Node: PVirtualNode; RequireDefined: Boolean = False; AbortIfNone: Boolean = False): PValueNodeData;
+// Returns PValueNodeData for given node [only if node Value is defined], or raises Abort exception if
+// this Node has no corresponding Value record
+begin
+  if Node = nil then
+  begin
+    if AbortIfNone then Abort()
+                   else Exit(nil);
+  end;
+  Result := Node.GetData();
+  if Result = nil then
+  begin
+    if AbortIfNone then Abort()
+                   else Exit(nil);
+  end;
+  if (RequireDefined) and (not Result.Defined) then
+  begin
+    if AbortIfNone then Abort()
+                   else Exit(nil);
+  end;
+end;
+
+procedure TValueFrame.ValuesTreeViewEditing(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; var Allowed: Boolean);
+begin
+  Allowed := (Column = 1) and (ValueNode(Node, True) <> nil);
+end;
+
+procedure TValueFrame.ValuesTreeViewExit(Sender: TObject);
 begin
   if FEditor <> nil then
     FEditor.UpdatePanes();
 end;
 
-procedure TValueFrame.ValuesGridEditorDataToGrid(Sender: TObject;
-  AEditor: TWinControl; ACol, ARow: Integer; var AssignText: Boolean);
+procedure TValueFrame.ValuesTreeViewFocusChanged(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex);
+begin
+  if FEditor <> nil then
+    FEditor.UpdatePanes();
+end;
+
+procedure TValueFrame.ValuesTreeViewFocusChanging(Sender: TBaseVirtualTree;
+  OldNode, NewNode: PVirtualNode; OldColumn, NewColumn: TColumnIndex;
+  var Allowed: Boolean);
+begin
+  Allowed := (NewColumn = 1);
+end;
+
+procedure TValueFrame.ValuesTreeViewFreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PValueNodeData;
+begin
+  Data := Sender.GetNodeData(Node);
+  if Data <> nil then
+    Finalize(Data^);
+end;
+
+procedure TValueFrame.ValuesTreeViewGetHint(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex;
+  var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string);
+var
+  NodeData: PValueNodeData;
+begin
+  NodeData := ValueNode(Node, False);
+  if NodeData <> nil then
+    HintText := NodeData.Hint;
+end;
+
+procedure TValueFrame.ValuesTreeViewGetPopupMenu(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; const P: TPoint;
+  var AskParent: Boolean; var PopupMenu: TPopupMenu);
+begin
+  if (Column = 1) and (ValueNode(Node, True) <> nil) then
+    PopupMenu := ValuePopupMenu;
+end;
+
+procedure TValueFrame.ValuesTreeViewGetText(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
+  var CellText: string);
+var
+  Data: PValueNodeData;
+begin
+  Data := ValueNode(Node);
+  if Assigned(Data) then
+  begin
+    case Column of
+      0: CellText := Data.TypeName;
+      1: CellText := Data.Value;
+    end;
+  end
+end;
+
+procedure TValueFrame.ValuesTreeViewNewText(Sender: TBaseVirtualTree;
+  Node: PVirtualNode; Column: TColumnIndex; NewText: string);
 // Convert text to data and change bytes in editor
 var
-  n: Integer;
+  NodeData: PValueNodeData;
+  Interp: TValueInterpretor;
   s: string;
   Data: TBytes;
 begin
-  AssignText := False;
-  if not (AEditor is TEdit) then Exit;
-  if FEditor = nil then Exit;
-  n := ARow - 1;
-  if n >= ValueInterpretors.Count then Exit;
-  s := (AEditor as TEdit).Text;
-  if s = ValuesGrid.Cells[ACol, ARow] then Exit;  // Text not changed
+  NodeData := ValueNode(Node);
+  Interp := ValueInterpretors.FindInterpretor(NodeData.TypeName);
+  if Interp = nil then Exit;
+  s := NewText;
+  if s = NodeData.Value then Exit;  // Text not changed
   // Buffer of same size as original data
-  SetLength(Data, (ValuesGrid.Rows[ARow] as TValueGridRow).OrigDataSize);
+  SetLength(Data, NodeData.OrigDataSize);
 
   try
-    ValueInterpretors[n].FromVariant(s, Data[0], Length(Data));
+    Interp.FromVariant(s, Data[0], Length(Data));
 
     if not DataEqual(Data, FEditor.GetEditedData(FShownRange.Start, Length(Data))) then
     begin
       FEditor.ChangeBytes(FShownRange.Start, Data);
     end;
   except
-    // Catch exception here so ValuesGrid can proprtly destroy editor etc.
+    // Catch exception here so ValuesTreeView can proprtly destroy editor etc.
     on E: Exception do
       Application.MessageBox(PChar(E.Message), PChar(E.ClassName), MB_OK or MB_ICONERROR);
-  end;
-end;
-
-procedure TValueFrame.ValuesGridEditorSelect(Sender: TObject;
-  AEditor: TWinControl; ACol, ARow: Integer; SelectAll, CaretToLeft,
-  SelectedByMouse: Boolean);
-begin
-  (AEditor as TEdit).SelectAll;
-end;
-
-procedure TValueFrame.ValuesGridExit(Sender: TObject);
-begin
-  if FEditor <> nil then
-    FEditor.UpdatePanes();
-end;
-
-procedure TValueFrame.ValuesGridMouseDown(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
-var
-  ACol, ARow: Integer;
-begin
-  ValuesGrid.SetFocus();
-  if (Button=mbRight) and (ValuesGrid.MouseToCell(X, Y, ACol, ARow)) and (ACol = 1) then
-    ValuesGrid.FocusCell(ACol, ARow);
-end;
-
-procedure TValueFrame.ValuesGridMouseUp(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
-var
-  ACol, ARow: Integer;
-  p: TPoint;
-begin
-  if (Button=mbRight) and (ValuesGrid.MouseToCell(X, Y, ACol, ARow)) and (ACol = 1) then
-  begin
-    p := ValuesGrid.ClientToScreen(Point(X, Y));
-    ValuePopupMenu.Popup(p.X, p.Y);
   end;
 end;
 

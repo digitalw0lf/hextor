@@ -112,7 +112,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 2
+      Top = 0
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -221,7 +221,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 547
-      ActivePage = PgRegions
+      ActivePage = PgValue
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -236,17 +236,22 @@ object MainForm: TMainForm
           TabOrder = 0
           ExplicitWidth = 412
           ExplicitHeight = 519
-          inherited ValuesGrid: TKGrid
+          inherited ValuesTreeView: TVirtualStringTree
             Width = 412
             Height = 519
             ExplicitWidth = 412
             ExplicitHeight = 519
-            ColWidths = (
-              64
-              347)
-            RowHeights = (
-              21
-              21)
+            Columns = <
+              item
+                Position = 0
+                Text = 'Type'
+                Width = 67
+              end
+              item
+                Position = 1
+                Text = 'Value'
+                Width = 341
+              end>
           end
         end
       end
@@ -644,8 +649,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 259
-        Height = 17
+        Width = 389
+        Height = 35
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -1259,7 +1264,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01011A004001E80310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01011A004001F80310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       000000000000000000000072000000720000006F0000006D0000006C00000000
