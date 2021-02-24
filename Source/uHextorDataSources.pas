@@ -396,8 +396,15 @@ end;
 
 function TProcMemDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
   const Data): Integer;
+var
+  oldprotect, oldprotect2: DWORD;
 begin
-  Win32Check( Bool( WriteProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) ) );
+  VirtualProtectEx(hProcess, Pointer(Addr), Size, PAGE_EXECUTE_READWRITE, oldprotect);
+  try
+    Win32Check( Bool( WriteProcessMemory(hProcess, Pointer(Addr), @Data, Size, NativeUInt(nil^)) ) );
+  finally
+    VirtualProtectEx(hProcess, Pointer(Addr), Size, oldprotect, oldprotect2);
+  end;
   Result := Size;
 end;
 
