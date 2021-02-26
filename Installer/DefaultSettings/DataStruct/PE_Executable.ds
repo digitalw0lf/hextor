@@ -1,4 +1,4 @@
-// 32-bit PE executable file
+// PE executable file (32-bit or 64-bit)
 
 {  // DOS .EXE header
   USHORT e_magic; #valid 0x5A4D         // Magic number
@@ -42,7 +42,8 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     //
     // Standard fields.
     //
-    USHORT  Magic;
+    USHORT  Magic;  #format hex
+                    #valid 0x10b, 0x20b  // PE32 or PE32+ (64-bit)
     UCHAR   MajorLinkerVersion;
     UCHAR   MinorLinkerVersion;
     ULONG   SizeOfCode;
@@ -50,11 +51,20 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     ULONG   SizeOfUninitializedData;
     ULONG   AddressOfEntryPoint;
     ULONG   BaseOfCode;
-    ULONG   BaseOfData;
+    if (image_optional_header.Magic == 0x10b) {  // 32-bit
+      ULONG   BaseOfData;
+    };
     //
     // NT additional fields.
     //
-    ULONG   ImageBase;  #format hex
+    switch (image_optional_header.Magic) {
+      case 0x10b:  {  // 32-bit
+        ULONG   ImageBase;  #format hex
+      };
+      case 0x20b:  {  // 64-bit
+        QWORD   ImageBase;  #format hex
+      };
+    };
     ULONG   SectionAlignment;
     ULONG   FileAlignment;
     USHORT  MajorOperatingSystemVersion;
@@ -69,18 +79,28 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     ULONG   CheckSum;
     USHORT  Subsystem;
     USHORT  DllCharacteristics;
-    ULONG   SizeOfStackReserve;
-    ULONG   SizeOfStackCommit;
-    ULONG   SizeOfHeapReserve;
-    ULONG   SizeOfHeapCommit;
+    switch (image_optional_header.Magic) {
+      case 0x10b:  {  // 32-bit
+        ULONG   SizeOfStackReserve;
+        ULONG   SizeOfStackCommit;
+        ULONG   SizeOfHeapReserve;
+        ULONG   SizeOfHeapCommit;
+      };
+      case 0x20b:  {  // 64-bit
+        QWORD   SizeOfStackReserve;
+        QWORD   SizeOfStackCommit;
+        QWORD   SizeOfHeapReserve;
+        QWORD   SizeOfHeapCommit;
+      };
+    };
     ULONG   LoaderFlags;
     ULONG   NumberOfRvaAndSizes;
     {
       DWORD VirtualAddress;  #format hex
       DWORD Size;
-    } DataDirectory[16/*IMAGE_NUMBEROF_DIRECTORY_ENTRIES*/];
-    if (image_file_header.SizeOfOptionalHeader > 224)
-      byte unknown[image_file_header.SizeOfOptionalHeader-224];
+    } DataDirectory[NumberOfRvaAndSizes];
+
+    #align_pos image_file_header.SizeOfOptionalHeader
 } image_optional_header;
 
 // IMAGE_SECTION_HEADER
