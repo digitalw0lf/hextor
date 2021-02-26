@@ -108,6 +108,7 @@ object EditorForm: TEditorForm
     PopupMenu = EditorPopupMenu
     TabOrder = 0
     TabStop = True
+    OnContextPopup = PaneHexContextPopup
     OnEnter = PaneHexEnter
     OnMouseDown = PaneHexMouseDown
     OnMouseMove = PaneHexMouseMove
@@ -162,6 +163,7 @@ object EditorForm: TEditorForm
     PopupMenu = EditorPopupMenu
     TabOrder = 2
     TabStop = True
+    OnContextPopup = PaneHexContextPopup
     OnEnter = PaneHexEnter
     OnMouseDown = PaneHexMouseDown
     OnMouseMove = PaneHexMouseMove
@@ -285,6 +287,10 @@ object EditorForm: TEditorForm
     object PMIBitsEditor: TMenuItem
       Action = MainForm.ActionBitsEditor
     end
+    object PMIShowDSField: TMenuItem
+      Caption = '(DS field)'
+      OnClick = PMIShowDSFieldClick
+    end
   end
   object ImgListSkipBtn: TImageList
     Height = 26
@@ -292,7 +298,7 @@ object EditorForm: TEditorForm
     Left = 878
     Top = 304
     Bitmap = {
-      494C010102000800440133001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010102000800040033001A00FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000CC0000001A0000000100200000000000E052
       000000000000000000000000000000000000B9B9B90082828200858585008585
       8500858585008585850085858500858585008585850085858500858585008585

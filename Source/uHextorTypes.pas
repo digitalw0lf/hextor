@@ -83,7 +83,7 @@ type
   TTaggedDataRegionList = class (TObjectList<TTaggedDataRegion>)
   public
     AcceptRange: TFileRange;
-    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor): TTaggedDataRegion;
+    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil): TTaggedDataRegion;
     constructor Create(); overload;
     constructor Create(const AAcceptRange: TFileRange); overload;
   end;
@@ -960,11 +960,12 @@ end;
 { TTaggedDataRegionList }
 
 function TTaggedDataRegionList.AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer;
-  TextColor, BgColor, FrameColor: TColor): TTaggedDataRegion;
+  TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil): TTaggedDataRegion;
 begin
   if (AcceptRange = EntireFile) or (AcceptRange.Intersects2(RangeStart, RangeEnd)) then
   begin
     Result := TTaggedDataRegion.Create(Owner, TFileRange.Create(RangeStart, RangeEnd), TextColor, BgColor, FrameColor);
+    Result.Data := Data;
     Add(Result);
   end
   else

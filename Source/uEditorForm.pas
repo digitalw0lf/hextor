@@ -61,6 +61,7 @@ type
     ImgListSkipBtn: TImageList;
     TypingActionChangeTimer: TTimer;
     VertScrollBar: TScrollBar64;
+    PMIShowDSField: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -86,6 +87,9 @@ type
     procedure TypingActionChangeTimerTimer(Sender: TObject);
     procedure PaneHexBeforeDraw(Sender: TEditorPane; Canvas: TCanvas);
     procedure PaneHexAfterDraw(Sender: TEditorPane; Canvas: TCanvas);
+    procedure PaneHexContextPopup(Sender: TObject; MousePos: TPoint;
+      var Handled: Boolean);
+    procedure PMIShowDSFieldClick(Sender: TObject);
   private
     { Private declarations }
     FData: TEditedData;
@@ -183,6 +187,7 @@ type
     function VisibleBytesCount(): Integer;
     function GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer; var Pos: TPoint): Boolean;
     function GetByteScreenRect(Pane: TEditorPane; Addr: TFilePointer; var Rect: TRect): Boolean;
+    function GetByteAtScreenCoord(Pane: TEditorPane; Coord: TPoint; var Addr: TFilePointer; {out} CaretInByte: PInteger = nil): Boolean;
     procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
     function DeleteSelected(): TFilePointer;
     procedure ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
@@ -232,7 +237,7 @@ var
 implementation
 
 uses
-  uMainForm, uValueFrame, uDbgToolsForm;
+  uMainForm, uValueFrame, uDbgToolsForm, uDataStruct;
 
 {$R *.dfm}
 
@@ -484,6 +489,36 @@ begin
   OnBeforeDrawPane.Call(Self, Sender, Canvas);
 end;
 
+procedure TEditorForm.PaneHexContextPopup(Sender: TObject; MousePos: TPoint;
+  var Handled: Boolean);
+var
+  Addr: TFilePointer;
+  TaggedRegions: TTaggedDataRegionList;
+  i: Integer;
+begin
+  if GetByteAtScreenCoord(Sender as TEditorPane, MousePos, Addr) then
+  begin
+    // DataStruct element under cursor?
+    PMIShowDSField.Visible := False;
+    TaggedRegions := TTaggedDataRegionList.Create(TFileRange.Create(Addr, Addr + 1));
+    try
+      OnGetTaggedRegions.Call(Self, Addr, Addr + 1, nil, TaggedRegions);
+
+      for i := TaggedRegions.Count-1 downto 0 do
+        if TaggedRegions[i].Owner = MainForm.StructFrame then
+        begin
+          PMIShowDSField.Tag := NativeUInt(TaggedRegions[i].Data);
+          PMIShowDSField.Caption := TDSField(TaggedRegions[i].Data).FullName();
+          PMIShowDSField.Visible := True;
+          break;
+        end;
+    finally
+      TaggedRegions.Free;
+    end;
+
+  end;
+end;
+
 procedure TEditorForm.PaneHexEnter(Sender: TObject);
 begin
 //  MainForm.CheckEnabledActions();
@@ -711,10 +746,36 @@ begin
   TopVisibleRow := TopVisibleRow - WheelDelta div 120 * Settings.ScrollWithWheel;
 end;
 
+function TEditorForm.GetByteAtScreenCoord(Pane: TEditorPane; Coord: TPoint;
+  var Addr: TFilePointer; {out} CaretInByte: PInteger = nil): Boolean;
+// Get address of byte at given screen coordinates (in pixels)
+var
+  Index, ACaretInByte: Integer;
+  p: TPoint;
+begin
+  if Pane.GetCharAt(Coord.X, Coord.Y, p, Index) then
+  begin
+    if Pane = PaneHex then
+    begin
+      ACaretInByte := BoundValue(p.X mod 3, 0, 1);
+      Index := Index div 3;
+    end
+    else
+      ACaretInByte := 0;
+    Addr := FirstVisibleAddr() + Index;
+    if CaretInByte <> nil then
+      CaretInByte^ := ACaretInByte;
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
 function TEditorForm.GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer;
   var Pos: TPoint): Boolean;
 // Returns Row/Column of given byte on Pane, if this byte is visible on screen now.
-// Horizontal scroll does not affects it (it is handled by Pane itself)
+// Horizontal scroll does not affects it (it is handled by Pane itself).
+// Pos is in chars.
 var
   FirstVis, VisCount: TFilePointer;
   N: Integer;
@@ -920,25 +981,14 @@ procedure TEditorForm.PaneMouseMove(Sender: TObject; IsMouseDown: Boolean;
   Shift: TShiftState; X, Y: Integer);
 // Called only while left mouse button is pressed
 var
-  p: TPoint;
   ACaretPos: TFilePointer;
-  Index, ACaretInByte: Integer;
+  ACaretInByte: Integer;
   ss: TShiftState;
 begin
   BeginUpdate();
   try
-    if (Sender as TEditorPane).GetCharAt(X, Y, p, Index) then
+    if GetByteAtScreenCoord(Sender as TEditorPane, Point(X, Y), ACaretPos, @ACaretInByte) then
     begin
-      if Sender = PaneHex then
-      begin
-        ACaretInByte := BoundValue(p.X mod 3, 0, 1);
-        p.X := p.X div 3;
-        Index := Index div 3;
-      end
-      else
-        ACaretInByte := 0;
-      //ACaretPos := FirstVisibleAddr() + (p.Y*ByteColumns + p.X);
-      ACaretPos := FirstVisibleAddr() + Index;
       ss := Shift;
       if not IsMouseDown then
         ss := ss + [ssShift];
@@ -982,6 +1032,11 @@ begin
       EndUpdate();
     end;
   end;
+end;
+
+procedure TEditorForm.PMIShowDSFieldClick(Sender: TObject);
+begin
+  MainForm.StructFrame.SelectFieldInTree(Pointer(PMIShowDSField.Tag));
 end;
 
 procedure TEditorForm.RemoveEventListener(Id: Pointer);
@@ -1402,7 +1457,7 @@ begin
   end;
 
   // Blocks matching selection
-  if Settings.HighlightMatches and not NowSelecting then
+  if Settings.HighlightMatches and not NowSelecting and (AData <> nil) then
   begin
     Sel := Editor.SelectedRange;
     if (Sel.Size > 0) and (Sel.Size <= MaxHighlightedSelMatch) then

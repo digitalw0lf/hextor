@@ -81,6 +81,7 @@ object AsmFrame: TAsmFrame
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
+    PopupMenu = DisasmPopupMenu
     TabOrder = 1
     CodeFolding.GutterShapeSize = 11
     CodeFolding.CollapsedLineColor = clGrayText
@@ -96,6 +97,7 @@ object AsmFrame: TAsmFrame
     Gutter.Font.Name = 'Courier New'
     Gutter.Font.Style = []
     Highlighter = SynAsmSyn1
+    Options = [eoAutoIndent, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoRightMouseMovesCursor, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoSmartTabs, eoTabsToSpaces]
     ReadOnly = True
     OnStatusChange = SynEdit1StatusChange
     FontSmoothing = fsmNone
@@ -106,5 +108,14 @@ object AsmFrame: TAsmFrame
     Options.Visible = False
     Left = 104
     Top = 176
+  end
+  object DisasmPopupMenu: TPopupMenu
+    OnPopup = DisasmPopupMenuPopup
+    Left = 104
+    Top = 240
+    object MIGoToAddr: TMenuItem
+      Caption = 'Go to 0xXXXXXXXX'
+      OnClick = MIGoToAddrClick
+    end
   end
 end

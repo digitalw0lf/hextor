@@ -174,6 +174,7 @@ type
     procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
     procedure UpdateNode(Node: PVirtualNode);
     procedure ClearShownDS();
+    function ForceCreateNode(DS: TDSField): PVirtualNode;
   public
     { Public declarations }
     Settings: TStructSettings;
@@ -187,6 +188,7 @@ type
     procedure Interpret(AEditor: TEditorForm; Addr, Size: TFilePointer; Struct: string = sDescrFromEditor);
     property ShownDS: TDSField read FShownDS;
     property InterpretRange: TStructInterpretRange read GetInterpretRange write SetInterpretRange;
+    function SelectFieldInTree(DS: TDSField): Boolean;
   end;
 
 implementation
@@ -937,7 +939,7 @@ begin
       else
         Bg := Color_DSFieldBg;
       // Add this DS
-      Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, Color_DSFieldFr);
+      Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, Color_DSFieldFr, DS);
 
       Result := True;
     end);
@@ -947,7 +949,7 @@ begin
   begin
     SelDS := GetNodeDS(DSTreeView.FocusedNode);
     if SelDS <> nil then
-      Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, Color_SelDSFieldBg, Color_SelDSFieldFr);
+      Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, Color_SelDSFieldBg, Color_SelDSFieldFr, SelDS);
   end;
 end;
 
@@ -1009,6 +1011,28 @@ end;
 //    Node := Node.Parent;
 //  end;
 //end;
+
+function TStructFrame.ForceCreateNode(DS: TDSField): PVirtualNode;
+// Ensure tree node for given DS field is created (if it's some child of
+// currently shown DS)
+var
+  ParentNode: PVirtualNode;
+begin
+  if DS = nil then Exit(nil);
+
+  // Already created?
+  Result := GetDSNode(DS);
+  if Result <> nil then Exit;
+
+  // Create parent node
+  if DS.Parent = nil then Exit(nil);
+  ParentNode := ForceCreateNode(DS.Parent);
+  if ParentNode = nil then Exit(nil);
+
+  // Create childs of parent node
+  DSTreeView.ReinitChildren(ParentNode, False);
+  Result := GetDSNode(DS);
+end;
 
 procedure TStructFrame.FrameResize(Sender: TObject);
 begin
@@ -1184,6 +1208,23 @@ begin
   DSDescrEdit.Lines.LoadFromFile(FileName);
   LblStructName.Caption := '    ' + name;
   CurDSFileName := FileName;
+end;
+
+function TStructFrame.SelectFieldInTree(DS: TDSField): Boolean;
+var
+  Node: PVirtualNode;
+begin
+  if DS = nil then Exit(False);
+
+  Node := ForceCreateNode(DS);
+  if Node = nil then Exit(False);
+
+  DSTreeView.ClearSelection();
+  DSTreeView.FocusedNode := Node;
+  DSTreeView.Selected[Node] := True;
+  DSTreeView.SetFocus();
+
+  Result := True;
 end;
 
 procedure TStructFrame.SetInterpretRange(const Value: TStructInterpretRange);

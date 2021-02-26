@@ -18,7 +18,7 @@ uses
 
   Zydis, Zydis.Exception, Zydis.Decoder, Zydis.Formatter,
 
-  uEditorForm, uHextorTypes, uEditedData;
+  uEditorForm, uHextorTypes, uEditedData, Vcl.Menus;
 
 const
   Color_InstructionBg = $F0F8FC;
@@ -33,9 +33,13 @@ type
     SynAsmSyn1: TSynAsmSyn;
     BtnLockDisasm: TSpeedButton;
     CBArchitecture: TComboBox;
+    DisasmPopupMenu: TPopupMenu;
+    MIGoToAddr: TMenuItem;
     procedure CBArchitectureChange(Sender: TObject);
     procedure SynEdit1StatusChange(Sender: TObject; Changes: TSynStatusChanges);
     procedure BtnLockDisasmClick(Sender: TObject);
+    procedure MIGoToAddrClick(Sender: TObject);
+    procedure DisasmPopupMenuPopup(Sender: TObject);
   private
     { Private declarations }
     FEditor: TEditorForm;
@@ -250,9 +254,33 @@ begin
   Result := -1;
 end;
 
+procedure TAsmFrame.MIGoToAddrClick(Sender: TObject);
+begin
+  FEditor.MoveCaret(MIGoToAddr.Tag, []);
+end;
+
 procedure TAsmFrame.OnShown;
 begin
   UpdateInfo();
+end;
+
+procedure TAsmFrame.DisasmPopupMenuPopup(Sender: TObject);
+var
+  s: string;
+  Addr: Int64;
+begin
+  s := SynEdit1.WordAtCursor;
+  if (TryStrToInt64(s, Addr)) and (Addr >= 0) and (Addr <= FEditor.Data.GetSize()) then
+  begin
+    MIGoToAddr.Tag := Addr;
+    MIGoToAddr.Caption := 'Go to ' + s;
+    MIGoToAddr.Visible := True;
+  end
+  else
+  begin
+    MIGoToAddr.Visible := False;
+  end;
+
 end;
 
 procedure TAsmFrame.SynEdit1StatusChange(Sender: TObject;
