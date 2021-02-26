@@ -1,7 +1,7 @@
 {                          ---BEGIN LICENSE BLOCK---                           }
 {                                                                              }
 { Hextor - Hexadecimal editor and binary data analyzing toolkit                }
-{ Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
+{ Copyright (C) 2019-2021  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
 { Hextor is a Freeware Source-Available software. See LICENSE.txt for details  }
 {                                                                              }
 {                           ---END LICENSE BLOCK---                            }
@@ -22,11 +22,11 @@ type
     Image1: TImage;
     Label1: TLabel;
     Label2: TLabel;
-    Label3: TLabel;
+    LblCopyright: TLabel;
     Button1: TButton;
     LblBuildDate: TLabel;
     LblUrl: TLabel;
-    Label4: TLabel;
+    LblEmail: TLabel;
     LicenseMemo: TMemo;
     LblLicense: TLabel;
     LblVersion: TLabel;
@@ -51,12 +51,16 @@ uses
 
 procedure TAboutForm.FormCreate(Sender: TObject);
 var
+  T: TDateTime;
   S: string;
 begin
   S := AppVersion;
   LblVersion.Caption := 'Version: ' + S;
-  DateTimeToString(S, 'yyyy-mm-dd', GetAppBuildTime());
+  T := GetAppBuildTime();
+  DateTimeToString(S, 'yyyy-mm-dd', T);
   LblBuildDate.Caption := 'Build: ' + S;
+  DateTimeToString(S, 'yyyy', T);
+  LblCopyright.Caption := string(LblCopyright.Caption).Replace('%', S);
 end;
 
 procedure TAboutForm.LblLicenseClick(Sender: TObject);

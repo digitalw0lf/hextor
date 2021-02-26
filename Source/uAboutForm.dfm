@@ -145,12 +145,12 @@ object AboutForm: TAboutForm
     Font.Style = []
     ParentFont = False
   end
-  object Label3: TLabel
+  object LblCopyright: TLabel
     Left = 96
     Top = 77
-    Width = 313
+    Width = 297
     Height = 16
-    Caption = 'Copyright '#169' 2019-2020 Grigoriy Mylnikov (DigitalWolF)'
+    Caption = 'Copyright '#169' 2019-% Grigoriy Mylnikov (DigitalWolF)'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -189,7 +189,7 @@ object AboutForm: TAboutForm
     ShowHint = True
     OnClick = LblUrlClick
   end
-  object Label4: TLabel
+  object LblEmail: TLabel
     Left = 204
     Top = 99
     Width = 91
@@ -255,7 +255,7 @@ object AboutForm: TAboutForm
     Height = 330
     Lines.Strings = (
       '   Hextor - Hexadecimal editor and binary data analyzing toolkit'
-      '     Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF)'
+      '     Copyright (C) 2019-2021  Grigoriy Mylnikov (DigitalWolF)'
       ''
       'Hextor is a Freeware Source-Available software.'
       ''

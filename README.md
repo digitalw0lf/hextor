@@ -23,13 +23,18 @@ Main features are:
 
 Project is in early development stage. Use with caution and always make backups of valuable data!
 
-Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>
+Copyright (C) 2019-2021  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>
 
 Hextor is a Freeware Source-Available software. See LICENSE.txt for details
 
 ### Credits
 
 Hextor uses the following open-source libraries.
+
+**FastMM4** A memory manager for Delphi applications  
+https://github.com/pleriche/FastMM4  
+Copyright (c) Professional Software Development / Pierre le Riche  
+Licence: MPL 1.1 / LGPL 2.1  
 
 **HashLib4Pascal** Checksum and hash library  
 https://github.com/Xor-el/HashLib4Pascal  
@@ -41,16 +46,15 @@ https://www.delphi-jedi.org
 Copyright (c) Project JEDI contributors  
 Licence: MPL 1.1  
 
-**KControls** component suite for Delphi and Lazarus  
-https://github.com/kryslt/KControls  
-Copyright (c) Tomas Krysl  
-Licence: Freeware  
-
 **superobject** JSON library  
 https://github.com/hgourvest/superobject  
 (fixed version from fork https://github.com/fainspace/superobject)  
 Copyright (c) Henri Gourvest  
 Licence: LGPL / MPL 1.1  
+
+**SynEdit** Syntax highlighting editor component  
+https://github.com/SynEdit/SynEdit  
+Licence: MPL 1.1 / GPL 2  
 
 **Virtual-TreeView** Delphi treeview control  
 https://www.jam-software.com/virtual-treeview  

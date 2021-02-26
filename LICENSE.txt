@@ -1,5 +1,5 @@
    Hextor - Hexadecimal editor and binary data analyzing toolkit
-     Copyright (C) 2019-2020  Grigoriy Mylnikov (DigitalWolF)
+     Copyright (C) 2019-2021  Grigoriy Mylnikov (DigitalWolF)
 
 Hextor is a Freeware Source-Available software.
 
