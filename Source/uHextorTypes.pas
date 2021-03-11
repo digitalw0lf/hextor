@@ -365,14 +365,20 @@ end;
 function NextAlignBoundary(Size, Align: TFilePointer): TFilePointer; overload;
 // Aligns Size upwards to Align block size
 begin
-  Result := ((Size - 1) div Align + 1) * Align;
+  if Align = 0 then
+    Result := Size
+  else
+    Result := ((Size - 1) div Align + 1) * Align;
 end;
 
 function NextAlignBoundary(BufStart, BufPos, Align: TFilePointer): TFilePointer; overload;
 // Given buffer start address, current position and alignment block size,
 // returns next alignment boundary after current position (may be equal to current position)
 begin
-  Result := BufStart + ((BufPos - BufStart - 1) div Align + 1) * Align;
+  if Align = 0 then
+    Result := BufPos
+  else
+    Result := BufStart + ((BufPos - BufStart - 1) div Align + 1) * Align;
 end;
 
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
