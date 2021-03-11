@@ -2,7 +2,7 @@
 bash MakeIncludes.sh
 
 @rem Build Hextor
-call "c:\Program Files (x86)\Embarcadero\Studio\19.0\bin\rsvars.bat" 
+call "c:\Program Files (x86)\Embarcadero\Studio\21.0\bin\rsvars.bat" 
 MSBuild ..\Source\Hextor.dproj
 @if ERRORLEVEL 1 goto ERROR
 
