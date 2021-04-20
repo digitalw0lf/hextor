@@ -351,7 +351,7 @@ end;
 procedure TStructFrame.BtnCopyValueClick(Sender: TObject);
 begin
   if ShownDS <> nil then
-    Clipboard.AsText := DSValueAsJson(ShownDS);
+    Clipboard.AsText := StrToClipboard(DSValueAsJson(ShownDS));
 end;
 
 procedure TStructFrame.BtnHelpClick(Sender: TObject);
@@ -1045,7 +1045,7 @@ var
 begin
   DS := GetNodeDS(DSTreeView.FocusedNode);
   if DS <> nil then
-    Clipboard.AsText := DS.FullName;
+    Clipboard.AsText := StrToClipboard(DS.FullName);
 end;
 
 procedure TStructFrame.MICopyFieldNameClick(Sender: TObject);
@@ -1054,21 +1054,43 @@ var
 begin
   DS := GetNodeDS(DSTreeView.FocusedNode);
   if DS <> nil then
-    Clipboard.AsText := DS.Name;
+    Clipboard.AsText := StrToClipboard(DS.Name);
 end;
 
 procedure TStructFrame.MICopyFieldValueClick(Sender: TObject);
 var
   DS: TDSField;
+  Node: PVirtualNode;
+  sb: TStringBuilder;
+  s: string;
 begin
-  if DSTreeView.SelectedCount = 1 then
-  begin
-    DS := GetNodeDS(DSTreeView.FocusedNode);
-    if DS <> nil then
-      Clipboard.AsText := RemUnprintable(DS.ToString());
-  end
-  else
-    DSTreeView.CopyToClipboard();
+  sb := TStringBuilder.Create();
+  try
+    for Node in DSTreeView.SelectedNodes() do
+    begin
+      DS := GetNodeDS(Node);
+      if DS <> nil then
+      begin
+        if DSTreeView.SelectedCount = 1 then
+        begin
+          s := DS.ToString();
+        end
+        else
+        begin
+          s := StringOfChar(#9, DSTreeView.GetNodeLevel(Node)) +
+               PDSTreeNode(Node.GetData)^.Caption +
+               sLineBreak;
+        end;
+
+        sb.Append(StrToClipboard(s));
+      end;
+    end;
+
+    Clipboard.AsText := sb.ToString();
+  finally
+    sb.Free;
+  end;
+
 end;
 
 procedure TStructFrame.MIDummyDataStructClick(Sender: TObject);

@@ -87,7 +87,7 @@ var
   Text: string;
 begin
   Text := DataToText(Data, CBElemType.Text, TNotation(CBNotation.ItemIndex+1), CBLayout.Text, StrToIntDef(CBValuesPerLine.Text, -1));
-  Clipboard.AsText := Text;
+  Clipboard.AsText := StrToClipboard(Text);
   ModalResult := mrOk;
 end;
 

@@ -169,6 +169,10 @@ procedure InvertByteOrder(var Buf; BufSize:Integer);
 function VariantRange(const AStart, AEnd: Variant): TVariantRange; overload;
 function VariantRange(const AValue: Variant): TVariantRange; overload;
 function StrToVariantRanges(const S: string): TVariantRanges;
+procedure StrToClipboardInplace(var S: string);
+procedure StrFromClipboardInplace(var S: string);
+function StrToClipboard(const S: string): string;
+function StrFromClipboard(const S: string): string;
 
 function TryEvalConst(Expr: string; var Value: Variant): Boolean;
 function EvalConstDef(Expr: string): Variant;
@@ -500,6 +504,40 @@ begin
     end;
     Result.Ranges := Result.Ranges + [Range];
   end;
+end;
+
+procedure StrToClipboardInplace(var S: string);
+// Replace #0 with #$FFFD that can be safely stored to clipboard
+var
+  i: Integer;
+begin
+  for i := Low(S) to High(S) do
+    if S[i] = #0 then
+      S[i] := #$FFFD;
+end;
+
+procedure StrFromClipboardInplace(var S: string);
+// Replace #$FFFD back to #0
+var
+  i: Integer;
+begin
+  for i := Low(S) to High(S) do
+    if S[i] = #$FFFD then
+      S[i] := #0;
+end;
+
+function StrToClipboard(const S: string): string;
+// Replace #0 with #$FFFD that can be safely stored to clipboard
+begin
+  Result := S;
+  StrToClipboardInplace(Result);
+end;
+
+function StrFromClipboard(const S: string): string;
+// Replace #$FFFD back to #0
+begin
+  Result := S;
+  StrFromClipboardInplace(Result);
 end;
 
 function TryEvalConst(Expr: string; var Value: Variant): Boolean;

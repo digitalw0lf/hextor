@@ -518,6 +518,7 @@ begin
       s := Data2Hex(Buf, True)
     else
       s := Data2String(Buf, TextEncoding);
+    StrToClipboardInplace(s);
     Clipboard.AsText := s;
 
     if (Sender = ActionCut) and (InsertMode) then
@@ -722,6 +723,7 @@ begin
     else
     begin
       s := Clipboard.AsText;
+      StrFromClipboardInplace(s);
       if ActiveControl=PaneHex then
         Buf := Hex2Data(s)
       else
@@ -1135,7 +1137,7 @@ end;
 procedure TMainForm.Copyfullname1Click(Sender: TObject);
 begin
   if EditorForTabMenu <> nil then
-    Clipboard.AsText := EditorForTabMenu.DataSource.Path;
+    Clipboard.AsText := StrToClipboard(EditorForTabMenu.DataSource.Path);
 end;
 
 function TMainForm.CreateNewEditor: TEditorForm;

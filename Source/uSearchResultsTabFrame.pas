@@ -165,7 +165,7 @@ begin
         end;
       end;
 
-    Clipboard.AsText := sb.ToString();
+    Clipboard.AsText := StrToClipboard(sb.ToString());
   finally
     sb.Free;
   end;
@@ -192,7 +192,7 @@ begin
       if RNode <> nil then
         s := s + RNode.DisplayFileName + sLineBreak;
     end;
-  Clipboard.AsText := s;
+  Clipboard.AsText := StrToClipboard(s);
 end;
 
 constructor TSearchResultsTabFrame.Create(AOwner: TComponent);

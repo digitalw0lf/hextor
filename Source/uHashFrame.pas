@@ -262,7 +262,7 @@ begin
       if ResultListView.Items[i].Selected then
         s := s + ResultListView.Items[i].Caption + #9 + ResultListView.Items[i].SubItems[0] + sLineBreak;
   end;
-  Clipboard.AsText := s;
+  Clipboard.AsText := StrToClipboard(s);
 end;
 
 procedure THashFrame.RegisterBuiltInHashes;

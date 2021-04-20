@@ -147,7 +147,7 @@ var
 begin
   NodeData := ValueNode(ValuesTreeView.FocusedNode, True, True);
 
-  Clipboard.AsText := NodeData.Value;
+  Clipboard.AsText := StrToClipboard(NodeData.Value);
 end;
 
 procedure TValueFrame.OnShown;

@@ -104,7 +104,7 @@ begin
   CBElemType.ItemIndex := n;
 
   // Cache clipboard text
-  CachedClipbrd := Clipboard.AsText;
+  CachedClipbrd := StrFromClipboard(Clipboard.AsText);
   UpdatePreview();
 end;
 
