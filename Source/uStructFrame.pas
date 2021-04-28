@@ -126,8 +126,6 @@ type
     Unnamed_Struct = 'Unnamed';
     sDescrFromEditor = '%';
   private type
-    TFieldEnumProc = reference to function(DS: TDSField): Boolean;
-    TFieldEnumOrder = (eoFromRoot, eoFromLeafs);
     TDSScriptEnv = class
     private
       FOwner: TStructFrame;
@@ -170,7 +168,6 @@ type
     function DSValueAsJson(DS: TDSField): string;
     procedure SetInterpretRange(const Value: TStructInterpretRange);
     function GetInterpretRange: TStructInterpretRange;
-    function EnumerateFields(DS: TDSField; const Range: TFileRange; Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
     procedure ProgressTaskEnd(Sender: TProgressTracker; Task: TProgressTracker.TTask);
     procedure UpdateNode(Node: PVirtualNode);
     procedure ClearShownDS();
@@ -461,7 +458,7 @@ begin
     // Get a list of fields whose data was changed
     if FDSChanging = 0 then
     begin
-      EnumerateFields(ShownDS, TFileRange.Create(Addr, Addr + OldSize),
+      ShownDS.EnumerateFields(TFileRange.Create(Addr, Addr + OldSize),
         function (DS: TDSField): Boolean
         begin
           if DS is TDSSimpleField then
@@ -473,7 +470,7 @@ begin
     // When data is inserted/removed, adjust positions in data for shown DS fields after Addr
     if NewSize <> OldSize then
     begin
-      EnumerateFields(ShownDS, TFileRange.Create(Addr, High(TFilePointer)),
+      ShownDS.EnumerateFields(TFileRange.Create(Addr, High(TFilePointer)),
         function (DS: TDSField): Boolean
         var
           AEnd: TFilePointer;
@@ -921,7 +918,7 @@ begin
   if ShownDS = nil then Exit;
 
   // Add ShownDS and it's childs as visible regions to Regions
-  EnumerateFields(ShownDS, TFileRange.Create(Start, AEnd),
+  ShownDS.EnumerateFields(TFileRange.Create(Start, AEnd),
     function (DS: TDSField): Boolean
     var
       Bg: TColor;
@@ -950,56 +947,6 @@ begin
     SelDS := GetNodeDS(DSTreeView.FocusedNode);
     if SelDS <> nil then
       Regions.AddRegion(Self, SelDS.BufAddr, SelDS.BufAddr + SelDS.BufSize, clNone, Color_SelDSFieldBg, Color_SelDSFieldFr, SelDS);
-  end;
-end;
-
-function TStructFrame.EnumerateFields(DS: TDSField; const Range: TFileRange;
-  Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
-// Pass DS and its childs recuresively to procedure Proc.
-// Only process fields which intersect specified range.
-// Can enumerate in different order: from root to leafs or from leafs to root.
-// When enumerating from root, you can stop enumeration at any level, but
-// you can't change fields' addresses during enumeration because it will break
-// subsequent child field enumeration if Range is specified
-var
-  i, n1, n2: Integer;
-  ElemSize: TFilePointer;
-begin
-  Result := 0;
-  // Check within requested address range
-  if Range <> EntireFile then
-    if (DS.BufAddr >= Range.AEnd) or (DS.BufAddr + DS.BufSize <= Range.Start) then Exit;
-
-  if Order = eoFromRoot then
-  begin
-    if not Proc(DS) then Exit;
-    Inc(Result);
-  end;
-
-  // Add childs
-  if (DS is TDSCompoundField) and (TDSCompoundField(DS).FieldsCount > 0) then
-  begin
-    n1 := 0;
-    n2 := TDSCompoundField(DS).FieldsCount - 1;
-    // For arrays with fixed-size elements, we can calculate exact item range
-    if (DS is TDSArray) then
-    begin
-      ElemSize := (DS as TDSArray).ElementType.GetFixedSize();
-      if ElemSize > 0 then
-      begin
-        n1 := BoundValue( (Range.Start - DS.BufAddr) div ElemSize, 0, (DS as TDSArray).FieldsCount - 1);
-        n2 := BoundValue( DivRoundUp(Range.AEnd - DS.BufAddr, ElemSize) - 1, 0, (DS as TDSArray).FieldsCount - 1);
-      end;
-    end;
-
-    for i:=n1 to n2 do
-      Inc(Result, EnumerateFields(TDSCompoundField(DS).Fields[i], Range, Proc, Order));
-  end;
-
-  if Order = eoFromLeafs then
-  begin
-    if not Proc(DS) then Exit;
-    Inc(Result);
   end;
 end;
 

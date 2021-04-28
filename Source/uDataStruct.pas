@@ -47,6 +47,9 @@ type
 
   // Base class for all elements
   TDSField = class
+  public type
+    TFieldEnumProc = reference to function(DS: TDSField): Boolean;
+    TFieldEnumOrder = (eoFromRoot, eoFromLeafs);
   private
     FIndex: Integer;
     FName: string;
@@ -76,6 +79,8 @@ type
     procedure DoChanged(Changer: TObject);
     function GetFixedSize(): TFilePointer; virtual;
     property ErrorText: string read FErrorText write SetErrorText;    // Parsing error (e.g. "End of buffer" or "Value out of range")
+    function EnumerateFields(const Range: TFileRange; Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
+    function EnumerateTypeFields(Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -256,9 +261,11 @@ type
     function ReadStruct(): TDSStruct;
     function ReadIfStatement(): TDSConditional;
     function ReadSwitchStatement(): TDSConditional;
+    function ReadBreakStatement(): TDSDirective;
     function ReadDirective(): TDSDirective;
     function MakeArray(AType: TDSField; const ACount: string): TDSArray;
     procedure EraseComments(var Buf: string);
+    procedure CheckNestingValidity(DS: TDSField);
   public
     function ParseStruct(const Descr: string): TDSStruct;
   end;
@@ -267,10 +274,13 @@ type
 
   // Class for populating DataStructure from binary buffer
   TDSInterpretor = class
+  private type
+    TBreakStatementType = (bsNone, bsContinue, bsBreak);
   private
     FStartAddr, FMaxSize: TFilePointer;  // Starting address of analysed struct in original file
     FCurAddr: TFilePointer;    // Current
     EndOfData: Boolean;        // End of input data reached
+    ActiveBreakStatement: TBreakStatementType;  // Indicates that we encountered "break" or "continue" and now skipping rest of current structure
     FieldsProcessed: Integer;  // To show some progress
     procedure Seek(Addr: TFilePointer);
     function GetFieldSize(DS: TDSSimpleField): Integer;
@@ -337,6 +347,23 @@ var
 function TDSParser.CharValidInName(C: Char): Boolean;
 begin
   Result := (IsCharAlphaNumeric(C)) or (C='_');
+end;
+
+procedure TDSParser.CheckNestingValidity(DS: TDSField);
+begin
+  // Check that all "break"/"continue" are inside arrays/loops
+  DS.EnumerateTypeFields(
+    function (DS: TDSField): Boolean
+    begin
+      if DS is TDSArray then Exit(False);
+      if (DS is TDSDirective) and
+         (SameName(DS.Name, 'continue') or SameName(DS.Name, 'break')) then
+      begin
+        CurLineNum := DS.DescrLineNum;
+        raise EDSParserError.Create('"' + DS.Name + '" not inside array or loop');
+      end;
+      Result := True;
+    end);
 end;
 
 procedure TDSParser.CheckValidName(const S: string);
@@ -430,6 +457,8 @@ begin
 
   try
     Result := ReadStruct();
+
+    CheckNestingValidity(Result);
   except
     on E: Exception do
     begin
@@ -465,6 +494,20 @@ begin
   end;
 end;
 
+function TDSParser.ReadBreakStatement: TDSDirective;
+// Read "continue"/"break" statement.
+// They are saved as "directives"
+var
+  S: string;
+begin
+  S := ReadLexem();
+  Result := TDSDirective.Create();
+  Result.FName := S;
+  Result.DescrLineNum := CurLineNum;
+
+  ReadExpectedLexem([';']);
+end;
+
 function TDSParser.ReadChar: Char;
 begin
   if Ptr = BufEnd then Exit(#0);
@@ -477,7 +520,7 @@ function TDSParser.ReadDirective(): TDSDirective;
 // Read parser directive #... until end of line
 var
   DirName, Value: string;
-  i: Integer;
+  i, ALineNum: Integer;
   Notation: TValueDisplayNotation;
 begin
   Result := nil;
@@ -531,10 +574,12 @@ begin
 
   if (SameName(DirName, 'addr')) or (SameName(DirName, 'align_pos')) then
   begin
+    ALineNum := CurLineNum;
     Value := Trim(ReadLine());
     if Value = '' then
       raise EDSParserError.Create('Value expected');
     Result := TDSDirective.Create();
+    Result.DescrLineNum := ALineNum;
     Result.FName := DirName;
     Result.Value := Value;
     Exit;
@@ -734,6 +779,12 @@ begin
   begin
     ReadLexem();
     Result := [ReadSwitchStatement()];
+    Exit;
+  end;
+
+  if SameName(S, 'break') or SameName(S, 'continue') then
+  begin
+    Result := [ReadBreakStatement()];
     Exit;
   end;
 
@@ -1511,6 +1562,97 @@ begin
   Result := '';
 end;
 
+function TDSField.EnumerateFields(const Range: TFileRange;
+  Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
+// Pass DS and its childs recuresively to procedure Proc.
+// Only process fields which intersect specified range.
+// Can enumerate in different order: from root to leafs or from leafs to root.
+// When enumerating from root, you can stop enumeration at any level, but
+// you can't change fields' addresses during enumeration because it will break
+// subsequent child field enumeration if Range is specified
+var
+  i, n1, n2: Integer;
+  ElemSize: TFilePointer;
+begin
+  Result := 0;
+  // Check within requested address range
+  if Range <> EntireFile then
+    if (Self.BufAddr >= Range.AEnd) or (Self.BufAddr + Self.BufSize <= Range.Start) then Exit;
+
+  if Order = eoFromRoot then
+  begin
+    if not Proc(Self) then Exit;
+    Inc(Result);
+  end;
+
+  // Add childs
+  if (Self is TDSCompoundField) and (TDSCompoundField(Self).FieldsCount > 0) then
+  begin
+    n1 := 0;
+    n2 := TDSCompoundField(Self).FieldsCount - 1;
+    // For arrays with fixed-size elements, we can calculate exact item range
+    if (Self is TDSArray) then
+    begin
+      ElemSize := (Self as TDSArray).ElementType.GetFixedSize();
+      if ElemSize > 0 then
+      begin
+        n1 := BoundValue( (Range.Start - Self.BufAddr) div ElemSize, 0, (Self as TDSArray).FieldsCount - 1);
+        n2 := BoundValue( DivRoundUp(Range.AEnd - Self.BufAddr, ElemSize) - 1, 0, (Self as TDSArray).FieldsCount - 1);
+      end;
+    end;
+
+    for i:=n1 to n2 do
+      Inc(Result, TDSCompoundField(Self).Fields[i].EnumerateFields(Range, Proc, Order));
+  end;
+
+  if Order = eoFromLeafs then
+  begin
+    if not Proc(Self) then Exit;
+    Inc(Result);
+  end;
+end;
+
+function TDSField.EnumerateTypeFields(Proc: TFieldEnumProc;
+  Order: TFieldEnumOrder): Integer;
+// Like EnumerateFields(), but enumerates not an instance, but type fields
+// (ElementType fields for arrays, all branches for conditional fields)
+var
+  i, j: Integer;
+begin
+  Result := 0;
+
+  if Order = eoFromRoot then
+  begin
+    if not Proc(Self) then Exit;
+    Inc(Result);
+  end;
+
+
+  if Self is TDSArray then
+    Inc(Result, TDSArray(Self).ElementType.EnumerateTypeFields(Proc, Order))
+
+  else
+  if Self is TDSConditional then
+  with TDSConditional(Self) do
+  begin
+    for i := 0 to Branches.Count-1 do
+      for j := 0 to Length(Branches[i].Fields)-1 do
+        Inc(Result, Branches[i].Fields[j].EnumerateTypeFields(Proc, Order));
+  end
+
+  else
+    if Self is TDSCompoundField then
+      for i := 0 to TDSCompoundField(Self).FieldsCount-1 do
+        Inc(Result, TDSCompoundField(Self).Fields[i].EnumerateTypeFields(Proc, Order));
+
+
+  if Order = eoFromLeafs then
+  begin
+    if not Proc(Self) then Exit;
+    Inc(Result);
+  end;
+end;
+
 { TDSConditional }
 
 procedure TDSConditional.AddBranch(const AKeys: TArray<TVariantRange>;
@@ -1698,6 +1840,7 @@ begin
   FMaxSize := MaxSize;
   FCurAddr := Addr;
   EndOfData := (MaxSize = 0);
+  ActiveBreakStatement := bsNone;
   FieldsProcessed := 0;
 //  WriteLogF('Struct_Intepret', 'Start');
   Progress.TaskStart(Self);
@@ -1772,6 +1915,17 @@ begin
       DS.FCurParsedItem := DS.AddField(Element);
       InternalInterpret(Element);
       Inc(i);
+      // We encountered "break" command?
+      if ActiveBreakStatement = bsBreak then
+      begin
+        ActiveBreakStatement := bsNone;
+        Break;
+      end;
+      if ActiveBreakStatement = bsContinue then
+      begin
+        ActiveBreakStatement := bsNone;
+        Continue;
+      end;
     end;
   end;
 end;
@@ -1813,6 +1967,8 @@ begin
   begin
     DS.FCurParsedItem := i;
     InternalInterpret(DS.Fields[i]);
+    // On "break"/"continue" statement, skip the rest of structure
+    if ActiveBreakStatement <> bsNone then Break;
   end;
 end;
 
@@ -1836,8 +1992,9 @@ begin
       Field.Parent.BufAddr := Addr;
       Field := Field.Parent;
     end;
+    Exit;
   end;
-  
+
   if SameName(DS.Name, 'align_pos') then
   // Align next field to specified boundary relative to parent structure start
   begin
@@ -1849,7 +2006,19 @@ begin
     Addr := NextAlignBoundary(Addr, DS.BufAddr, Align);
     Seek(Addr);
     DS.BufAddr := Addr;
+    Exit;
   end;
+
+  if SameName(DS.Name, 'break') or SameName(DS.Name, 'continue') then
+  // Break out of innermost array declaration
+  begin
+    if SameName(DS.Name, 'break') then
+      ActiveBreakStatement := bsBreak
+    else
+      ActiveBreakStatement := bsContinue;
+    Exit;
+  end;
+
 end;
 
 procedure TDSInterpretor.Seek(Addr: TFilePointer);
