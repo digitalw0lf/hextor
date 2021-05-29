@@ -1,5 +1,7 @@
 # Hextor
 
+Download: https://github.com/digitalw0lf/hextor/releases/latest
+
 Hextor is a Hexadecimal editor and binary data analyzing toolkit.
 
 It was created to make working with binary file formats as simple and convenient as with plain text. Although it is staffed with a powerful set of data analyzing tools, it starts instantly and rapidly works with files of any size.
