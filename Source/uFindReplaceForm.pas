@@ -62,6 +62,7 @@ type
     CBFindEncoding: TComboBox;
     RBFindHex: TRadioButton;
     RBFindText: TRadioButton;
+    DropFileCatcher1: TDropFileCatcher;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -76,6 +77,8 @@ type
     procedure RBInCurrentEditorClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure BtnFindListClick(Sender: TObject);
+    procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
+      Control: TWinControl; Files: TStrings; DropPoint: TPoint);
   private type
     TSearchAction = (saCount, saList, saReplace);
     TFindWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
@@ -100,7 +103,6 @@ type
     procedure FindInOpenFiles(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     procedure FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
-    procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
   public
     { Public declarations }
     Searcher: TExtPatternDataSearcher;
@@ -262,6 +264,25 @@ end;
 procedure TFindReplaceForm.CPFindExpand(Sender: TObject);
 begin
   AutosizeForm();
+end;
+
+procedure TFindReplaceForm.DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
+  Control: TWinControl; Files: TStrings; DropPoint: TPoint);
+// Add drag'n'dropped directories to "Search in:" edit field
+var
+  i:Integer;
+  s:string;
+begin
+  for I := 0 to Files.Count-1 do
+  begin
+    s:=Files[i];
+    if DirectoryExists(s) then
+    begin
+      if EditInDirectories.Text <> '' then
+        EditInDirectories.Text := EditInDirectories.Text + ';';
+      EditInDirectories.Text := EditInDirectories.Text + s;
+    end;
+  end;
 end;
 
 procedure TFindReplaceForm.FillParams(aReplace, aCanFindInSel: Boolean);
@@ -801,32 +822,6 @@ procedure TFindReplaceForm.Timer1Timer(Sender: TObject);
 begin
   if not Visible then Exit;
   CheckEnabledControls();
-end;
-
-procedure TFindReplaceForm.WMDropFiles(var Msg: TWMDropFiles);
-// Add drag'n'dropped directories to "Search in:" edit field
-var
-  i:Integer;
-  Catcher: TDropFileCatcher;
-  s:string;
-begin
-  inherited;
-  Catcher := TDropFileCatcher.Create(Msg.Drop);
-  try
-    for I := 0 to Catcher.FileCount-1 do
-    begin
-      s:=Catcher.Files[i];
-      if DirectoryExists(s) then
-      begin
-        if EditInDirectories.Text <> '' then
-          EditInDirectories.Text := EditInDirectories.Text + ';';
-        EditInDirectories.Text := EditInDirectories.Text + s;
-      end;
-    end;
-  finally
-    Catcher.Free;
-  end;
-  Msg.Result := 0;
 end;
 
 end.

@@ -376,4 +376,10 @@ object FindReplaceForm: TFindReplaceForm
     Left = 480
     Top = 329
   end
+  object DropFileCatcher1: TDropFileCatcher
+    Control = Owner
+    OnDropFiles = DropFileCatcher1DropFiles
+    Left = 336
+    Top = 344
+  end
 end

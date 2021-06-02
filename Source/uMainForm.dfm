@@ -314,13 +314,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblStructName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
           inherited SavedDescrsMenu: TPopupMenu
             Images = nil
@@ -416,13 +409,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSave: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblScriptName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
           inherited SavedScriptsMenu: TPopupMenu
             Images = nil
@@ -513,6 +499,10 @@ object MainForm: TMainForm
             Height = 195
             ExplicitWidth = 412
             ExplicitHeight = 195
+            inherited StaticText1: TStaticText
+              Width = 406
+              ExplicitWidth = 406
+            end
             inherited ResultListView: TListView
               Width = 412
               Height = 172
@@ -571,10 +561,6 @@ object MainForm: TMainForm
       object PgRegions: TTabSheet
         Caption = 'Regions'
         ImageIndex = 9
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         inline RegionsFrame: TRegionsFrame
           Left = 0
           Top = 0
@@ -890,11 +876,14 @@ object MainForm: TMainForm
       object MIInvertByteOrder: TMenuItem
         Action = ActionInvertByteOrder
       end
-    end
-    object MITools: TMenuItem
-      Caption = 'Tools'
       object Compare1: TMenuItem
         Action = ActionCompare
+      end
+    end
+    object Filetools1: TMenuItem
+      Caption = 'File utils'
+      object Splitfile1: TMenuItem
+        Action = ActionFileSplit
       end
     end
     object MIDebug: TMenuItem
@@ -1161,7 +1150,7 @@ object MainForm: TMainForm
       OnExecute = ActionBitsEditorExecute
     end
     object ActionCompare: TAction
-      Category = 'Tools'
+      Category = 'Operations'
       Caption = 'Compare...'
       Hint = 'Compare open files...'
       OnExecute = ActionCompareExecute
@@ -1186,7 +1175,7 @@ object MainForm: TMainForm
       OnExecute = ActionSelectRangeExecute
     end
     object ActionDebugMode: TAction
-      Category = 'Tools'
+      Category = 'Operations'
       Caption = 'Switch Debug Mode'
       Hint = 'Switch Debug Mode'
       ShortCut = 24644
@@ -1254,6 +1243,12 @@ object MainForm: TMainForm
       Hint = 'Invert byte order'
       OnExecute = ActionInvertByteOrderExecute
     end
+    object ActionFileSplit: TAction
+      Category = 'File utils'
+      Caption = 'Split file...'
+      Hint = 'Split a file into several parts'
+      OnExecute = ActionFileSplitExecute
+    end
   end
   object SaveDialog1: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
@@ -1264,7 +1259,7 @@ object MainForm: TMainForm
     Left = 364
     Top = 69
     Bitmap = {
-      494C01011A004001F80310001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01011A004001040010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000007000000001002000000000000070
       0000000000000000000000000000000000000000000000000000000000000000
       000000000000000000000072000000720000006F0000006D0000006C00000000
@@ -2245,5 +2240,11 @@ object MainForm: TMainForm
       ImageIndex = 19
       OnClick = MICloseEditorTabClick
     end
+  end
+  object DropFileCatcher1: TDropFileCatcher
+    Control = Owner
+    OnDropFiles = DropFileCatcher1DropFiles
+    Left = 248
+    Top = 200
   end
 end

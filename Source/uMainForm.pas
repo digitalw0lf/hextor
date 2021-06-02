@@ -140,7 +140,6 @@ type
     [API]
     StructFrame: TStructFrame;
     AfterEventTimer: TTimer;
-    MITools: TMenuItem;
     estchangespeed1: TMenuItem;
     MsgPanel: TPanel;
     Image1: TImage;
@@ -246,6 +245,10 @@ type
     PgRegions: TTabSheet;
     RegionsFrame: TRegionsFrame;
     MIHighlightMatches: TMenuItem;
+    ActionFileSplit: TAction;
+    Filetools1: TMenuItem;
+    Splitfile1: TMenuItem;
+    DropFileCatcher1: TDropFileCatcher;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -317,6 +320,9 @@ type
     procedure ActionInvertByteOrderExecute(Sender: TObject);
     procedure MIViewClick(Sender: TObject);
     procedure MIHighlightMatchesClick(Sender: TObject);
+    procedure ActionFileSplitExecute(Sender: TObject);
+    procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
+      Control: TWinControl; Files: TStrings; DropPoint: TPoint);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -335,7 +341,6 @@ type
     FEditorsAddingCounter: Integer;
     FNeedUpdateMDITabs: Boolean;
     PrevActiveEditor: TEditorForm;
-    procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
     procedure WMClipboardUpdate(var Msg: TMessage); message WM_CLIPBOARDUPDATE;
     function GetActiveEditor: TEditorForm;
     procedure SetActiveEditor(const Value: TEditorForm);
@@ -415,7 +420,7 @@ uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
   uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm,
-  uFileInfoForm, uUpdaterForm, uSettingsForm;
+  uFileInfoForm, uUpdaterForm, uSettingsForm, uFileSplitForm;
 
 { TMainForm }
 
@@ -536,6 +541,11 @@ end;
 procedure TMainForm.ActionExitExecute(Sender: TObject);
 begin
   Close();
+end;
+
+procedure TMainForm.ActionFileSplitExecute(Sender: TObject);
+begin
+  FileSplitForm.ShowModal();
 end;
 
 procedure TMainForm.ActionFillBytesExecute(Sender: TObject);
@@ -1232,6 +1242,32 @@ begin
   Application.MessageBox(PChar(IntToStr(x)), 'DoTest', MB_OK);
 end;
 
+procedure TMainForm.DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
+  Control: TWinControl; Files: TStrings; DropPoint: TPoint);
+var
+  i:Integer;
+  s:string;
+//  t: Cardinal;
+begin
+  inherited;
+//  StartTimeMeasure();
+//  t := GetTickCount();
+  Progress.TaskStart(Self);
+  try
+    for I := 0 to Files.Count-1 do
+    begin
+      Progress.Show(I, Files.Count);
+      s:=Files[i];
+      if FileExists(s) then OpenFile(s);
+    end;
+  finally
+    Progress.TaskEnd();
+  end;
+//  t := GetTickCount() - t;
+//  WriteLog(Format('Drop: %d ms',[t]));
+//  EndTimeMeasure('DropFiles', True);
+end;
+
 procedure TMainForm.Fileinfo1Click(Sender: TObject);
 begin
   if EditorForTabMenu <> nil then
@@ -1282,9 +1318,6 @@ begin
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
   Settings := TMainFormSettings.Create();
-
-  // We will catch drag'n'dropped files
-  DragAcceptFiles(Handle, True);
 
   // Listen for clipboard changes
   AddClipboardFormatListener(Handle);
@@ -1941,34 +1974,6 @@ begin
   CheckEnabledActions();
 end;
 
-procedure TMainForm.WMDropFiles(var Msg: TWMDropFiles);
-var
-  i:Integer;
-  Catcher: TDropFileCatcher;
-  s:string;
-//  t: Cardinal;
-begin
-  inherited;
-//  StartTimeMeasure();
-//  t := GetTickCount();
-  Catcher := TDropFileCatcher.Create(Msg.Drop);
-  Progress.TaskStart(Self);
-  try
-    for I := 0 to Catcher.FileCount-1 do
-    begin
-      Progress.Show(I, Catcher.FileCount);
-      s:=Catcher.Files[i];
-      if FileExists(s) then OpenFile(s);
-    end;
-  finally
-    Progress.TaskEnd();
-    Catcher.Free;
-  end;
-//  t := GetTickCount() - t;
-//  WriteLog(Format('Drop: %d ms',[t]));
-//  EndTimeMeasure('DropFiles', True);
-  Msg.Result := 0;
-end;
 
 { THextorUtils }
 

@@ -14,7 +14,7 @@ uses
   System.Classes, System.SysUtils, System.IOUtils, Vcl.Controls, Vcl.Menus,
   Vcl.Forms, System.Types, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls,
   WinApi.Messages, Vcl.Graphics, Winapi.Windows, System.Math, Winapi.ShellAPI,
-  Generics.Collections, Vcl.Themes,
+  Generics.Collections, Vcl.Themes, Vcl.AppEvnts,
 
   uFormattedTextDraw;
 
@@ -70,18 +70,36 @@ type
     property HintFmt:string read FHintFmt write SetHintFmt;
   end;
 
-  TDropFileCatcher = class(TObject)
+  TDropFileCatcher = class;
+  TDropFilesEvent = procedure (Sender: TDropFileCatcher; Control: TWinControl; Files: TStrings; DropPoint: TPoint) of Object;
+
+  TDropFileCatcher = class(TComponent)
   private
     fDropHandle: HDROP;
+    FControl: TWinControl;
+    FAppEvents: TApplicationEvents;
+    FOnDropFiles: TDropFilesEvent;
+    FFiles: TStringList;
+    FEnabled: Boolean;
     function GetFile(Idx: Integer): UnicodeString;
     function GetFileCount: Integer;
     function GetPoint: TPoint;
+    procedure SetControl(const Value: TWinControl);
+    procedure ApplicationEventsMessage(var Msg: tagMSG; var Handled: Boolean);
+    procedure SetOnDropFiles(const Value: TDropFilesEvent);
+    procedure Internal_Disable();
+    procedure Internal_Enable();
+    procedure SetEnabled(const Value: Boolean);
+  protected
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
-    constructor Create(DropHandle: HDROP);
+    constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    property FileCount: Integer read GetFileCount;
-    property Files[Idx: Integer]: UnicodeString read GetFile;
-    property DropPoint: TPoint read GetPoint;
+    procedure AfterConstruction; override;
+  published
+    property Control: TWinControl read FControl write SetControl;
+    property Enabled: Boolean read FEnabled write SetEnabled default True;
+    property OnDropFiles: TDropFilesEvent read FOnDropFiles write SetOnDropFiles;
   end;
 
   TScrollEvent64 = procedure(Sender: TObject; ScrollCode: TScrollCode;
@@ -194,7 +212,7 @@ uses
 
 procedure Register;
 begin
-  RegisterComponents('DWF', [THintedImageProxy, TScrollBar64]);
+  RegisterComponents('DWF', [THintedImageProxy, TScrollBar64, TDropFileCatcher]);
 end;
 
 procedure PopupFromControl(Menu:tPopupMenu; Control:tControl);
@@ -587,15 +605,52 @@ end;
 
 { TDropFileCatcher }
 
-constructor TDropFileCatcher.Create(DropHandle: HDROP);
+procedure TDropFileCatcher.AfterConstruction;
 begin
-  inherited Create;
-  fDropHandle := DropHandle;
+  inherited;
+  Internal_Enable();
+end;
+
+procedure TDropFileCatcher.ApplicationEventsMessage(var Msg: tagMSG;
+  var Handled: Boolean);
+var
+  i: Integer;
+  APoint: TPoint;
+begin
+  if (Msg.message = WM_DROPFILES) and (FControl <> nil) and (Msg.hwnd = FControl.Handle) then
+  begin
+    if Assigned(FOnDropFiles) then
+    begin
+      fDropHandle := Msg.wParam;
+
+      FFiles.Clear();
+      for i := 0 to GetFileCount()-1 do
+        FFiles.Add(GetFile(i));
+      APoint := GetPoint();
+
+      FOnDropFiles(Self, FControl, FFiles, APoint);
+    end;
+  end;
+end;
+
+constructor TDropFileCatcher.Create(AOwner: TComponent);
+begin
+  inherited;
+  FEnabled := True;
+  if AOwner is TWinControl then
+    FControl := TWinControl(AOwner);
+  if not (csDesigning in ComponentState) then
+  begin
+    FFiles := TStringList.Create();
+    FAppEvents := TApplicationEvents.Create(Self);
+    FAppEvents.OnMessage := ApplicationEventsMessage;
+  end;
 end;
 
 destructor TDropFileCatcher.Destroy;
 begin
-  DragFinish(fDropHandle);
+  Internal_Disable();
+  FFiles.Free;
   inherited;
 end;
 
@@ -616,6 +671,69 @@ end;
 function TDropFileCatcher.GetPoint: TPoint;
 begin
   DragQueryPoint(fDropHandle, {$IFDEF FPC}@{$ENDIF}Result);
+end;
+
+procedure TDropFileCatcher.Internal_Disable;
+begin
+  if (not (csDesigning in ComponentState)) and
+     //(not (csLoading in ComponentState)) and
+     (FControl <> nil) and
+     (FControl.HandleAllocated) and
+     (FEnabled) then
+  begin
+    DragFinish(fDropHandle);
+    DragAcceptFiles(FControl.Handle, False);
+  end;
+end;
+
+procedure TDropFileCatcher.Internal_Enable;
+begin
+  if (not (csDesigning in ComponentState)) and
+     //(not (csLoading in ComponentState)) and
+     (FControl <> nil) and
+     (FControl.HandleAllocated) and
+     (FEnabled) then
+  begin
+    DragAcceptFiles(FControl.Handle, True);
+  end;
+end;
+
+procedure TDropFileCatcher.Notification(AComponent: TComponent;
+  Operation: TOperation);
+begin
+  inherited;
+  if (AComponent = FControl) and (Operation = opRemove) then
+  begin
+    FControl := nil;
+  end;
+
+end;
+
+procedure TDropFileCatcher.SetControl(const Value: TWinControl);
+begin
+  if FControl <> Value then
+  begin
+    Internal_Disable();
+    if Assigned(FControl) then FControl.RemoveFreeNotification(Self);
+    FControl := Value;
+    if Assigned(FControl) then FControl.FreeNotification(Self);
+    Internal_Enable();
+  end;
+end;
+
+procedure TDropFileCatcher.SetEnabled(const Value: Boolean);
+begin
+  if FEnabled <> Value then
+  begin
+    Internal_Disable();
+    FEnabled := Value;
+    Internal_Enable();
+  end;
+end;
+
+procedure TDropFileCatcher.SetOnDropFiles(const Value: TDropFilesEvent);
+begin
+  FOnDropFiles := Value;
 end;
 
 { TScrollBar64 }
