@@ -154,6 +154,8 @@ function MakeValidFileName(const S: string): string;
 function CanonicalizePath(const Path: string): string;
 function PathIsInside(const InnerPath, OuterPath: string): Boolean;
 function FindFile(const FileMask: string; const Paths: array of string): string;
+function GetFileRec(const FileName:string; FullName:boolean=true): TSearchRec;
+function GetFileSizeNoOpen(FileName:string):Int64;
 function RemUnprintable(const s:UnicodeString; NewChar: WideChar='.'):UnicodeString;
 function DivRoundUp(A, B: Int64): Int64; inline;
 function NextAlignBoundary(Size, Align: TFilePointer): TFilePointer; overload;
@@ -349,6 +351,24 @@ begin
       Exit(Files[0]);
   end;
   Result := '';
+end;
+
+function GetFileRec(const FileName:string; FullName:boolean=true):TSearchRec;
+// Returns TSearchRec for specified file
+var
+  r:integer;
+begin
+  r:=FindFirst(FileName,faAnyFile,Result);
+  SysUtils.FindClose(Result);
+  if r<>0 then Result.Name:=''
+  else
+    if FullName then Result.Name:=ExtractFilePath(FileName)+Result.Name;
+end;
+
+function GetFileSizeNoOpen(FileName:string):Int64;
+// Returns file size, without opening file handle
+begin
+  Result:=GetFileRec(FileName).Size;
 end;
 
 function RemUnprintable(const s: string; NewChar: Char='.'): string;

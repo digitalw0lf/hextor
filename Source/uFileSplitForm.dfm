@@ -12,6 +12,8 @@ object FileSplitForm: TFileSplitForm
   Font.Style = []
   OldCreateOrder = False
   Position = poMainFormCenter
+  OnCreate = FormCreate
+  OnShow = FormShow
   DesignSize = (
     531
     256)
@@ -31,6 +33,7 @@ object FileSplitForm: TFileSplitForm
     Height = 21
     Anchors = [akTop, akRight]
     Caption = '...'
+    OnClick = SpeedButton1Click
   end
   object Label2: TLabel
     Left = 16
@@ -46,6 +49,7 @@ object FileSplitForm: TFileSplitForm
     Height = 21
     Anchors = [akTop, akRight]
     Caption = '...'
+    OnClick = SpeedButton2Click
   end
   object Label3: TLabel
     Left = 16
@@ -57,10 +61,10 @@ object FileSplitForm: TFileSplitForm
   object Label4: TLabel
     Left = 312
     Top = 91
-    Width = 190
+    Width = 194
     Height = 13
     Anchors = [akTop, akRight]
-    Caption = '"%" replaced with consecutive numbers'
+    Caption = '"???" replaced with consecutive numbers'
   end
   object Label5: TLabel
     Left = 16
@@ -69,7 +73,7 @@ object FileSplitForm: TFileSplitForm
     Height = 13
     Caption = 'Split by:'
   end
-  object Label6: TLabel
+  object LblFilesCount: TLabel
     Left = 312
     Top = 131
     Width = 53
@@ -84,6 +88,7 @@ object FileSplitForm: TFileSplitForm
     Height = 21
     Anchors = [akLeft, akTop, akRight]
     TabOrder = 0
+    OnChange = EditSourceFileChange
   end
   object EditTargetFolder: TComboBox
     Left = 88
@@ -101,7 +106,7 @@ object FileSplitForm: TFileSplitForm
     Anchors = [akLeft, akTop, akRight]
     TabOrder = 2
   end
-  object ComboBox1: TComboBox
+  object EditSplitBy: TComboBox
     Left = 88
     Top = 128
     Width = 201
@@ -109,15 +114,16 @@ object FileSplitForm: TFileSplitForm
     Anchors = [akLeft, akTop, akRight]
     ItemIndex = 0
     TabOrder = 3
-    Text = '1 MiB'
+    Text = '1 MB'
+    OnChange = EditSplitByChange
     Items.Strings = (
-      '1 MiB'
-      '1,44 MiB (3.5")'
-      '100 MiB'
-      '650 MiB (CD)'
-      '1 GiB')
+      '1 MB'
+      '1,44 MB (3.5")'
+      '100 MB'
+      '650 MB (CD)'
+      '1 GB')
   end
-  object CheckBox1: TCheckBox
+  object CBCreateCRCFile: TCheckBox
     Left = 16
     Top = 168
     Width = 97
@@ -132,18 +138,23 @@ object FileSplitForm: TFileSplitForm
     Height = 25
     Anchors = [akBottom]
     Caption = 'OK'
+    Default = True
     TabOrder = 5
+    OnClick = BtnOkClick
   end
   object BtnCancel: TButton
-    Left = 298
+    Left = 290
     Top = 208
     Width = 75
     Height = 25
     Anchors = [akBottom]
+    Cancel = True
     Caption = 'Cancel'
+    ModalResult = 2
     TabOrder = 6
   end
   object OpenDialog1: TOpenDialog
+    Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
     Left = 304
     Top = 8
   end
@@ -152,5 +163,12 @@ object FileSplitForm: TFileSplitForm
     OnDropFiles = DropFileCatcher1DropFiles
     Left = 440
     Top = 152
+  end
+  object SelectFolderDialog: TFileOpenDialog
+    FavoriteLinks = <>
+    FileTypes = <>
+    Options = [fdoPickFolders]
+    Left = 384
+    Top = 44
   end
 end
