@@ -71,6 +71,10 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
       Caption = 'Copy file name(s)'
       OnClick = Copyfilenames1Click
     end
+    object Copyfilenamescount1: TMenuItem
+      Caption = 'Copy file name(s) + count'
+      OnClick = Copyfilenames1Click
+    end
     object Copyfounditems1: TMenuItem
       Caption = 'Copy found item(s)'
       object AsHex1: TMenuItem

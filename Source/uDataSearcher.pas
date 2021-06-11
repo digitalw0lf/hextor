@@ -726,6 +726,7 @@ begin
   until False;
 
   Result := False;
+  if Result then ;  // Avoid strange hint about unused Result in D 10.4
 end;
 
 procedure ThirdElemToMinMaxCount(const a: TArray<string>; var MinCount, MaxCount: Integer; var Greedy: Boolean);

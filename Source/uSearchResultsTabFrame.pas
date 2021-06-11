@@ -30,6 +30,7 @@ type
     Copyfounditems1: TMenuItem;
     AsHex1: TMenuItem;
     AsText1: TMenuItem;
+    Copyfilenamescount1: TMenuItem;
     procedure ResultsListGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure ResultsListFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
@@ -66,6 +67,7 @@ type
     function GetEditorNode(AEditor: TEditorForm): PVirtualNode;
     function GetNodeForData(AData: TEditedData): PVirtualNode;
     function IsGroupNode(Node: PVirtualNode): Boolean;
+    procedure AppendItemText(Node: PVirtualNode; sb: TStringBuilder; Sender: TObject);
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -141,29 +143,42 @@ begin
   RNode.DisplayText[2] := RemUnprintable(Data2String(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt), CodePage, True));
 end;
 
+procedure TSearchResultsTabFrame.AppendItemText(Node: PVirtualNode;
+  sb: TStringBuilder; Sender: TObject);
+var
+  RNode: PResultTreeNode;
+  s: string;
+begin
+  RNode := Node.GetData();
+  if RNode <> nil then
+  begin
+    if Sender = AsHex1 then
+      s := RNode.DisplayHex[1]
+    else
+      s := RNode.DisplayText[1];
+    sb.Append(s + sLineBreak);
+  end;
+end;
+
 procedure TSearchResultsTabFrame.AsHex1Click(Sender: TObject);
 // Copy selected found items to clipboard.
 var
-  Node: PVirtualNode;
-  RNode: PResultTreeNode;
+  Node, Child: PVirtualNode;
   sb: TStringBuilder;
-  s: string;
 begin
   sb := TStringBuilder.Create();
   try
     for Node in ResultsList.SelectedNodes() do
-      if not IsGroupNode(Node) then
+    begin
+      if IsGroupNode(Node) then
       begin
-        RNode := Node.GetData();
-        if RNode <> nil then
-        begin
-          if Sender = AsHex1 then
-            s := RNode.DisplayHex[1]
-          else
-            s := RNode.DisplayText[1];
-          sb.Append(s + sLineBreak);
-        end;
-      end;
+        for Child in ResultsList.ChildNodes(Node) do
+          AppendItemText(Child, sb, Sender);
+      end
+      else
+        if not (vsSelected in Node.Parent.States) then
+          AppendItemText(Node, sb, Sender);
+    end;
 
     Clipboard.AsText := StrToClipboard(sb.ToString());
   finally
@@ -190,7 +205,12 @@ begin
     begin
       RNode := Node.GetData();
       if RNode <> nil then
-        s := s + RNode.DisplayFileName + sLineBreak;
+      begin
+        s := s + RNode.DisplayFileName;
+        if Sender = Copyfilenamescount1 then
+          s := s + #9 + IntToStr(Node.ChildCount);
+        s := s + sLineBreak;
+      end;
     end;
   Clipboard.AsText := StrToClipboard(s);
 end;

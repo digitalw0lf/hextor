@@ -194,7 +194,6 @@ var
   DestName, s: string;
   Buf: TBytes;
   Hash: IHash;
-  CRC: Cardinal;
 begin
   SourceSize := GetFileSizeNoOpen(SourceFile);
 //  Count := DivRoundUp(SourceSize, PartSize);
