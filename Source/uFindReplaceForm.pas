@@ -22,15 +22,23 @@ uses
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
   uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver,
-  uHextorGUI;
+  uHextorGUI, uModuleSettings, Vcl.Menus;
 
 type
+  TSearchSettings = class (TModuleSettings)
+  public
+    EditFindTextItems,
+    EditReplaceTextItems,
+    EditInDirectoriesItems,
+    EditFileNameMaskItems: TArray<string>;
+  end;
+
   TFindReplaceForm = class(TForm)
     Timer1: TTimer;
     CategoryPanelGroup1: TCategoryPanelGroup;
     CPFind: TCategoryPanel;
     CPReplace: TCategoryPanel;
-    Label1: TLabel;
+    LblFind: TLabel;
     EditFindText: TComboBox;
     CBExtSyntax: TCheckBox;
     CBIgnoreCase: TCheckBox;
@@ -39,7 +47,7 @@ type
     BtnFindCount: TButton;
     CBFindInSelection: TCheckBox;
     BtnFindList: TButton;
-    Label2: TLabel;
+    LblReplaceWith: TLabel;
     EditReplaceText: TComboBox;
     CBReplaceHex: TCheckBox;
     BtnReplaceAll: TButton;
@@ -52,7 +60,7 @@ type
     RBInSelectedDirectories: TRadioButton;
     EditInDirectories: TComboBox;
     BtnSelectDirectory: TSpeedButton;
-    Label4: TLabel;
+    LblFileMasks: TLabel;
     EditFileNameMask: TComboBox;
     FileOpenDialog1: TFileOpenDialog;
     ImageProxy1: THintedImageProxy;
@@ -63,6 +71,8 @@ type
     RBFindHex: TRadioButton;
     RBFindText: TRadioButton;
     DropFileCatcher1: TDropFileCatcher;
+    ClearHistMenu: TPopupMenu;
+    Clearhistory1: TMenuItem;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -79,6 +89,9 @@ type
     procedure BtnFindListClick(Sender: TObject);
     procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
       Control: TWinControl; Files: TStrings; DropPoint: TPoint);
+    procedure Clearhistory1Click(Sender: TObject);
+    procedure EditFindTextKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
   private type
     TSearchAction = (saCount, saList, saReplace);
     TFindWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
@@ -94,6 +107,7 @@ type
   private
     { Private declarations }
     FindWhere: TFindWhere;
+    Inited: Boolean;
     procedure FillParams(aReplace, aCanFindInSel: Boolean);
     function GetTargetEditor: TEditorForm;
     function GetTargetEditorNoEx: TEditorForm;
@@ -103,9 +117,11 @@ type
     procedure FindInOpenFiles(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     procedure FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     function ConfirmReplace(AEditor: TEditorForm; Ptr, Size: TFilePointer; var YesToAll: Boolean): TModalResult;
+    procedure StoreToSettings();
   public
     { Public declarations }
     Searcher: TExtPatternDataSearcher;
+    Settings: TSearchSettings;
     function FindNext(Direction: Integer): Boolean;
     function FindAll(Action: TSearchAction): Integer;
     property TargetEditor: TEditorForm read GetTargetEditor;
@@ -239,6 +255,25 @@ begin
   CBFilesSearchMode.Enabled := RBInAllOpenFiles.Checked or RBInSelectedDirectories.Checked;
 end;
 
+procedure TFindReplaceForm.Clearhistory1Click(Sender: TObject);
+var
+  CB: TComboBox;
+begin
+  if ClearHistMenu.PopupComponent = LblFind then
+    CB := EditFindText
+  else if ClearHistMenu.PopupComponent = LblReplaceWith then
+    CB := EditReplaceText
+  else if ClearHistMenu.PopupComponent = RBInSelectedDirectories then
+    CB := EditInDirectories
+  else if ClearHistMenu.PopupComponent = LblFileMasks then
+    CB := EditFileNameMask
+  else Exit;
+
+  CB.Items.Clear();
+  CB.Text := '';
+  StoreToSettings();
+end;
+
 function TFindReplaceForm.ConfirmReplace(AEditor: TEditorForm; Ptr,
   Size: TFilePointer; var YesToAll: Boolean): TModalResult;
 // Show found item in editor and display replacement confirmation
@@ -281,6 +316,30 @@ begin
       if EditInDirectories.Text <> '' then
         EditInDirectories.Text := EditInDirectories.Text + ';';
       EditInDirectories.Text := EditInDirectories.Text + s;
+      RBInSelectedDirectories.Checked := True;
+      CPFindInFiles.Expand();
+    end;
+  end;
+end;
+
+procedure TFindReplaceForm.EditFindTextKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+var
+  CB: TComboBox;
+  i: Integer;
+begin
+  CB := Sender as TComboBox;
+  // Shift+Del in list deletes selected item
+  if (Key = VK_DELETE) and (ssShift in Shift) and (CB.DroppedDown) then
+  begin
+    i := CB.ItemIndex;
+    if i >= 0 then
+    begin
+      Key := 0;
+      CB.Items.Delete(i);
+      if i < CB.Items.Count then
+        CB.ItemIndex := i;
+      StoreToSettings();
     end;
   end;
 end;
@@ -366,6 +425,8 @@ begin
       SearchMode := TFileSearchMode(CBFilesSearchMode.ItemIndex);
     end;
   end;
+
+  StoreToSettings();
 end;
 
 function TFindReplaceForm.FindAll(Action: TSearchAction): Integer;
@@ -631,6 +692,8 @@ begin
 
   Searcher := TExtPatternDataSearcher.Create();
 
+  Settings := TSearchSettings.Create();
+
   // Crunch for a bug in TCategoryPanel: after first Collapse, right-aligned child controls disappear.
   // We save their sizes and restore it afterwards.
   Sizes := TDictionary<TControl, TRect>.Create();
@@ -654,6 +717,7 @@ end;
 
 procedure TFindReplaceForm.FormDestroy(Sender: TObject);
 begin
+  Settings.Free;
   Searcher.Free;
 end;
 
@@ -685,6 +749,18 @@ end;
 
 procedure TFindReplaceForm.FormShow(Sender: TObject);
 begin
+  if not Inited then
+  begin
+    with Settings do
+    begin
+      EditFindText.Items.AddStrings(EditFindTextItems);
+      EditReplaceText.Items.AddStrings(EditReplaceTextItems);
+      EditInDirectories.Items.AddStrings(EditInDirectoriesItems);
+      EditFileNameMask.Items.AddStrings(EditFileNameMaskItems);
+    end;
+    Inited := True;
+  end;
+
   CheckEnabledControls();
 end;
 
@@ -701,6 +777,18 @@ end;
 procedure TFindReplaceForm.RBInCurrentEditorClick(Sender: TObject);
 begin
   CheckEnabledControls();
+end;
+
+procedure TFindReplaceForm.StoreToSettings;
+begin
+  with Settings do
+  begin
+    EditFindTextItems := EditFindText.Items.ToStringArray;
+    EditReplaceTextItems := EditReplaceText.Items.ToStringArray;
+    EditInDirectoriesItems := EditInDirectories.Items.ToStringArray;
+    EditFileNameMaskItems := EditFileNameMask.Items.ToStringArray;
+  end;
+  Settings.Changed();
 end;
 
 procedure TFindReplaceForm.FindInDirectories(Action: TSearchAction;

@@ -61,12 +61,13 @@ object FindReplaceForm: TFindReplaceForm
         Caption = '...'
         OnClick = BtnSelectDirectoryClick
       end
-      object Label4: TLabel
+      object LblFileMasks: TLabel
         Left = 16
         Top = 128
         Width = 60
         Height = 13
         Caption = 'File mask(s):'
+        PopupMenu = ClearHistMenu
       end
       object Label5: TLabel
         Left = 16
@@ -113,6 +114,7 @@ object FindReplaceForm: TFindReplaceForm
         Width = 130
         Height = 17
         Caption = 'Selected directories:'
+        PopupMenu = ClearHistMenu
         TabOrder = 2
         OnClick = RBInCurrentEditorClick
       end
@@ -124,6 +126,7 @@ object FindReplaceForm: TFindReplaceForm
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
         TabOrder = 3
+        OnKeyDown = EditFindTextKeyDown
       end
       object EditFileNameMask: TComboBox
         Left = 87
@@ -133,6 +136,7 @@ object FindReplaceForm: TFindReplaceForm
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
         TabOrder = 4
+        OnKeyDown = EditFindTextKeyDown
       end
       object CBFilesSearchMode: TComboBox
         Left = 88
@@ -156,12 +160,13 @@ object FindReplaceForm: TFindReplaceForm
       TabOrder = 1
       OnCollapse = CPFindExpand
       OnExpand = CPFindExpand
-      object Label2: TLabel
+      object LblReplaceWith: TLabel
         Left = 16
         Top = 19
         Width = 65
         Height = 13
         Caption = 'Replace with:'
+        PopupMenu = ClearHistMenu
       end
       object EditReplaceText: TComboBox
         Left = 87
@@ -177,6 +182,7 @@ object FindReplaceForm: TFindReplaceForm
         Font.Style = []
         ParentFont = False
         TabOrder = 0
+        OnKeyDown = EditFindTextKeyDown
       end
       object CBReplaceHex: TCheckBox
         Left = 16
@@ -220,12 +226,13 @@ object FindReplaceForm: TFindReplaceForm
       TabOrder = 2
       OnCollapse = CPFindExpand
       OnExpand = CPFindExpand
-      object Label1: TLabel
+      object LblFind: TLabel
         Left = 16
         Top = 19
         Width = 24
         Height = 13
         Caption = 'Find:'
+        PopupMenu = ClearHistMenu
       end
       object ImageProxy1: THintedImageProxy
         Left = 407
@@ -253,6 +260,7 @@ object FindReplaceForm: TFindReplaceForm
         Font.Style = []
         ParentFont = False
         TabOrder = 0
+        OnKeyDown = EditFindTextKeyDown
       end
       object CBExtSyntax: TCheckBox
         Left = 302
@@ -381,5 +389,13 @@ object FindReplaceForm: TFindReplaceForm
     OnDropFiles = DropFileCatcher1DropFiles
     Left = 336
     Top = 344
+  end
+  object ClearHistMenu: TPopupMenu
+    Left = 352
+    Top = 8
+    object Clearhistory1: TMenuItem
+      Caption = 'Clear history'
+      OnClick = Clearhistory1Click
+    end
   end
 end
