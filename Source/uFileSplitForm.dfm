@@ -81,6 +81,18 @@ object FileSplitForm: TFileSplitForm
     Anchors = [akTop, akRight]
     Caption = '0 files total'
   end
+  object ImageProxy1: THintedImageProxy
+    Left = 119
+    Top = 169
+    Width = 16
+    Height = 16
+    Image = MainForm.HintImage
+    ImageIndex = 0
+    HintFmt = 
+      'CRC file is used to check if combined file is equal to original ' +
+      'file before splitting. <br>CRC file format is compatible with To' +
+      'tal Commander.'
+  end
   object EditSourceFile: TEdit
     Left = 88
     Top = 16
@@ -128,7 +140,13 @@ object FileSplitForm: TFileSplitForm
     Top = 168
     Width = 97
     Height = 17
+    Hint = 
+      'CRC file is used to check if combined file is equal to original ' +
+      'file before splitting. CRC file format is compatible with Total ' +
+      'Commander.'
     Caption = 'Create CRC file'
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 4
   end
   object BtnOk: TButton
@@ -137,7 +155,7 @@ object FileSplitForm: TFileSplitForm
     Width = 75
     Height = 25
     Anchors = [akBottom]
-    Caption = 'OK'
+    Caption = 'Split'
     Default = True
     TabOrder = 5
     OnClick = BtnOkClick

@@ -358,6 +358,7 @@ function GetFileRec(const FileName:string; FullName:boolean=true):TSearchRec;
 var
   r:integer;
 begin
+  ZeroMemory(@Result, SizeOf(Result));
   r:=FindFirst(FileName,faAnyFile,Result);
   SysUtils.FindClose(Result);
   if r<>0 then Result.Name:=''

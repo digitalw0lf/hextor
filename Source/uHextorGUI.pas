@@ -691,7 +691,7 @@ begin
   if (not (csDesigning in ComponentState)) and
      //(not (csLoading in ComponentState)) and
      (FControl <> nil) and
-     (FControl.HandleAllocated) and
+     //(FControl.HandleAllocated) and
      (FEnabled) then
   begin
     DragAcceptFiles(FControl.Handle, True);

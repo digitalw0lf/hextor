@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.AppEvnts,
-  Winapi.ShellAPI, System.IOUtils, System.Math,
+  Winapi.ShellAPI, System.IOUtils, System.Math, Vcl.ExtCtrls,
 
   uHextorTypes, uHextorGUI, uHextorDataSources, HlpHashFactory, HlpIHash;
 
@@ -29,6 +29,7 @@ type
     BtnCancel: TButton;
     DropFileCatcher1: TDropFileCatcher;
     SelectFolderDialog: TFileOpenDialog;
+    ImageProxy1: THintedImageProxy;
     procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
       Control: TWinControl; Files: TStrings; DropPoint: TPoint);
     procedure EditSourceFileChange(Sender: TObject);
@@ -44,6 +45,7 @@ type
     function GeneratePartName(const Template: string; Index: Integer): string;
   public
     { Public declarations }
+    procedure AskOverwriteIfExists(const FileName: string);
     procedure SplitFile(const SourceFile, TargetFolder, TargetNamesTemplate: string;
       PartSize: Int64; CreateCRCFile: Boolean);
   end;
@@ -55,7 +57,8 @@ implementation
 
 {$R *.dfm}
 
-uses uMainForm;
+uses
+  uMainForm;
 
 procedure TFileSplitForm.BtnOkClick(Sender: TObject);
 var
@@ -107,7 +110,7 @@ begin
   s := ExtractFilePath(fn);
   EditTargetFolder.Items.Clear();
   EditTargetFolder.Items.Add(s);
-  EditTargetFolder.Items.Add(TPath.Combine(s, 'Parts'));
+  EditTargetFolder.Items.Add(TPath.Combine(s, ExtractFileName(fn) + '.Parts'));
   EditTargetFolder.ItemIndex := 0;
   // Target file names
   s := ExtractFileName(fn);
@@ -169,7 +172,7 @@ begin
   EditTargetFolder.Text := SelectFolderDialog.FileName;
 end;
 
-procedure AskOverwriteIfExists(const FileName: string);
+procedure TFileSplitForm.AskOverwriteIfExists(const FileName: string);
 var
   s: string;
 begin
@@ -179,7 +182,8 @@ begin
          FileName + sLineBreak +
          'already exists. Overwrite?';
     if Application.MessageBox(PChar(s), 'Overwrite', MB_OKCANCEL) <> IDOK then
-      raise Exception.Create('Operation cancelled');
+      //raise Exception.Create('Operation cancelled');
+      Abort();
   end;
 end;
 
@@ -188,7 +192,7 @@ procedure TFileSplitForm.SplitFile(const SourceFile, TargetFolder,
 const
   BlockSize = 10 * MByte;
 var
-  {Count, }Index, Portion: Integer;
+  Index, Portion: Integer;
   SourceSize, ThisPartSize, Ptr, PartPtr: Int64;
   SourceStream, DestStream: TFileStream;
   DestName, s: string;
@@ -196,7 +200,6 @@ var
   Hash: IHash;
 begin
   SourceSize := GetFileSizeNoOpen(SourceFile);
-//  Count := DivRoundUp(SourceSize, PartSize);
   SetLength(Buf, Min(BlockSize, PartSize));
 
   Ptr := 0;
@@ -210,7 +213,7 @@ begin
     end;
     SourceStream := TFileStream.Create(SourceFile, fmOpenRead or fmShareDenyWrite);
     try
-      while Ptr < SourceSize do
+      while Ptr < SourceSize do  // Files
       begin
         Inc(Index);
         DestName := TPath.Combine(TargetFolder, GeneratePartName(TargetNamesTemplate, Index));
@@ -221,7 +224,7 @@ begin
         try
           PartPtr := 0;
           ThisPartSize := Min(PartSize, SourceSize - Ptr);
-          while PartPtr < ThisPartSize do
+          while PartPtr < ThisPartSize do  // Portions inside file
           begin
             Portion := Min(BlockSize, ThisPartSize - PartPtr);
             SourceStream.ReadBuffer(Buf[0], Portion);

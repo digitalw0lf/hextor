@@ -249,6 +249,8 @@ type
     Filetools1: TMenuItem;
     Splitfile1: TMenuItem;
     DropFileCatcher1: TDropFileCatcher;
+    ActionFileConcat: TAction;
+    Concatenatefiles1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -323,6 +325,7 @@ type
     procedure ActionFileSplitExecute(Sender: TObject);
     procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
       Control: TWinControl; Files: TStrings; DropPoint: TPoint);
+    procedure ActionFileConcatExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -420,7 +423,7 @@ uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
   uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm,
-  uFileInfoForm, uUpdaterForm, uSettingsForm, uFileSplitForm;
+  uFileInfoForm, uUpdaterForm, uSettingsForm, uFileSplitForm, uFileConcatForm;
 
 { TMainForm }
 
@@ -541,6 +544,11 @@ end;
 procedure TMainForm.ActionExitExecute(Sender: TObject);
 begin
   Close();
+end;
+
+procedure TMainForm.ActionFileConcatExecute(Sender: TObject);
+begin
+  FileConcatForm.ShowModal();
 end;
 
 procedure TMainForm.ActionFileSplitExecute(Sender: TObject);

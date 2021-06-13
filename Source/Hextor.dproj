@@ -265,6 +265,10 @@
             <Form>FileSplitForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uFileConcatForm.pas">
+            <Form>FileConcatForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>
@@ -545,12 +549,6 @@
                 <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txvpck" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="..\Build\Win64\Debug\Hextor.rsm" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win64">
-                        <RemoteName>Hextor.rsm</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

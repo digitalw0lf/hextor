@@ -46,7 +46,8 @@ uses
   uModuleSettings in 'uModuleSettings.pas',
   uBookmarksFrame in 'uBookmarksFrame.pas' {BookmarksFrame: TFrame},
   uRegionsFrame in 'uRegionsFrame.pas' {RegionsFrame: TFrame},
-  uFileSplitForm in 'uFileSplitForm.pas' {FileSplitForm};
+  uFileSplitForm in 'uFileSplitForm.pas' {FileSplitForm},
+  uFileConcatForm in 'uFileConcatForm.pas' {FileConcatForm};
 
 {$R *.res}
 
@@ -71,5 +72,6 @@ begin
   Application.CreateForm(TUpdaterForm, UpdaterForm);
   Application.CreateForm(TSettingsForm, SettingsForm);
   Application.CreateForm(TFileSplitForm, FileSplitForm);
+  Application.CreateForm(TFileConcatForm, FileConcatForm);
   Application.Run;
 end.

@@ -885,6 +885,9 @@ object MainForm: TMainForm
       object Splitfile1: TMenuItem
         Action = ActionFileSplit
       end
+      object Concatenatefiles1: TMenuItem
+        Action = ActionFileConcat
+      end
     end
     object MIDebug: TMenuItem
       Caption = 'Debug'
@@ -1248,6 +1251,12 @@ object MainForm: TMainForm
       Caption = 'Split file...'
       Hint = 'Split a file into several parts'
       OnExecute = ActionFileSplitExecute
+    end
+    object ActionFileConcat: TAction
+      Category = 'File utils'
+      Caption = 'Concatenate files...'
+      Hint = 'Combine several files into one'
+      OnExecute = ActionFileConcatExecute
     end
   end
   object SaveDialog1: TSaveDialog
