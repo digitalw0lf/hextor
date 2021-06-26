@@ -8,6 +8,8 @@
 
 unit uProcessSelectForm;
 
+{$WARN SYMBOL_PLATFORM OFF}
+
 interface
 
 uses
@@ -32,6 +34,7 @@ type
   TProcessInfoRec = record
     PID: Cardinal;
     Name, CmdLine: string;
+    Is32bit: Boolean;
   end;
   TProcessInfoList = TList<TProcessInfoRec>;
 
@@ -70,6 +73,7 @@ type
     FilterText: string;
     procedure SetDraggingPointer(const Value: Boolean);
     property DraggingPointer: Boolean read FDraggingPointer write SetDraggingPointer;
+    function GetProcessInfo(pid: Cardinal; var CommandLine: string; var Is32bit: Boolean): Boolean;
     procedure GetProcessList();
   public
     { Public declarations }
@@ -125,6 +129,108 @@ begin
   ShowProcessList();
 end;
 
+type
+  PPROCESS_BASIC_INFORMATION = ^_PROCESS_BASIC_INFORMATION;
+  _PROCESS_BASIC_INFORMATION = packed record
+    Reserved1: PVOID;
+    PebBaseAddress: pointer;
+    Reserved2: array[0..1] of PVOID;
+    UniqueProcessId: ULONG_PTR;
+    Reserved3: PVOID;
+  end;
+
+  // Records are 8-byte aligned
+
+  _UNICODE_STRING = record
+    Length: USHORT;
+    MaximumLength: USHORT;
+    Buffer: PWideChar;
+  end;
+
+  PRTL_USER_PROCESS_PARAMETERS = ^_RTL_USER_PROCESS_PARAMETERS;
+  _RTL_USER_PROCESS_PARAMETERS = record
+    Reserved1: array[0..15] of BYTE;
+    Reserved2: array[0..9] of PVOID;
+    ImagePathName: _UNICODE_STRING;
+    CommandLine: _UNICODE_STRING;
+  end;
+
+  _PEB = record
+    Reserved1: array[0..1] of BYTE;
+    BeingDebugged: BYTE;
+    Reserved2: BYTE;
+    Reserved3: array[0..1] of PVOID;
+    Ldr: Pointer; //PPEB_LDR_DATA;
+    ProcessParameters: PRTL_USER_PROCESS_PARAMETERS;
+    Reserved4: array[0..2] of PVOID;
+    AtlThunkSListPtr: PVOID;
+    Reserved5: PVOID;
+    Reserved6: ULONG;
+    Reserved7: PVOID;
+    Reserved8: ULONG;
+    AtlThunkSListPtr32: ULONG;
+    Reserved9: array[0..44] of PVOID;
+    Reserved10: array[0..95] of BYTE;
+    PostProcessInitRoutine: Pointer; //PPS_POST_PROCESS_INIT_ROUTINE;
+    Reserved11: array[0..127] of BYTE;
+    Reserved12: PVOID;
+    SessionId: ULONG;
+  end;
+
+function NtQueryInformationProcess(ProcessHandle:THANDLE;
+  ProcessInformationClass:DWORD;
+  ProcessInformation:pointer;
+  ProcessInformationLength:ULONG;
+  ReturnLength:PULONG): NTStatus; stdcall; external 'ntdll.dll';
+
+function TProcessSelectForm.GetProcessInfo(pid: Cardinal; var CommandLine: string; var Is32bit: Boolean): Boolean;
+var
+  hProcess: THandle;
+  pbi: PPROCESS_BASIC_INFORMATION;
+  peb: _PEB;
+  ProcParam: _RTL_USER_PROCESS_PARAMETERS;
+  status: NTStatus;
+  BytesRead: NativeUInt;
+  Ptr: Pointer;
+begin
+  CommandLine := '';
+  Is32bit := False;
+  pbi := nil;
+
+  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ{ or PROCESS_TERMINATE}, False, pid);
+  if hProcess = 0 then
+    Exit(False);
+
+  try
+    // Is process 32 bit?
+    status := NtQueryInformationProcess(hProcess, {ProcessWow64Information}26, @Ptr, sizeof(Ptr), @BytesRead);
+    if status = 0 then
+      Is32bit := (Ptr <> nil);
+
+    // Get command line
+    New(pbi);  // Must be aligned
+    status := NtQueryInformationProcess(hProcess, {ProcessBasicInformation}0, pbi, sizeof(pbi^), @BytesRead);
+    if status <> 0 then
+      raise Exception.Create('NtQueryInformationProcess returned ' + IntToStr(status));
+
+    Win32Check(
+      ReadProcessMemory(hProcess, pbi.PebBaseAddress, @peb, SizeOf(peb), BytesRead));
+
+    Win32Check(
+      ReadProcessMemory(hProcess, peb.ProcessParameters, @ProcParam, sizeof(ProcParam), BytesRead));
+
+    SetLength(CommandLine, ProcParam.CommandLine.Length div SizeOf(Char));
+    Win32Check(
+      ReadProcessMemory(hProcess, ProcParam.CommandLine.Buffer, @CommandLine[1], ProcParam.CommandLine.Length, BytesRead));
+
+  finally
+    if pbi <> nil then Dispose(pbi);
+
+    CloseHandle(hProcess);
+  end;
+  Result := True;
+end;
+
 procedure TProcessSelectForm.GetProcessList;
 var
   vSnapshot: THandle;              // to store the tool help snapshot handle
@@ -148,7 +254,10 @@ begin
     repeat
       Rec.PID := vProcessEntry.th32ProcessID;
       Rec.Name := vProcessEntry.szExeFile;
-      Rec.CmdLine := '';  // TODO
+      try
+        GetProcessInfo(Rec.PID, Rec.CmdLine, Rec.Is32bit);
+      except
+      end;
 
       // add new instance of TProcess storing the supplied process information
       ProcList.Add(Rec);
@@ -246,7 +355,7 @@ begin
     begin
       if (FilterText<>'') and (not ContainsText(ProcList[i].Name, FilterText)) then Continue;
       li := ListView1.Items.Add();
-      li.Caption := ProcList[i].Name;
+      li.Caption := ProcList[i].Name + IfThen(ProcList[i].Is32bit, '  (32bit)', '');
       li.SubItems.Add(IntToStr(ProcList[i].PID));
       li.SubItems.Add(ProcList[i].CmdLine);
     end;
