@@ -925,10 +925,6 @@ begin
     begin
       // Do not show directives
       if DS is TDSDirective then Exit(False);
-      // Do not add separate regions for 1-byte elements of arrays
-      if (DS is TDSSimpleField) and (DS.BufSize = 1) and
-         (DS.Parent <> nil) and (DS.Parent is TDSArray) then
-        Exit(False);
 
       // Background color
       if DS.ErrorText <> '' then
@@ -937,6 +933,10 @@ begin
         Bg := Color_DSFieldBg;
       // Add this DS
       Regions.AddRegion(Self, DS.BufAddr, DS.BufAddr + DS.BufSize, clNone, Bg, Color_DSFieldFr, DS);
+
+      // Do not add separate regions for 1-byte elements of arrays
+      if (DS is TDSArray) and (TDSArray(DS).ElementType.GetFixedSize() = 1) then
+        Exit(False);
 
       Result := True;
     end);

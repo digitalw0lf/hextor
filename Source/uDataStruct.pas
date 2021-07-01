@@ -143,9 +143,7 @@ type
     FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
     FFields: TObjectList<TDSField>;
     function GetFields(Index: Integer): TDSField; virtual;
-    procedure SetFields(Index: Integer; const Value: TDSField);
-    function GetFieldsCount: Integer;
-    procedure SetFieldsCount(const Value: Integer);
+    function GetFieldsCount: Integer; virtual;
   public
     FieldAlign: Integer;  // Alignment of fields relative to structure start
     ChildsWithErrors: Integer;  // Total count of childs (recursively) with non-empty ErrorText
@@ -154,8 +152,8 @@ type
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); override;
     function ToString(): string; override;
-    property Fields[Index: Integer]: TDSField read GetFields write SetFields;
-    property FieldsCount: Integer read GetFieldsCount write SetFieldsCount;
+    property Fields[Index: Integer]: TDSField read GetFields {write SetFields};
+    property FieldsCount: Integer read GetFieldsCount {write SetFieldsCount};
     function AddField(Field: TDSField): Integer;
     function GetComWrapper(): TDSComWrapper;
     function GetFieldAlign(): Integer;
@@ -165,7 +163,10 @@ type
 
   TDSArray = class (TDSCompoundField)
   private
+    FRealCount: Integer;  // If "deferred loading" is used, this holds real element count in file
+    function GetFieldsCount: Integer; override;
     function GetFields(Index: Integer): TDSField; override;
+    procedure AllocateFieldsList(ACount: Integer = -1);
   public
     ACount: string;  // Count as it is written in description. Interpreted during population of structures
     ElementType: TDSField;
@@ -1214,16 +1215,6 @@ begin
   Result := TNamedFieldsEnumerable.Create(Self);
 end;
 
-procedure TDSCompoundField.SetFields(Index: Integer; const Value: TDSField);
-begin
-  FFields[Index] := Value;
-end;
-
-procedure TDSCompoundField.SetFieldsCount(const Value: Integer);
-begin
-  FFields.Count := Value;
-end;
-
 function TDSCompoundField.ToString(): string;
 const
   MaxDispLen = 100;
@@ -1248,6 +1239,24 @@ end;
 
 { TDSArray }
 
+procedure TDSArray.AllocateFieldsList(ACount: Integer = -1);
+// If deferred loading is used, make sure we have allocated pointers to at least
+// ACount first elements (by default - all elements)
+begin
+  if FRealCount < 0 then Exit;
+  if ACount < 0 then ACount := FRealCount;
+
+  // Simple optimization for a case when we need only few first elements
+  // (e.g. to show in structure tree view)
+  if (ACount <= 1024) and (FRealCount > 1024) then
+    FFields.Count := 1024
+  else
+  begin
+    FFields.Count := FRealCount;
+    FRealCount := -1;
+  end;
+end;
+
 procedure TDSArray.Assign(Source: TDSField);
 begin
   inherited;
@@ -1263,7 +1272,7 @@ end;
 constructor TDSArray.Create;
 begin
   inherited;
-
+  FRealCount := -1;
 end;
 
 destructor TDSArray.Destroy;
@@ -1277,7 +1286,11 @@ var
   Interpretor: TDSInterpretor;
   Sz: TFilePointer;
 begin
+  // Deferred loading: allocate memory for items
+  AllocateFieldsList(Index + 1);
+
   Result := inherited;
+
   if Result = nil then
   // If this element is not created, create it now
   begin
@@ -1296,6 +1309,14 @@ begin
       Interpretor.Free;
     end;
   end;
+end;
+
+function TDSArray.GetFieldsCount: Integer;
+begin
+  if FRealCount >= 0 then  // Deferred loading
+    Result := FRealCount
+  else
+    Result := inherited;
 end;
 
 function TDSArray.GetFixedSize: TFilePointer;
@@ -1330,9 +1351,12 @@ begin
   if Sz < 0 then
     raise EDSParserError.Create('Cannot resize array with variable-sized elements');
 
+  AllocateFieldsList();  // Just to simplify logic
+
   if NewLength < OldLength then
   begin  // Delete elements
-    FieldsCount := NewLength;
+    FFields.Count := NewLength;
+
     with EventSet do
       DataChangeProc(DataContext, BufAddr + Sz * NewLength, Sz * (OldLength - NewLength), 0, nil);
   end
@@ -1882,10 +1906,7 @@ begin
   else
     Count := TDSExprEvaluator.Eval(DS.ACount, DS);
 
-  i := 0;
   DS.FFields.Clear();
-  if Count > 0 then
-    DS.FFields.Capacity := Count;
 
   // This field or some of its childs has "#valid" directive
   NeedsValidation := ((DS.ElementType is TDSSimpleField) and (TDSSimpleField(DS.ElementType).ValidationStr <> '')) or
@@ -1895,11 +1916,16 @@ begin
   begin
     // If we know element size and array length, we can optimize loading by deferring
     // actual element creation until they are used by someone
-    DS.FieldsCount := Count;
+    DS.FRealCount := Count;
+
     Seek(FCurAddr + Count * ElementSize);
   end
   else
   begin
+    DS.FRealCount := -1;
+    i := 0;
+    if Count > 0 then
+      DS.FFields.Capacity := Count;
     while True do
     begin
       if Count >= 0 then
