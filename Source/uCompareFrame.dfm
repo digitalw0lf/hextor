@@ -17,10 +17,6 @@ object CompareFrame: TCompareFrame
     TabOrder = 1
     object InitialTab: TTabSheet
       Caption = 'InitialTab'
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object BtnStartCompare: TButton
         Left = 8
         Top = 8
@@ -34,30 +30,25 @@ object CompareFrame: TCompareFrame
     object ComparisonTab: TTabSheet
       Caption = 'ComparisonTab'
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object DiffBar: TPaintBox
         Left = 0
         Top = 0
-        Width = 33
+        Width = 58
         Height = 579
         Align = alLeft
         OnMouseDown = DiffBarMouseDown
         OnMouseMove = DiffBarMouseMove
         OnPaint = DiffBarPaint
-        ExplicitLeft = 8
       end
       object LblDiffsCount: TLabel
-        Left = 40
+        Left = 64
         Top = 40
         Width = 67
         Height = 13
         Caption = 'Differences: ?'
       end
       object BtnCloseComparison: TSpeedButton
-        Left = 224
+        Left = 248
         Top = 8
         Width = 27
         Height = 25
@@ -95,7 +86,7 @@ object CompareFrame: TCompareFrame
       end
       object BtnPrevDiff: TSpeedButton
         Tag = -1
-        Left = 40
+        Left = 64
         Top = 64
         Width = 25
         Height = 25
@@ -107,7 +98,7 @@ object CompareFrame: TCompareFrame
       end
       object BtnNextDiff: TSpeedButton
         Tag = 1
-        Left = 71
+        Left = 95
         Top = 64
         Width = 25
         Height = 25
@@ -118,7 +109,7 @@ object CompareFrame: TCompareFrame
         OnClick = BtnNextDiffClick
       end
       object BtnRecompare: TButton
-        Left = 40
+        Left = 64
         Top = 8
         Width = 89
         Height = 25
@@ -129,7 +120,7 @@ object CompareFrame: TCompareFrame
         OnClick = BtnRecompareClick
       end
       object BtnAbort: TButton
-        Left = 135
+        Left = 159
         Top = 8
         Width = 74
         Height = 25
@@ -200,5 +191,11 @@ object CompareFrame: TCompareFrame
       ModalResult = 2
       TabOrder = 3
     end
+  end
+  object Timer1: TTimer
+    Interval = 10
+    OnTimer = Timer1Timer
+    Left = 80
+    Top = 144
   end
 end

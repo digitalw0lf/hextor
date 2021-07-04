@@ -221,7 +221,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 547
-      ActivePage = PgValue
+      ActivePage = PgCompare
       Align = alClient
       TabOrder = 0
       OnChange = RightPanelPageControlChange
@@ -341,23 +341,11 @@ object MainForm: TMainForm
             Height = 519
             ExplicitWidth = 412
             ExplicitHeight = 519
-            inherited InitialTab: TTabSheet
-              ExplicitLeft = 4
-              ExplicitTop = 24
-              ExplicitWidth = 313
-              ExplicitHeight = 579
-            end
             inherited ComparisonTab: TTabSheet
-              ExplicitLeft = 4
-              ExplicitTop = 24
               ExplicitWidth = 404
               ExplicitHeight = 491
               inherited DiffBar: TPaintBox
                 Height = 491
-                ExplicitHeight = 523
-              end
-              inherited BtnRecompare: TButton
-                Images = nil
               end
             end
           end

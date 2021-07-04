@@ -45,6 +45,7 @@ const
   Color_SelectionFr = $D77800;
   Color_ValueHighlightBg = $FFD0A0;
   Color_DiffBg = $05CBEF;
+  Color_DiffFr = $05CBEF;
   Color_FoundItemBg = $79EBFF;
   Color_FoundItemFr = $00D7FD;
 
