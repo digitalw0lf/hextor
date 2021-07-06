@@ -172,7 +172,7 @@ begin
   // Handle keyboard shortcuts in editor
   if Msg.message = WM_KEYDOWN then
   begin
-    WriteLogFmt('KeyDown: %d', [Msg.wParam]);
+//    WriteLogFmt('KeyDown: %d', [Msg.wParam]);
     if (Msg.wParam >= Ord(AnsiChar('0'))) and (Msg.wParam <= Ord(AnsiChar('9'))) and
        (Screen.ActiveControl is TEditorPane) then
     begin

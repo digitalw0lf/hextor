@@ -1,7 +1,7 @@
 object CompareFrame: TCompareFrame
   Left = 0
   Top = 0
-  Width = 321
+  Width = 497
   Height = 607
   DoubleBuffered = True
   ParentBackground = False
@@ -10,11 +10,12 @@ object CompareFrame: TCompareFrame
   object PageControl1: TPageControl
     Left = 0
     Top = 0
-    Width = 321
+    Width = 497
     Height = 607
     ActivePage = ComparisonTab
     Align = alClient
     TabOrder = 1
+    ExplicitWidth = 321
     object InitialTab: TTabSheet
       Caption = 'InitialTab'
       object BtnStartCompare: TButton
@@ -30,6 +31,7 @@ object CompareFrame: TCompareFrame
     object ComparisonTab: TTabSheet
       Caption = 'ComparisonTab'
       ImageIndex = 1
+      ExplicitWidth = 313
       object DiffBar: TPaintBox
         Left = 0
         Top = 0
@@ -132,10 +134,10 @@ object CompareFrame: TCompareFrame
     end
   end
   object CompareSelectFormPanel: TPanel
-    Left = 64
-    Top = 328
+    Left = 20
+    Top = 224
     Width = 457
-    Height = 161
+    Height = 281
     BevelOuter = bvNone
     TabOrder = 0
     Visible = False
@@ -148,10 +150,67 @@ object CompareFrame: TCompareFrame
     end
     object Label2: TLabel
       Left = 16
-      Top = 72
+      Top = 112
       Width = 29
       Height = 13
       Caption = 'Right:'
+    end
+    object Label3: TLabel
+      Left = 16
+      Top = 192
+      Width = 75
+      Height = 13
+      Caption = 'Sync block size:'
+    end
+    object Label4: TLabel
+      Left = 184
+      Top = 192
+      Width = 27
+      Height = 13
+      Caption = 'bytes'
+    end
+    object ImageProxy1: THintedImageProxy
+      Left = 231
+      Top = 191
+      Width = 16
+      Height = 16
+      Image = MainForm.HintImage
+      ImageIndex = 0
+      HintFmt = 
+        'When comparing different data, detect similarities if they are a' +
+        't least this size'
+    end
+    object LblRange1Start: TLabel
+      Left = 120
+      Top = 64
+      Width = 23
+      Height = 13
+      Caption = 'start'
+      Enabled = False
+    end
+    object LblRange1End: TLabel
+      Left = 280
+      Top = 64
+      Width = 18
+      Height = 13
+      Caption = 'end'
+      Enabled = False
+    end
+    object LblRange2Start: TLabel
+      Left = 120
+      Top = 144
+      Width = 23
+      Height = 13
+      Caption = 'start'
+      Enabled = False
+    end
+    object LblRange2End: TLabel
+      Left = 280
+      Top = 144
+      Width = 18
+      Height = 13
+      Caption = 'end'
+      Enabled = False
     end
     object CBCmpEditor1: TComboBox
       Left = 72
@@ -164,7 +223,7 @@ object CompareFrame: TCompareFrame
     end
     object CBCmpEditor2: TComboBox
       Left = 72
-      Top = 69
+      Top = 109
       Width = 353
       Height = 21
       Style = csDropDownList
@@ -173,7 +232,7 @@ object CompareFrame: TCompareFrame
     end
     object BtnCompare: TButton
       Left = 136
-      Top = 120
+      Top = 240
       Width = 75
       Height = 25
       Caption = 'Compare'
@@ -183,13 +242,82 @@ object CompareFrame: TCompareFrame
     end
     object BtnCancel: TButton
       Left = 248
-      Top = 120
+      Top = 240
       Width = 75
       Height = 25
       Cancel = True
       Caption = 'Cancel'
       ModalResult = 2
       TabOrder = 3
+    end
+    object CBSyncBlockSize: TComboBox
+      Left = 112
+      Top = 189
+      Width = 57
+      Height = 21
+      Style = csDropDownList
+      ItemIndex = 1
+      TabOrder = 4
+      Text = '16'
+      Items.Strings = (
+        '8'
+        '16'
+        '32'
+        '64')
+    end
+    object CBRange1: TCheckBox
+      Left = 16
+      Top = 62
+      Width = 97
+      Height = 17
+      Caption = 'Specify range:'
+      TabOrder = 5
+      OnClick = CBRange1Click
+    end
+    object EditRange1Start: TEdit
+      Left = 150
+      Top = 60
+      Width = 121
+      Height = 21
+      Enabled = False
+      TabOrder = 6
+      Text = '0'
+    end
+    object EditRange1End: TEdit
+      Left = 304
+      Top = 60
+      Width = 121
+      Height = 21
+      Enabled = False
+      TabOrder = 7
+      Text = '0'
+    end
+    object CBRange2: TCheckBox
+      Left = 16
+      Top = 142
+      Width = 97
+      Height = 17
+      Caption = 'Specify range:'
+      TabOrder = 8
+      OnClick = CBRange2Click
+    end
+    object EditRange2Start: TEdit
+      Left = 150
+      Top = 140
+      Width = 121
+      Height = 21
+      Enabled = False
+      TabOrder = 9
+      Text = '0'
+    end
+    object EditRange2End: TEdit
+      Left = 304
+      Top = 140
+      Width = 121
+      Height = 21
+      Enabled = False
+      TabOrder = 10
+      Text = '0'
     end
   end
   object Timer1: TTimer

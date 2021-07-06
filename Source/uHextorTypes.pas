@@ -412,14 +412,16 @@ var
   t: TFilePointer;
 begin
   Result:=X;
-  if MinX>MaxX then
+  if MaxX > MinX then
   begin
-    t:=MinX;
-    MinX:=MaxX;
-    MaxX:=t;
+    if Result < MinX then Result := MinX;
+    if Result > MaxX then Result := MaxX;
+  end
+  else
+  begin
+    if Result < MaxX then Result := MaxX;
+    if Result > MinX then Result := MinX;
   end;
-  if Result<MinX then Result:=MinX;
-  if Result>MaxX then Result:=MaxX;
 end;
 
 function AdjustPositionInData(var Pos: TFilePointer; Addr, OldSize, NewSize: TFilePointer): Boolean; overload;

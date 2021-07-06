@@ -339,14 +339,21 @@ object MainForm: TMainForm
           inherited PageControl1: TPageControl
             Width = 412
             Height = 519
-            ExplicitWidth = 412
-            ExplicitHeight = 519
+            inherited InitialTab: TTabSheet
+              ExplicitWidth = 404
+              ExplicitHeight = 491
+            end
             inherited ComparisonTab: TTabSheet
               ExplicitWidth = 404
               ExplicitHeight = 491
               inherited DiffBar: TPaintBox
                 Height = 491
               end
+            end
+          end
+          inherited CompareSelectFormPanel: TPanel
+            inherited ImageProxy1: THintedImageProxy
+              Image = nil
             end
           end
         end
