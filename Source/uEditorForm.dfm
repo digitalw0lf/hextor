@@ -291,6 +291,10 @@ object EditorForm: TEditorForm
       Caption = '(DS field)'
       OnClick = PMIShowDSFieldClick
     end
+    object PMIResyncCompare: TMenuItem
+      Caption = 'Resync comparison from here'
+      OnClick = PMIResyncCompareClick
+    end
   end
   object ImgListSkipBtn: TImageList
     Height = 26

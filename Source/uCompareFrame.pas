@@ -37,6 +37,13 @@ type
     function GetByte(n: Integer; Addr: TFilePointer): Byte;
     function GetBytes(n: Integer; Addr: TFilePointer; Size: Integer): TBytes;
     function FindNextCommonSeq(var SyncPtrs: TFilePointerPair): Boolean;
+  public type
+    TComparerStats = record
+      SameSize: Int64;
+      DiffSize: array[0..1] of Int64;
+      DiffCount: Integer;
+      Invalidated: Boolean;
+    end;
   public
     // Settings
     MaxWorkTime: Cardinal;   // Milliseconds
@@ -44,29 +51,27 @@ type
     MaxReadAhead: Integer;   // Search ahead for sequence resync up to this distance
     // Data
     Data: array[0..1] of TEditedData;
+    CompareRange: array[0..1] of TFileRange;
     // Result
     Working: Boolean;
     Progress: Double;
     Ranges: TList<TComparedRange>;
+    Stats: TComparerStats;
     procedure Clear();
-    procedure StartCompare(AData0, AData1: TEditedData);
+    procedure StartCompare(AData0, AData1: TEditedData; Range0, Range1: TFileRange);
+    procedure ResyncCompareFrom(Ptr0, Ptr1: TFilePointer);
     procedure Work();
     constructor Create();
     destructor Destroy(); override;
-    function DiffCount(): Int64;
-    function ProcessedTill(DataIndex: Integer): TFilePointer;
     function DataIndex(AData: TEditedData): Integer;
     function GetRangeIndex(DataIndex: Integer; Pos: TFilePointer): Integer;
     function GetCorrespondingPosition(FromData: Integer; FromPos: TFilePointer): TFilePointer;
     procedure AdjustRanges(DataIndex: Integer; Addr: TFilePointer; OldSize, NewSize: TFilePointer);
+    procedure RecalcStats();
   end;
 
   TCompareFrame = class(TFrame)
     CompareSelectFormPanel: TPanel;
-    Label1: TLabel;
-    CBCmpEditor1: TComboBox;
-    Label2: TLabel;
-    CBCmpEditor2: TComboBox;
     BtnCompare: TButton;
     BtnCancel: TButton;
     PageControl1: TPageControl;
@@ -74,7 +79,6 @@ type
     ComparisonTab: TTabSheet;
     BtnStartCompare: TButton;
     DiffBar: TPaintBox;
-    LblDiffsCount: TLabel;
     BtnCloseComparison: TSpeedButton;
     BtnRecompare: TButton;
     BtnAbort: TButton;
@@ -85,16 +89,22 @@ type
     CBSyncBlockSize: TComboBox;
     Label4: TLabel;
     ImageProxy1: THintedImageProxy;
+    GBFile1: TGroupBox;
+    CBCmpEditor1: TComboBox;
     CBRange1: TCheckBox;
     EditRange1Start: TEdit;
     LblRange1Start: TLabel;
     LblRange1End: TLabel;
     EditRange1End: TEdit;
+    GBFile2: TGroupBox;
+    CBCmpEditor2: TComboBox;
     CBRange2: TCheckBox;
     EditRange2Start: TEdit;
     LblRange2Start: TLabel;
     LblRange2End: TLabel;
     EditRange2End: TEdit;
+    MemoDiffStats: TMemo;
+    BtnSyncCaret: TSpeedButton;
     procedure DiffBarPaint(Sender: TObject);
     procedure DiffBarMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
@@ -109,6 +119,7 @@ type
     procedure Timer1Timer(Sender: TObject);
     procedure CBRange1Click(Sender: TObject);
     procedure CBRange2Click(Sender: TObject);
+    procedure BtnSyncCaretClick(Sender: TObject);
   private type
     TDiff = TFileRange;
   private
@@ -117,11 +128,12 @@ type
     ScrBmp: TBitmap;
     FOurScrolling: Boolean;
     StartTime: Cardinal;
-    function ScrToPos(Y: Integer): TFilePointer;
-    function PosToScr(P: TFilePointer): Integer;
+    function ScrToPos(DataIndex: Integer; Y: Integer): TFilePointer;
+    function PosToScr(DataIndex: Integer; P: TFilePointer): Integer;
     function DiffBarRect(EditorIndex: Integer): TRect;
     procedure UpdateInfo();
     procedure DrawDiffBarInternal();
+    procedure CompareStarting();
     procedure CompareDone();
     procedure UnsubscribeFromEditor(Editor: TEditorForm);
     procedure CloseComparison;
@@ -133,14 +145,17 @@ type
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
     procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     function EditorIndex(Editor: TEditorForm): Integer;
+    procedure SyncCaretPos(FromEditor: TEditorForm);
   public
     { Public declarations }
     Editors: array[0..1] of TEditorForm;
     Comparer: TDataComparer;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
-    procedure StartCompare(Editor1, Editor2: TEditorForm; SyncBlockSize: Integer);
+    procedure StartCompare(Editor0, Editor1: TEditorForm);
     function ShowCompareDialog(): TModalResult;
+    procedure ResyncCompareFrom(Ptr0, Ptr1: TFilePointer);
+    procedure ResyncFromCursors();
   end;
 
 implementation
@@ -161,7 +176,7 @@ end;
 procedure TCompareFrame.BtnRecompareClick(Sender: TObject);
 begin
   if (Editors[0] <> nil) and (Editors[1] <> nil) then
-    StartCompare(Editors[0], Editors[1], Comparer.SyncBlockSize);
+    StartCompare(Editors[0], Editors[1]);
 end;
 
 procedure TCompareFrame.BtnStartCompareClick(Sender: TObject);
@@ -169,9 +184,34 @@ begin
   ShowCompareDialog();
 end;
 
+procedure TCompareFrame.BtnSyncCaretClick(Sender: TObject);
+begin
+  if BtnSyncCaret.Down then
+    SyncCaretPos(MainForm.ActiveEditor);
+end;
+
 procedure TCompareFrame.CBCmpEditor1Change(Sender: TObject);
+var
+  Editor: TEditorForm;
+  Range: TFileRange;
 begin
   BtnCompare.Enabled := (CBCmpEditor1.ItemIndex <> CBCmpEditor2.ItemIndex);
+
+  if (Sender as TComboBox).ItemIndex >= 0 then
+  begin
+    Editor := MainForm.Editors[(Sender as TComboBox).ItemIndex];
+    Range := Editor.SelectedRange;
+    if Sender = CBCmpEditor1 then
+    begin
+      EditRange1Start.Text := IntToStr(Range.Start);
+      EditRange1End.Text := IntToStr(Range.AEnd);
+    end
+    else
+    begin
+      EditRange2Start.Text := IntToStr(Range.Start);
+      EditRange2End.Text := IntToStr(Range.AEnd);
+    end;
+  end;
 end;
 
 procedure TCompareFrame.CBRange1Click(Sender: TObject);
@@ -210,6 +250,11 @@ var
 begin
   n := Comparer.DataIndex(Sender);
   if n < 0 then Exit;
+  if not Comparer.Stats.Invalidated then
+  begin
+    Comparer.Stats.Invalidated := True;
+    UpdateInfo();
+  end;
   Comparer.AdjustRanges(n, Addr, OldSize, NewSize);
 end;
 
@@ -238,7 +283,7 @@ begin
   begin
     if X < DiffBar.Width div 2 then n := 0
                                else n := 1;
-    p := ScrToPos(Y) - Editors[n].VisibleBytesCount div 2;
+    p := ScrToPos(n, Y) - Editors[n].VisibleBytesCount div 2;
     Editors[n].TopVisibleRow := p div Editors[n].ByteColumns;
   end;
 end;
@@ -263,12 +308,13 @@ begin
 
   // Editor view frames
   for n := 0 to 1 do
+  if Editors[n] <> nil then
   begin
     RAll := DiffBarRect(n);
     R.Left := RAll.Left;
     R.Right := RAll.Right - 1;
-    R.Top := PosToScr(Editors[n].FirstVisibleAddr);
-    R.Bottom := PosToScr(Editors[n].FirstVisibleAddr + Editors[n].VisibleBytesCount) - 1;
+    R.Top := PosToScr(n, Editors[n].FirstVisibleAddr);
+    R.Bottom := PosToScr(n, Editors[n].FirstVisibleAddr + Editors[n].VisibleBytesCount) - 1;
     DiffBar.Canvas.Pen.Color := clBlack;
     DrawEditorViewFrame(DiffBar.Canvas, R);
   end;
@@ -298,8 +344,8 @@ const
   ClrMixed   = TColor($6070E0);
   ClrDiff    = TColor($0000FF);
 var
-  n, i, SY, y1, y2, y: Integer;
-  RAll: TRect;
+  n, i, SY, y1, y2, y, prev_y1, prev_y2: Integer;
+  R1, R2: TRect;
   Range: TComparedRange;
   w: Int64;
   EqualWeight, DiffWeight: TArray<Int64>;  // Size of Equal and Diff data in every pixel
@@ -309,16 +355,16 @@ begin
   SetLength(EqualWeight, SY);
   SetLength(DiffWeight, SY);
 
-  RAll := Rect(0, 0, ScrBmp.Width, ScrBmp.Height);
+  R1 := Rect(0, 0, ScrBmp.Width, ScrBmp.Height);
   with ScrBmp.Canvas do
   begin
     // Unprocessed background
     Brush.Color := ClrUnknown;
-    FillRect(RAll);
+    FillRect(R1);
   end;
 
   if (Comparer.Data[0] = nil) or (Comparer.Data[1] = nil) then Exit;
-  DrawnSize := Max(Comparer.Data[0].GetSize(), Comparer.Data[1].GetSize());
+  DrawnSize := Max(Comparer.CompareRange[0].Size, Comparer.CompareRange[1].Size);
 
 //  StartTimeMeasure();
   for n := 0 to 1 do
@@ -329,8 +375,8 @@ begin
     for i:=0 to Comparer.Ranges.Count-1 do
     begin
       Range := Comparer.Ranges[i];
-      y1 := PosToScr(Range.Range[n].Start);
-      y2 := PosToScr(Range.Range[n].AEnd);
+      y1 := PosToScr(n, Range.Range[n].Start);
+      y2 := PosToScr(n, Range.Range[n].AEnd);
       w := Max(Range.Range[n].Size, 1);
       for y := y1 to y2 do
         if Range.Differs then
@@ -340,7 +386,7 @@ begin
     end;
 
     // Draw color bar according to DiffMarks
-    RAll := DiffBarRect(n);
+    R1 := DiffBarRect(n);
     RandSeed := 0;
     for y := 0 to SY - 1 do
     begin
@@ -376,11 +422,33 @@ begin
       with ScrBmp.Canvas do
       begin
         Pen.Color := c;
-        MoveTo(RAll.Left, y);
-        LineTo(RAll.Right, y);
+        MoveTo(R1.Left, y);
+        LineTo(R1.Right, y);
       end;
     end;
   end;
+
+  // Draw connection lines
+  R1 := DiffBarRect(0);
+  R2 := DiffBarRect(1);
+  prev_y1 := R1.Top;
+  prev_y2 := R2.Top;
+  ScrBmp.Canvas.Pen.Color := ClrMixed;
+  for i:=0 to Comparer.Ranges.Count-1 do
+  begin
+    Range := Comparer.Ranges[i];
+    y1 := PosToScr(0, Range.Range[0].AEnd);
+    y2 := PosToScr(1, Range.Range[1].AEnd);
+
+    if (y1 - prev_y1 >= 8) or (y2 - prev_y2 >= 8) then
+    begin
+      ScrBmp.Canvas.MoveTo(R1.Right, y1);
+      ScrBmp.Canvas.LineTo(R2.Left, y2);
+      prev_y1 := y1;
+      prev_y2 := y2;
+    end;
+  end;
+
 //  EndTimeMeasure('DrawDiffBarInternal', True);
 end;
 
@@ -423,28 +491,9 @@ begin
 end;
 
 procedure TCompareFrame.EditorSelectionChanged(Sender: TEditorForm);
-// Sync caret pos
-var
-  n: Integer;
-  CaretPos: TFilePointer;
 begin
-  if FOurScrolling then Exit;
-  FOurScrolling := True;
-  try
-    n := EditorIndex(Sender);
-    if n < 0 then Exit;
-
-    Editors[1-n].BeginUpdate();
-    try
-      CaretPos := Sender.CaretPos;
-      CaretPos := Comparer.GetCorrespondingPosition(n, CaretPos);
-      Editors[1-n].MoveCaret(CaretPos, []);
-    finally
-      Editors[1-n].EndUpdate();
-    end;
-  finally
-    FOurScrolling := False;
-  end;
+  if BtnSyncCaret.Down then
+    SyncCaretPos(Sender);
 end;
 
 procedure TCompareFrame.EditorVisRangeChanged(Sender: TEditorForm);
@@ -479,24 +528,42 @@ end;
 
 
 
-function TCompareFrame.PosToScr(P: TFilePointer): Integer;
+function TCompareFrame.PosToScr(DataIndex: Integer; P: TFilePointer): Integer;
 begin
   if DrawnSize = 0 then Exit(0);
-  Result := P * DiffBar.Height div DrawnSize;
+  Result := (P - Comparer.CompareRange[DataIndex].Start) * DiffBar.Height div DrawnSize;
   Result := BoundValue(Result, 0, DiffBar.Height - 1);
 end;
 
-function TCompareFrame.ScrToPos(Y: Integer): TFilePointer;
+procedure TCompareFrame.ResyncCompareFrom(Ptr0, Ptr1: TFilePointer);
+begin
+  Comparer.ResyncCompareFrom(Ptr0, Ptr1);
+
+  CompareStarting();
+end;
+
+procedure TCompareFrame.ResyncFromCursors;
+begin
+  if (Editors[0] = nil) or (Editors[1] = nil) then Exit;
+  if BtnSyncCaret.Down then
+    raise EInvalidUserInput.Create('Uncheck "Sync caret position" button and place cursor at synchronization point in both editors');
+  ResyncCompareFrom(Editors[0].CaretPos, Editors[1].CaretPos);
+end;
+
+function TCompareFrame.ScrToPos(DataIndex: Integer; Y: Integer): TFilePointer;
 begin
   if DiffBar.Height = 0 then Exit(0);
-  Result := Y * DrawnSize div DiffBar.Height;
-  Result := BoundValue(Result, 0, DrawnSize);
+  Result := Comparer.CompareRange[DataIndex].Start + Y * DrawnSize div DiffBar.Height;
+  Result := BoundValue(Result, Comparer.CompareRange[DataIndex].Start, Comparer.CompareRange[DataIndex].AEnd);
 end;
 
 function TCompareFrame.ShowCompareDialog: TModalResult;
 var
   n: Integer;
 begin
+  if MainForm.EditorCount < 2 then
+    raise EInvalidUserInput.Create('You need to open two files in editor first');
+
   CBCmpEditor1.Items.Clear();
   for n:=0 to MainForm.EditorCount-1 do
     CBCmpEditor1.Items.Add(MainForm.Editors[n].Caption);
@@ -513,15 +580,16 @@ begin
     CBCmpEditor1.ItemIndex := n - 1;
     CBCmpEditor2.ItemIndex := n;
   end;
+  CBCmpEditor1Change(CBCmpEditor1);
+  CBCmpEditor1Change(CBCmpEditor2);
 
   with MakeFormWithContent(CompareSelectFormPanel, bsDialog, 'Compare') do
   begin
-    Result := ShowModal();
+    Result := ShowModal();   // <--
     if Result <> mrOk then Exit;
   end;
 
-  StartCompare(MainForm.Editors[CBCmpEditor1.ItemIndex],
-    MainForm.Editors[CBCmpEditor2.ItemIndex], StrToInt(CBSyncBlockSize.Text));
+  StartCompare(MainForm.Editors[CBCmpEditor1.ItemIndex], MainForm.Editors[CBCmpEditor2.ItemIndex]);
 end;
 
 procedure TCompareFrame.CloseComparison;
@@ -546,6 +614,16 @@ begin
   WriteLogFmt('Compare done, %d ms', [GetTickCount() - StartTime]);
   BtnRecompare.Enabled := True;
   BtnAbort.Visible := False;
+  UpdateInfo();
+end;
+
+procedure TCompareFrame.CompareStarting;
+begin
+  WriteLog('Start compare: ' + Editors[0].Data.DataSource.DisplayName + ' - ' + Editors[1].Data.DataSource.DisplayName);
+  StartTime := GetTickCount();
+
+  BtnRecompare.Enabled := False;
+  BtnAbort.Visible := True;
 end;
 
 procedure TCompareFrame.BtnCloseComparisonClick(Sender: TObject);
@@ -581,16 +659,34 @@ begin
   end;
 end;
 
-procedure TCompareFrame.StartCompare(Editor1, Editor2: TEditorForm; SyncBlockSize: Integer);
+procedure TCompareFrame.StartCompare(Editor0, Editor1: TEditorForm);
 var
+  Range0, Range1: TFileRange;
+  SyncBlockSize: Integer;
   i: Integer;
   MDIRect: TRect;
 begin
+  // Read settings from dialog
+  SyncBlockSize := StrToInt(CBSyncBlockSize.Text);
+
+  if CBRange1.Checked then
+    Range0 := TFileRange.Create(MainForm.ParseFilePointer(EditRange1Start.Text, 0),
+                                MainForm.ParseFilePointer(EditRange1End.Text, 0))
+  else
+    Range0 := TFileRange.Create(0, Editor0.Data.GetSize());
+
+  if CBRange2.Checked then
+    Range1 := TFileRange.Create(MainForm.ParseFilePointer(EditRange2Start.Text, 0),
+                                MainForm.ParseFilePointer(EditRange2End.Text, 0))
+  else
+    Range1 := TFileRange.Create(0, Editor1.Data.GetSize());
+
+
   for i:=0 to 1 do
     UnsubscribeFromEditor(Editors[i]);
 
-  Editors[0] := Editor1;
-  Editors[1] := Editor2;
+  Editors[0] := Editor0;
+  Editors[1] := Editor1;
   PageControl1.ActivePage := ComparisonTab;
 
   // Show side-by-side
@@ -614,14 +710,34 @@ begin
     Editors[i].Data.OnDataChanged.Add(DataChanged, Self);
   end;
 
-  WriteLog('Start compare: ' + Editors[0].Data.DataSource.DisplayName + ' - ' + Editors[1].Data.DataSource.DisplayName);
-  StartTime := GetTickCount();
-
   Comparer.SyncBlockSize := SyncBlockSize;
-  Comparer.StartCompare(Editors[0].Data, Editors[1].Data);
+  Comparer.StartCompare(Editors[0].Data, Editors[1].Data, Range0, Range1);
 
-  BtnRecompare.Enabled := False;
-  BtnAbort.Visible := True;
+  CompareStarting();
+end;
+
+procedure TCompareFrame.SyncCaretPos(FromEditor: TEditorForm);
+// Move caret in second editor
+var
+  n: Integer;
+  CaretPos: TFilePointer;
+begin
+  if FOurScrolling then Exit;
+  FOurScrolling := True;
+  try
+    n := EditorIndex(FromEditor);
+    if n < 0 then Exit;
+
+    Editors[1-n].BeginUpdate();
+    try
+      CaretPos := Comparer.GetCorrespondingPosition(n, FromEditor.CaretPos);
+      Editors[1-n].MoveCaret(CaretPos, []);
+    finally
+      Editors[1-n].EndUpdate();
+    end;
+  finally
+    FOurScrolling := False;
+  end;
 end;
 
 procedure TCompareFrame.Timer1Timer(Sender: TObject);
@@ -645,8 +761,28 @@ begin
 end;
 
 procedure TCompareFrame.UpdateInfo;
+var
+  s: string;
 begin
-  LblDiffsCount.Caption := 'Differences: ' + IntToStr(Comparer.DiffCount());
+  s := '';
+  if Comparer.Stats.DiffCount = 0 then
+    s := 'No differences found' + sLineBreak
+  else
+  begin
+    s := s + Format('Differences: %d', [Comparer.Stats.DiffCount]) + sLineBreak;
+    if Comparer.Stats.DiffSize[0] = Comparer.Stats.DiffSize[1] then
+      s := s + Format('Diff size:  %d bytes', [Comparer.Stats.DiffSize[0]]) + sLineBreak
+    else
+      s := s + Format('Diff size:  L %d bytes' + sLineBreak + '            R %d bytes', [Comparer.Stats.DiffSize[0], Comparer.Stats.DiffSize[1]]) + sLineBreak;
+    //s := s + Format('Matched size:  %d bytes', [Comparer.Stats.SameSize]) + sLineBreak;
+  end;
+  if Comparer.Working then
+    s := s + sLineBreak + 'Comparing...' + sLineBreak
+  else if Comparer.Stats.Invalidated then
+    s := s + sLineBreak + 'Something changed! Recompare.' + sLineBreak;
+
+  MemoDiffStats.Text := s;
+
   DrawDiffBarInternal();
   DiffBar.Refresh();
   if Editors[0]<>nil then
@@ -663,11 +799,24 @@ procedure TDataComparer.AddRange(Differs: Boolean; Size0, Size1: TFilePointer);
 var
   Range: TComparedRange;
 begin
+  // Update size in stats
+  if Differs then
+  begin
+    Inc(Stats.DiffSize[0], Size0);
+    Inc(Stats.DiffSize[1], Size1);
+  end
+  else
+  begin
+    Inc(Stats.SameSize, Size0);
+  end;
+
   if (Ranges.Count > 0) then
   begin
     Range := Ranges.Last;
     if Range.Differs = Differs then
     begin
+      if (Differs) and (Range.Range[0].Size = 0) and (Range.Range[1].Size = 0) then
+        Inc(Stats.DiffCount);
       // Enlarge last range
       Range.Range[0].AEnd := Range.Range[0].AEnd + Size0;
       Range.Range[1].AEnd := Range.Range[1].AEnd + Size1;
@@ -675,6 +824,7 @@ begin
       Exit;
     end;
   end;
+
   // Add new range
   if (Ranges.Count > 0) then
   begin
@@ -683,14 +833,18 @@ begin
   end
   else
   begin
-    Range.Range[0].Start := 0;
-    Range.Range[1].Start := 0;
+    Range.Range[0].Start := CompareRange[0].Start;
+    Range.Range[1].Start := CompareRange[1].Start;
   end;
   Range.Differs := Differs;
   Range.Range[0].Size := Size0;
   Range.Range[1].Size := Size1;
 
   Ranges.Add(Range);
+
+  // Update count in stats
+  if (Differs) and ((Size0 > 0) or (Size1 > 0)) then
+    Inc(Stats.DiffCount);
 end;
 
 procedure TDataComparer.AdjustRanges(DataIndex: Integer; Addr, OldSize,
@@ -721,6 +875,7 @@ begin
     Cache[n] := nil;
     CacheAddr[n] := 0;
   end;
+  RecalcStats();
 end;
 
 constructor TDataComparer.Create;
@@ -742,13 +897,6 @@ destructor TDataComparer.Destroy;
 begin
   Ranges.Free;
   inherited;
-end;
-
-function TDataComparer.DiffCount: Int64;
-begin
-  Result := Ranges.Count div 2;
-  if Ranges.First.Differs and Ranges.Last.Differs then
-    Inc(Result);
 end;
 
 type
@@ -804,7 +952,7 @@ begin
     CS[n] := 0;
     CSPos[n] := TDictionary<TRollingChecksum, TArray<TFilePointer>>.Create();
     // Search either till end of file or MaxReadAhead from curent position
-    AEnd[n] := Min(Data[n].GetSize, Ptr[n] + MaxReadAhead);
+    AEnd[n] := Min(CompareRange[n].AEnd, Ptr[n] + MaxReadAhead);
   end;
 
   try
@@ -894,10 +1042,10 @@ begin
   if (Start < CacheAddr[DataIndex]) or (AEnd > CacheAddr[DataIndex] + Length(Cache[DataIndex])) then
   // Cache miss
   begin
-    if (Start < Ptr[DataIndex]) or (AEnd > Ptr[DataIndex] + MaxReadAhead) or (AEnd > Data[DataIndex].GetSize()) then
+    if (Start < Ptr[DataIndex]) or (AEnd > Ptr[DataIndex] + MaxReadAhead) or (AEnd > CompareRange[DataIndex].AEnd) then
       raise Exception.Create('Error during file compare');  // Check for some bugs?
     CacheAddr[DataIndex] := Ptr[DataIndex];
-    Size := Min(MaxReadAhead, Data[DataIndex].GetSize() - CacheAddr[DataIndex]);
+    Size := Min(MaxReadAhead, CompareRange[DataIndex].AEnd - CacheAddr[DataIndex]);
     Cache[DataIndex] := Data[DataIndex].Get(CacheAddr[DataIndex], Size);
   end;
 end;
@@ -929,7 +1077,7 @@ begin
     Exit(Data[1 - FromData].GetSize());
   i := GetRangeIndex(FromData, FromPos);
   if i >= Ranges.Count then
-    Exit(FromPos);  // Maybe this position is not processed yet
+    Exit(FromPos);  // Position outside of compared range or is not processed yet
 
   if Ranges[i].Differs then
   begin
@@ -965,21 +1113,103 @@ begin
     end));
 end;
 
-function TDataComparer.ProcessedTill(DataIndex: Integer): TFilePointer;
+procedure TDataComparer.RecalcStats;
+var
+  i: Integer;
 begin
-  if Ranges.Count = 0 then Result := 0
-  else Result := Ranges.Last.Range[DataIndex].AEnd;
+  Stats.SameSize := 0;
+  Stats.DiffSize[0] := 0;
+  Stats.DiffSize[1] := 0;
+  Stats.DiffCount := 0;
+  for i := 0 to Ranges.Count - 1 do
+  begin
+    if Ranges[i].Differs then
+    begin
+      Inc(Stats.DiffSize[0], Ranges[i].Range[0].Size);
+      Inc(Stats.DiffSize[1], Ranges[i].Range[1].Size);
+      if (Ranges[i].Range[0].Size > 0) or (Ranges[i].Range[1].Size > 0) then
+        Inc(Stats.DiffCount);
+    end
+    else
+    begin
+      Inc(Stats.SameSize, Ranges[i].Range[0].Size);
+    end;
+  end;
+  Stats.Invalidated := False;
 end;
 
-procedure TDataComparer.StartCompare(AData0, AData1: TEditedData);
+procedure TDataComparer.ResyncCompareFrom(Ptr0, Ptr1: TFilePointer);
+// Re-compare streams starting from specified positions
+var
+  ASize: TFilePointer;
+  p: Integer;
+  Range: TComparedRange;
 begin
-  Clear();
+  if (Ptr0 < CompareRange[0].Start) or (Ptr0 > CompareRange[0].AEnd) or
+     (Ptr1 < CompareRange[1].Start) or (Ptr1 > CompareRange[1].AEnd) then
+    raise EInvalidUserInput.Create('Outside of compared range');
+  // Delete all ranges starting from given position
+  p := Min(GetRangeIndex(0, Ptr0), GetRangeIndex(1, Ptr1));
+  if p < Ranges.Count then
+    Ranges.DeleteRange(p + 1, Ranges.Count - (p + 1));
+  // Adjust last range before given positions
+  if Ranges.Count > 0 then
+  begin
+    Range := Ranges[Ranges.Count - 1];
+    ASize := Min(Ptr0 - Range.Range[0].Start, Ptr1 - Range.Range[1].Start);
+    if Range.Differs then
+    begin
+      Range.Range[0].AEnd := Ptr0;
+      Range.Range[1].AEnd := Ptr1;
+      Ranges[Ranges.Count - 1] := Range;
+    end
+    else
+    begin
+      Range.Range[0].Size := ASize;
+      Range.Range[1].Size := ASize;
+      Ranges[Ranges.Count - 1] := Range;
+      // Add Diff range in a part we are skipping in one of streams
+      Range.Differs := True;
+      Range.Range[0].Start := Range.Range[0].AEnd;
+      Range.Range[0].AEnd := Ptr0;
+      Range.Range[1].Start := Range.Range[1].AEnd;
+      Range.Range[1].AEnd := Ptr1;
+      if (Range.Range[0].Size > 0) or (Range.Range[1].Size > 0) then
+        Ranges.Add(Range);
+    end;
+  end
+  else
+  begin
+    // If we have no ranges in list (somehow?), have to add empty range
+    // so subsequent AddRange() knows the addresses
+    if (Ptr0 > CompareRange[0].Start) or (Ptr1 > CompareRange[1].Start) then
+    begin
+      Range.Differs := False;
+      Range.Range[0] := TFileRange.Create(Ptr0, Ptr0);
+      Range.Range[1] := TFileRange.Create(Ptr1, Ptr1);
+      Ranges.Add(Range);
+    end;
+  end;
+
+  RecalcStats();
+
+  Ptr[0] := Ptr0;
+  Ptr[1] := Ptr1;
   Working := True;
   Progress := 0;
-  Ptr[0] := 0;
-  Ptr[1] := 0;
+end;
+
+procedure TDataComparer.StartCompare(AData0, AData1: TEditedData; Range0, Range1: TFileRange);
+begin
+  Clear();
   Data[0] := AData0;
   Data[1] := AData1;
+  CompareRange[0] := Range0;
+  CompareRange[1] := Range1;
+  Ptr[0] := CompareRange[0].Start;
+  Ptr[1] := CompareRange[1].Start;
+  Working := True;
+  Progress := 0;
 end;
 
 function MinInt64Value(const Data: array of Int64): Int64;
@@ -1008,7 +1238,7 @@ begin
   Ticks := GetTickCount();
   repeat
     for n := 0 to 1 do
-      SizeLeft[n] := Data[n].GetSize() - Ptr[n];
+      SizeLeft[n] := CompareRange[n].AEnd - Ptr[n];
     // End of data?
     for n := 0 to 1 do
       if SizeLeft[n] = 0 then

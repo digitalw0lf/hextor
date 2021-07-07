@@ -408,8 +408,6 @@ end;
 
 function BoundValue(X, MinX, MaxX: TFilePointer): TFilePointer;
 // Bound X by range [MinX,MaxX]
-var
-  t: TFilePointer;
 begin
   Result:=X;
   if MaxX > MinX then

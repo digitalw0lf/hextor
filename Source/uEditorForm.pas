@@ -62,6 +62,7 @@ type
     TypingActionChangeTimer: TTimer;
     VertScrollBar: TScrollBar64;
     PMIShowDSField: TMenuItem;
+    PMIResyncCompare: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -90,6 +91,7 @@ type
     procedure PaneHexContextPopup(Sender: TObject; MousePos: TPoint;
       var Handled: Boolean);
     procedure PMIShowDSFieldClick(Sender: TObject);
+    procedure PMIResyncCompareClick(Sender: TObject);
   private
     { Private declarations }
     FData: TEditedData;
@@ -517,6 +519,12 @@ begin
     end;
 
   end;
+
+  // Resync comparison from here
+  if (MainForm.CompareFrame.Editors[0] = Self) or (MainForm.CompareFrame.Editors[1] = Self) then
+    PMIResyncCompare.Visible := True
+  else
+    PMIResyncCompare.Visible := False;
 end;
 
 procedure TEditorForm.PaneHexEnter(Sender: TObject);
@@ -1032,6 +1040,11 @@ begin
       EndUpdate();
     end;
   end;
+end;
+
+procedure TEditorForm.PMIResyncCompareClick(Sender: TObject);
+begin
+  MainForm.CompareFrame.ResyncFromCursors();
 end;
 
 procedure TEditorForm.PMIShowDSFieldClick(Sender: TObject);
