@@ -3,7 +3,7 @@ object AboutForm: TAboutForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'About'
-  ClientHeight = 193
+  ClientHeight = 211
   ClientWidth = 426
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -160,7 +160,7 @@ object AboutForm: TAboutForm
   end
   object LblBuildDate: TLabel
     Left = 240
-    Top = 121
+    Top = 145
     Width = 102
     Height = 16
     Caption = 'Build: 2020-00-00'
@@ -173,12 +173,12 @@ object AboutForm: TAboutForm
   end
   object LblUrl: TLabel
     Left = 96
-    Top = 99
-    Width = 58
+    Top = 121
+    Width = 283
     Height = 16
     Cursor = crHandPoint
-    Hint = 'https://hextor.net'
-    Caption = 'hextor.net'
+    Hint = 'https://github.com/digitalw0lf/hextor/discussions'
+    Caption = 'Bug reports and feedback are welcome on GitHub'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clNavy
     Font.Height = -13
@@ -190,7 +190,7 @@ object AboutForm: TAboutForm
     OnClick = LblUrlClick
   end
   object LblEmail: TLabel
-    Left = 204
+    Left = 96
     Top = 99
     Width = 91
     Height = 16
@@ -208,7 +208,7 @@ object AboutForm: TAboutForm
     OnClick = LblUrlClick
   end
   object LblLicense: TLabel
-    Left = 351
+    Left = 343
     Top = 99
     Width = 42
     Height = 16
@@ -226,7 +226,7 @@ object AboutForm: TAboutForm
   end
   object LblVersion: TLabel
     Left = 96
-    Top = 121
+    Top = 145
     Width = 106
     Height = 16
     Caption = 'Version: 0.0-alpha'
@@ -239,7 +239,7 @@ object AboutForm: TAboutForm
   end
   object Button1: TButton
     Left = 312
-    Top = 152
+    Top = 176
     Width = 75
     Height = 25
     Cancel = True
@@ -250,7 +250,7 @@ object AboutForm: TAboutForm
   object LicenseMemo: TMemo
     AlignWithMargins = True
     Left = 96
-    Top = 183
+    Top = 207
     Width = 430
     Height = 330
     Lines.Strings = (

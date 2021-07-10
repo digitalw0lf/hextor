@@ -492,7 +492,7 @@ end;
 
 procedure TCompareFrame.EditorSelectionChanged(Sender: TEditorForm);
 begin
-  if BtnSyncCaret.Down then
+  if BtnSyncCaret.Down xor ((GetKeyState(VK_CONTROL) and $8000) <> 0) then
     SyncCaretPos(Sender);
 end;
 
@@ -545,8 +545,8 @@ end;
 procedure TCompareFrame.ResyncFromCursors;
 begin
   if (Editors[0] = nil) or (Editors[1] = nil) then Exit;
-  if BtnSyncCaret.Down then
-    raise EInvalidUserInput.Create('Uncheck "Sync caret position" button and place cursor at synchronization point in both editors');
+  if Comparer.GetCorrespondingPosition(0, Editors[0].CaretPos) = Editors[1].CaretPos then
+    raise EInvalidUserInput.Create('Place cursor at synchronization point in both editors.' + sLineBreak + sLineBreak + '(You may need to uncheck "Sync caret position" button or use Ctrl+click)');
   ResyncCompareFrom(Editors[0].CaretPos, Editors[1].CaretPos);
 end;
 

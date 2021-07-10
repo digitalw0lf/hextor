@@ -17,6 +17,10 @@ object CompareFrame: TCompareFrame
     TabOrder = 1
     object InitialTab: TTabSheet
       Caption = 'InitialTab'
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
       object BtnStartCompare: TButton
         Left = 8
         Top = 8
@@ -158,7 +162,7 @@ object CompareFrame: TCompareFrame
         Top = 48
         Width = 30
         Height = 30
-        Hint = 'Sync caret position'
+        Hint = 'Sync caret position. Ctrl+click in editor for inversed behavior'
         AllowAllUp = True
         GroupIndex = 1
         Glyph.Data = {
@@ -288,10 +292,13 @@ object CompareFrame: TCompareFrame
       Width = 57
       Height = 21
       Style = csDropDownList
-      ItemIndex = 1
+      ItemIndex = 4
       TabOrder = 2
       Text = '16'
       Items.Strings = (
+        '1'
+        '2'
+        '4'
         '8'
         '16'
         '32'
