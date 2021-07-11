@@ -9,21 +9,21 @@ It was created to make working with binary file formats as simple and convenient
 Main features are:
 
 - View data as different basic types (text/hex/int8/16/32/float/etc.)
-- Interpret and edit data as structure with C-like description
+- Interpret and edit data as [structure with C-like description](https://github.com/digitalw0lf/hextor/wiki/Structure-analyzer)
 - View/edit logical volumes, physical disks, process memory
 - Unlimited Undo/Redo
 - Bookmarks
 - ANSI/ASCII encoding (other SBCS and MBCS planned)
-- Text/hex/unicode search and replace with wildcards and value search
+- Flexible text/hex/unicode search and replace with [wildcards and value search](https://github.com/digitalw0lf/hextor/wiki/Search-and-replace)
 - Search and replace in files/directories
-- Binary file comparison
+- Advanced binary file comparison with insert/delete detection
 - View data as bitmap
 - Hash calculation (MD/SHA/CRC etc.)
 - Disassembler (using Zydis library)
 - Scripting support (via IActiveScript)
 - Plugin support planned (via OleAutomation API)
 
-Project is in early development stage. Use with caution and always make backups of valuable data!
+As with any other low-level tool, use with caution and always make backups of valuable data!
 
 Copyright (C) 2019-2021  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>
 
