@@ -1,5 +1,5 @@
 # Get version tag (0.1-alpha)
-ver_tag=$(git -C .. tag | tail -n1 | tr -d '\r\n')
+ver_tag=$(git -C .. tag --sort=creatordate | tail -n1 | tr -d '\r\n')
 # Version to program
 rm ../Source/AppVersion.inc
 (echo -n -e "const\r\n  AppVersion = '"; echo -n $ver_tag; echo -n -e "';\r\n") >> ../Source/AppVersion.inc
