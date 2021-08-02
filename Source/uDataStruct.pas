@@ -142,8 +142,11 @@ type
     FComWrapper: TDSComWrapper;
     FCurParsedItem: Integer;  // During interpretation process - which item is currently populating
     FFields: TObjectList<TDSField>;
+    FHelperVars: TList<TPair<string, Variant>>;
     function GetFields(Index: Integer): TDSField; virtual;
     function GetFieldsCount: Integer; virtual;
+    function FindHelperVar(const Name: string): Integer;
+    procedure SetHelperVar(const Name: string; const Value: Variant);
   public
     FieldAlign: Integer;  // Alignment of fields relative to structure start
     ChildsWithErrors: Integer;  // Total count of childs (recursively) with non-empty ErrorText
@@ -214,6 +217,11 @@ type
     function GetFixedSize(): TFilePointer; override;
   end;
 
+  TDSHelperVariable = class (TDSDirective)
+  // Helper variable that is used during structure parsing, but is not a part of that structure
+  public
+  end;
+
   IDSComWrapper = interface
     ['{A3BF1107-670C-47EF-90D6-F0F7EF927A27}']
     function GetWrappedField(): TDSField;
@@ -224,6 +232,7 @@ type
   private const
     DISPID_INDEX  = -1;  // "index" pseudo-field of arrays
     DISPID_LENGTH = -2;  // "length" pseudo-field of arrays
+    DISPID_HELPERVARS_FIRST = $7F000000;
   private
     DSField: TDSField;
   public
@@ -263,6 +272,7 @@ type
     function ReadIfStatement(): TDSConditional;
     function ReadSwitchStatement(): TDSConditional;
     function ReadBreakStatement(): TDSDirective;
+    function ReadHelperVar(): TDSHelperVariable;
     function ReadDirective(): TDSDirective;
     function MakeArray(AType: TDSField; const ACount: string): TDSArray;
     procedure EraseComments(var Buf: string);
@@ -289,6 +299,7 @@ type
     procedure InterpretStruct(DS: TDSStruct);
     procedure InterpretArray(DS: TDSArray);
     procedure InterpretConditional(DS: TDSConditional);
+    procedure ProcessHelperVar(DS: TDSHelperVariable);
     procedure ProcessDirective(DS: TDSDirective);
     procedure InternalInterpret(DS: TDSField);
     procedure ValidateField(DS: TDSSimpleField);
@@ -653,6 +664,29 @@ begin
   if C <> #0 then PutBack();
 end;
 
+function TDSParser.ReadHelperVar: TDSHelperVariable;
+// var name = expression;
+var
+  VarName: string;
+begin
+  Result := TDSHelperVariable.Create();
+  try
+    Result.DescrLineNum := CurLineNum;
+    // Name
+    VarName := ReadLexem();
+    CheckValidName(VarName);
+    Result.FName := VarName;
+
+    ReadExpectedLexem(['=']);
+
+    // Value (expression)
+    Result.Value := ReadExpressionStr();
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
 function TDSParser.ReadIfStatement: TDSConditional;
 // if (Value) Statement;
 var
@@ -786,6 +820,13 @@ begin
   if SameName(S, 'break') or SameName(S, 'continue') then
   begin
     Result := [ReadBreakStatement()];
+    Exit;
+  end;
+
+  if SameName(S, 'var') then
+  begin
+    ReadLexem();
+    Result := [ReadHelperVar()];
     Exit;
   end;
 
@@ -1134,6 +1175,15 @@ begin
     FieldAlign := TDSCompoundField(Source).FieldAlign;
     ChildsWithErrors := TDSCompoundField(Source).ChildsWithErrors;
     ChildsWithValidations := TDSCompoundField(Source).ChildsWithValidations;
+    if TDSCompoundField(Source).FHelperVars = nil then
+      FreeAndNil(FHelperVars)
+    else
+    begin
+      if FHelperVars = nil then
+        FHelperVars := TList<TPair<string, Variant>>.Create();
+      FHelperVars.Clear();
+      FHelperVars.AddRange(TDSCompoundField(Source).FHelperVars);
+    end;
   end;
 end;
 
@@ -1148,7 +1198,19 @@ begin
   if Assigned(FComWrapper) then
     FComWrapper._Release();
   FFields.Free;
+  FHelperVars.Free;
   inherited;
+end;
+
+function TDSCompoundField.FindHelperVar(const Name: string): Integer;
+var
+  i: Integer;
+begin
+  Result := -1;
+  if FHelperVars = nil then Exit;
+  for i := 0 to FHelperVars.Count - 1 do
+    if SameName(Name, FHelperVars[i].Key) then
+      Exit(i);
 end;
 
 function TDSCompoundField.GetComWrapper: TDSComWrapper;
@@ -1213,6 +1275,20 @@ end;
 function TDSCompoundField.NamedFields: INamedFieldsEnumerable;
 begin
   Result := TNamedFieldsEnumerable.Create(Self);
+end;
+
+procedure TDSCompoundField.SetHelperVar(const Name: string;
+  const Value: Variant);
+var
+  i: Integer;
+begin
+  if FHelperVars = nil then
+    FHelperVars := TList<TPair<string, Variant>>.Create();
+  i := FindHelperVar(Name);
+  if i >= 0 then
+    FHelperVars[i] := TPair<string, Variant>.Create(Name, Value)
+  else
+    FHelperVars.Add(TPair<string, Variant>.Create(Name, Value));
 end;
 
 function TDSCompoundField.ToString(): string;
@@ -1832,6 +1908,9 @@ begin
       if DS is TDSConditional then
         InterpretConditional(TDSConditional(DS))
       else
+      if DS is TDSHelperVariable then
+        ProcessHelperVar(TDSHelperVariable(DS))
+      else
       if DS is TDSDirective then
         ProcessDirective(TDSDirective(DS))
       else
@@ -2047,6 +2126,14 @@ begin
 
 end;
 
+procedure TDSInterpretor.ProcessHelperVar(DS: TDSHelperVariable);
+var
+  Value: Variant;
+begin
+  Value := TDSExprEvaluator.Eval(DS.Value, DS);
+  DS.Parent.SetHelperVar(DS.Name, Value);
+end;
+
 procedure TDSInterpretor.Seek(Addr: TFilePointer);
 begin
   if Addr > FStartAddr + FMaxSize then
@@ -2136,6 +2223,7 @@ begin
   if DSField is TDSCompoundField then
     with (DSField as TDSCompoundField) do
     begin
+      // Parsed fields
       i := 0;
       for Child in NamedFields do
       begin
@@ -2145,6 +2233,13 @@ begin
           Exit(S_OK);
         end;
         Inc(i);
+      end;
+      // Helper variables
+      i := FindHelperVar(AName);
+      if i >= 0 then
+      begin
+        PInteger(DispIDs)^ := DISPID_HELPERVARS_FIRST + i;
+        Exit(S_OK);
       end;
     end;
   Result := DISP_E_UNKNOWNNAME;
@@ -2172,14 +2267,17 @@ function TDSComWrapper.Invoke(DispID: Integer; const IID: TGUID;
 var
   Field: TDSField;
   SimpleField: TDSSimpleField;
+  CompoundField: TDSCompoundField;
   LoggedName{, LoggedValue}: string;
   Put: Boolean;
   V: Variant;
+  N: Integer;
 begin
   Result := DISP_E_MEMBERNOTFOUND;
   // Must be a compound field
   if not (DSField is TDSCompoundField) then
     Exit(DISP_E_MEMBERNOTFOUND);
+  CompoundField := TDSCompoundField(DSField);
   // No methods here
   if ((Flags and DISPATCH_METHOD) <> 0) then
     Exit(DISP_E_MEMBERNOTFOUND);
@@ -2209,6 +2307,18 @@ begin
         (DSField as TDSArray).SetLength(Variant(TDispParams(Params).rgvarg[0]))
       else
         POleVariant(VarResult)^ := (DSField as TDSArray).FieldsCount;
+      Exit(S_OK);
+    end;
+
+    // Helper variables
+    if DispID >= DISPID_HELPERVARS_FIRST then
+    begin
+      N := DispID - DISPID_HELPERVARS_FIRST;
+      if Put then
+        CompoundField.FHelperVars[N] := TPair<string, Variant>.Create(
+          CompoundField.FHelperVars[N].Key, Variant(TDispParams(Params).rgvarg[0]))
+      else
+        POleVariant(VarResult)^ := CompoundField.FHelperVars[N].Value;
       Exit(S_OK);
     end;
 
