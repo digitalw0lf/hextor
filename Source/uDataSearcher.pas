@@ -18,6 +18,15 @@ uses
 type
   EMatchPatternException = class (Exception);
 
+  TExtMatchPatternFoundItem = record
+    Range: TFileRange;  // Relative addresses
+    Data: TBytes;
+    Name: string;
+    DataType: string;
+    constructor Create(ARange: TFileRange; AData: TBytes; AName: string; ADataType: string);
+  end;
+  TExtMatchPatternFoundItems = TArray<TExtMatchPatternFoundItem>;
+
   TExtMatchPatternElementType = (peNone, peBytes, peStr, peAny, peRanges, peScript);
   TExtMatchPatternElement = record
     _type: TExtMatchPatternElementType;
@@ -35,7 +44,7 @@ type
   TExtMatchPattern = class
   // "Compiled" extended syntax match pattern.
   // Supports wildcards "??", data elements "{i32:100}" etc.
-  private const
+  protected const
     cAnyByte   = '?';
     cTagStart  = '{';
     cTagEnd    = '}';
@@ -43,14 +52,14 @@ type
     cEscape    = '\';
     cNot       = '!';
     cNonGreedy = '?';
-  private type
+  protected type
     TPossibleElemMatches = record
       // Result of element matcher
       WorstSize, BestSize, SizeStep: Integer;
       constructor Create(WorstSize, BestSize, SizeStep: Integer);
     end;
-  private
-    bHex, bIgnoreCase, bExtSyntax: Boolean;
+  protected
+    bHex, bIgnoreCase, bExtSyntax, bNeedSubexpressions: Boolean;
     CodePage: Integer;
     Elements: array of TExtMatchPatternElement;
     OptimizedSimpleMatch: Boolean;  // True if pattern is a constant without variable ranges etc.
@@ -59,18 +68,43 @@ type
     function CombineElements(var Elem1: TExtMatchPatternElement; const Elem2: TExtMatchPatternElement): Boolean;
     function GetElementSize(DataType: TValueInterpretor; const Ranges: TVariantRanges): Integer;
     function ParseTag(const Text: string): TExtMatchPatternElement;
-    procedure Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
-    function MatchElementsFrom(const Data: PByte; DataSize: Integer; ElemIndex: Integer; var Size: Integer): Boolean;
+    procedure Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
+    function MatchElementsFrom(const Data: PByte; DataSize: Integer; ElemIndex: Integer; var Size: Integer; var Items: TExtMatchPatternFoundItems): Boolean;
     function MatchElement(const Data: PByte; DataSize: Integer;
       const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean; inline;
     function ElemCompareStr(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
     function ElemCompareValues(const Data: PByte; DataSize: Integer; const Elem: TExtMatchPatternElement; var PossibleMatches: TPossibleElemMatches): Boolean;
+    function AdjustItemRanges(Items: TExtMatchPatternFoundItems; Delta: TFilePointer): TExtMatchPatternFoundItems;
+    procedure MakeItemsData(var Items: TExtMatchPatternFoundItems; Data: PByte);
   public
-    constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
+    constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
     destructor Destroy(); override;
     function IsEmpty(): Boolean;
     procedure CalcMinMaxMatchSize(var MinSize, MaxSize: Integer);
-    function Match(Data: PByte; DataSize: Integer; var Size: Integer): Boolean; inline;
+    function Match(Data: PByte; DataSize: Integer; var Size: Integer; var Items: TExtMatchPatternFoundItems): Boolean; inline;
+  end;
+
+  TExtReplacePatternElementType = (rpeNone, rpeBytes, rpeIndex, rpeName, rpeScript);
+  TExtReplacePatternElement = record
+    _type: TExtReplacePatternElementType;
+    Data: TBytes;            // for rpeBytes
+    Index: Integer;          // for rpeIndex
+    Text: string;            // for rpeName, peScript
+  end;
+
+  TExtReplacePattern = class
+  protected const
+    cPlaceholder   = '$';
+  protected
+    bHex, bExtSyntax: Boolean;
+    CodePage: Integer;
+    Elements: TArray<TExtReplacePatternElement>;
+    FHasPlaceholders: Boolean;
+    function GetNextElement(var P: PChar; var Element: TExtReplacePatternElement): Boolean;
+    procedure Compile(const Text: string; AHex, AExtSyntax: Boolean; ACodePage: Integer);
+  public
+    property HasPlaceholders: Boolean read FHasPlaceholders;
+    constructor Create(const Text: string; AHex, AExtSyntax: Boolean; ACodePage: Integer);
   end;
 
   TSearchParams = record
@@ -91,13 +125,13 @@ type
   // Actual match criteria are defined in derived classes
   protected
     function FindInBlock(const Data: PByte; DataSize: Integer; Start: Integer; Direction: Integer; MoreDataFollows: Boolean; var Ptr, Size: Integer): Boolean;
-    function GetReplacement(): TBytes;
+    function GetReplacement(): TBytes; virtual;
   public
     Haystack: TEditedData;
     Params: TSearchParams;
     Range: TFileRange;  // Actual range; equals to file size if Params.Range = EntireFile
     MinMatchSize, MaxMatchSize: Integer;  // Possible match size for current needle
-    LastFound: TFileRange;
+    LastFoundRange: TFileRange;
     FSearchInProgress: Boolean;
     function ParamsDefined(): Boolean; virtual;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; virtual; abstract;
@@ -116,8 +150,12 @@ type
 
   TExtPatternDataSearcher = class (TCustomDataSearcher)
   // Searches for data that matches Pattern
+  protected
+    function GetReplacement(): TBytes; override;
   public
     Pattern: TExtMatchPattern;
+    ReplacePattern: TExtReplacePattern;
+    FoundItems: TExtMatchPatternFoundItems;  // Item[0] - entire expression, 1 and following - subexpressions.
     constructor Create();
     destructor Destroy(); override;
     function ParamsDefined(): Boolean; override;
@@ -149,7 +187,7 @@ begin
   if FSearchInProgress then Exit(False);
   Range := Params.Range;
   if Range.AEnd < 0 then Range.AEnd := Haystack.GetSize();
-  LastFound := NoRange;
+  LastFoundRange := NoRange;
 
   if (Start < Range.Start) or (Start >= Range.AEnd) then Exit(False);
 
@@ -208,8 +246,8 @@ begin
       // Found
       if Result then
       begin
-        LastFound.Start := Ptr;
-        LastFound.Size := Size;
+        LastFoundRange.Start := Ptr;
+        LastFoundRange.Size := Size;
         Break;
       end;
 
@@ -270,12 +308,12 @@ function TCustomDataSearcher.ReplaceLastFound(var NewSize: Integer): Boolean;
 var
   Replace: TBytes;
 begin
-  if LastFound.Start < 0 then Exit(False);
+  if LastFoundRange.Start < 0 then Exit(False);
 
   Replace := GetReplacement();
   NewSize := Length(Replace);
 
-  Haystack.Change(LastFound.Start, LastFound.Size, NewSize, @Replace[0]);
+  Haystack.Change(LastFoundRange.Start, LastFoundRange.Size, NewSize, @Replace[0]);
 
   Result := True;
 end;
@@ -305,6 +343,19 @@ begin
     if (Length(DataType.FromVariant(Ranges.Ranges[0].AStart)) <> Result) or
        (Length(DataType.FromVariant(Ranges.Ranges[0].AEnd)) <> Result) then
       raise EMatchPatternException.Create('Values in range have different size');
+  end;
+end;
+
+function TExtMatchPattern.AdjustItemRanges(Items: TExtMatchPatternFoundItems;
+  Delta: TFilePointer): TExtMatchPatternFoundItems;
+var
+  i: Integer;
+begin
+  Result := Copy(Items);
+  for i := 0 to Length(Result) - 1 do
+  begin
+    Result[i].Range.Start := Result[i].Range.Start + Delta;
+    Result[i].Range.AEnd := Result[i].Range.AEnd + Delta;
   end;
 end;
 
@@ -373,7 +424,7 @@ begin
   end;
 end;
 
-procedure TExtMatchPattern.Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
+procedure TExtMatchPattern.Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
 // Parse specified pattern into list of elements
 var
   P: PChar;
@@ -383,6 +434,7 @@ begin
   bIgnoreCase := AIgnoreCase;
   bExtSyntax := AExtSyntax;
   CodePage := ACodePage;
+  bNeedSubexpressions := ANeedSubexpressions;
 
   Elements := nil;
   P := @Text[Low(Text)];
@@ -400,10 +452,10 @@ begin
     OptimizedSimpleMatch := False;
 end;
 
-constructor TExtMatchPattern.Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer);
+constructor TExtMatchPattern.Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
 begin
   inherited Create();
-  Compile(Text, AHex, AIgnoreCase, AExtSyntax, ACodePage);
+  Compile(Text, AHex, AIgnoreCase, AExtSyntax, ACodePage, ANeedSubexpressions);
 end;
 
 destructor TExtMatchPattern.Destroy;
@@ -632,8 +684,18 @@ begin
   Result := (Length(Elements) = 0);
 end;
 
+procedure TExtMatchPattern.MakeItemsData(var Items: TExtMatchPatternFoundItems;
+  Data: PByte);
+// Extract bytes from source buffer to Items.Data
+var
+  i: Integer;
+begin
+  for i := 0 to Length(Items) - 1 do
+    Items[i].Data := MakeBytes(Data[Items[i].Range.Start], Items[i].Range.Size);
+end;
+
 function TExtMatchPattern.Match(Data: PByte; DataSize: Integer;
-  var Size: Integer): Boolean;
+  var Size: Integer; var Items: TExtMatchPatternFoundItems): Boolean;
 var
   Elem: ^TExtMatchPatternElement;
   Len: Integer;
@@ -647,11 +709,24 @@ begin
     if (DataSize >= Len) and (CompareMem(Data, @Elem.Data[0], Len)) then
     begin
       Size := Len;
+      SetLength(Items, 1);
+      Items[0].Range.Start := 0;
+      Items[0].Range.AEnd := Len;
+      Items[0].Data := MakeBytes(Data^, Len);
+      Items[0].Name := '';
+      Items[0].DataType := '';
       Exit(True);
     end;
   end;
 
-  Result := MatchElementsFrom(Data, DataSize, 0, Size);
+  Result := MatchElementsFrom(Data, DataSize, 0, Size, Items);
+
+  Items :=
+    // Item for entire expression
+    [TExtMatchPatternFoundItem.Create(TFileRange.Create(0, Size), nil, '', '')] +
+    // Items for subexpressions
+    Items;
+  MakeItemsData(Items, Data);
 end;
 
 function TExtMatchPattern.MatchElement(const Data: PByte; DataSize: Integer;
@@ -697,15 +772,17 @@ begin
 end;
 
 function TExtMatchPattern.MatchElementsFrom(const Data: PByte; DataSize,
-  ElemIndex: Integer; var Size: Integer): Boolean;
+  ElemIndex: Integer; var Size: Integer; var Items: TExtMatchPatternFoundItems): Boolean;
 // Recursive function - find a best match for subset of elements from ElemIndex to end of pattern
 var
   PossibleMatches: TPossibleElemMatches;
   CurSize, RestSize: Integer;
+  RestItems: TExtMatchPatternFoundItems;
 begin
   if ElemIndex >= Length(Elements) then
   begin
     Size := 0;
+    Items := nil;
     Exit(True);
   end;
 
@@ -716,9 +793,14 @@ begin
   // try all possible variants and choose best one
   CurSize := PossibleMatches.BestSize;
   repeat
-    if MatchElementsFrom(@Data[CurSize], DataSize - CurSize, ElemIndex + 1, RestSize) then
+    if MatchElementsFrom(@Data[CurSize], DataSize - CurSize, ElemIndex + 1, RestSize, RestItems) then
     begin
       Size := CurSize + RestSize;
+      Items :=
+        // Item for current element
+        [TExtMatchPatternFoundItem.Create(TFileRange.Create(0, CurSize), nil, Elements[ElemIndex].Name, Elements[ElemIndex].DataType.Name)] +
+        // Items for following elements
+        AdjustItemRanges(RestItems, CurSize);
       Exit(True);
     end;
     if CurSize = PossibleMatches.WorstSize then Exit(False);
@@ -789,7 +871,7 @@ begin
         Result._type := peRanges;
         Result.DataType := ValueInterpretors.FindInterpretor(a1[0]);
         if Result.DataType = nil then
-          raise EMatchPatternException.Create('Invalid type specifier: a1[0]');
+          raise EMatchPatternException.Create('Invalid type specifier: ' + a1[0]);
         if a[1].StartsWith(cNot) then
         begin
           Result.Inverse := True;
@@ -806,7 +888,7 @@ begin
         Result._type := peScript;
         Result.DataType := ValueInterpretors.FindInterpretor(a1[0]);
         if Result.DataType = nil then
-          raise EMatchPatternException.Create('Invalid type specifier: a1[0]');
+          raise EMatchPatternException.Create('Invalid type specifier: ' + a1[0]);
         Result.Name := a1[1];
         Result.Text := a[1];  // Script text
         ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
@@ -837,7 +919,8 @@ begin
           Result := True;
         end;
       end;
-    peRanges:
+    peRanges:  // Cannot "flatten" elements if they are used as subexpressions in Replace pattern
+      if not bNeedSubexpressions then
       begin
         // Ranged expression can be converted to raw bytes if it unambiguously evaluates to constant value.
         // E.g. {i16:5:2} evaluates to 05000500
@@ -891,15 +974,41 @@ end;
 destructor TExtPatternDataSearcher.Destroy;
 begin
   Pattern.Free;
+  ReplacePattern.Free;
   inherited;
+end;
+
+function TExtPatternDataSearcher.GetReplacement: TBytes;
+// Returns data that should be used to replace last found needle.
+// Uses found subexpressions if replace pattern contains placeholders.
+var
+  i: Integer;
+  Elem: ^TExtReplacePatternElement;
+begin
+  Result := nil;
+  for i := 0 to Length(ReplacePattern.Elements) - 1 do
+  begin
+    Elem := @ReplacePattern.Elements[i];
+    case Elem._type of
+      rpeBytes:
+        Result := Result + Elem.Data;
+      rpeIndex:
+        if Elem.Index <= High(FoundItems) then
+          Result := Result + FoundItems[Elem.Index].Data
+        else
+          raise EMatchPatternException.CreateFmt('Invalid subexpression index: %d', [Elem.Index]);
+      // TODO: rpeName, rpeScript
+    end;
+  end;
 end;
 
 function TExtPatternDataSearcher.Match(const Data: PByte; DataSize: Integer;
   var Size: Integer): Boolean;
 begin
+  FoundItems := nil;
   if not ParamsDefined() then Exit(False);
   if DataSize < MinMatchSize then Exit(False);
-  Result := Pattern.Match(Data, DataSize, Size);
+  Result := Pattern.Match(Data, DataSize, Size, FoundItems);
 end;
 
 function TExtPatternDataSearcher.ParamsDefined: Boolean;
@@ -915,6 +1024,118 @@ begin
   Self.WorstSize := WorstSize;
   Self.BestSize := BestSize;
   Self.SizeStep := SizeStep;
+end;
+
+{ TExtMatchPatternFoundItem }
+
+constructor TExtMatchPatternFoundItem.Create(ARange: TFileRange; AData: TBytes;
+  AName, ADataType: string);
+begin
+  Range := ARange;
+  Data := AData;
+  Name := AName;
+  DataType := ADataType;
+end;
+
+{ TExtReplacePattern }
+
+procedure TExtReplacePattern.Compile(const Text: string; AHex,
+  AExtSyntax: Boolean; ACodePage: Integer);
+// Parse specified pattern into list of elements
+var
+  P: PChar;
+  Elem: TExtReplacePatternElement;
+begin
+  bHex := AHex;
+  bExtSyntax := AExtSyntax;
+  CodePage := ACodePage;
+  FHasPlaceholders := False;
+
+  Elements := nil;
+  P := @Text[Low(Text)];
+  while GetNextElement(P, Elem) do
+  begin
+    if (Elem._type = rpeBytes) and (Length(Elements) > 0) and (Elements[High(Elements)]._type = rpeBytes) then
+    begin
+      Elements[High(Elements)].Data := Elements[High(Elements)].Data + Elem.Data;
+      Continue;
+    end;
+    Elements := Elements + [Elem];
+  end;
+end;
+
+constructor TExtReplacePattern.Create(const Text: string; AHex,
+  AExtSyntax: Boolean; ACodePage: Integer);
+begin
+  inherited Create();
+  Compile(Text, AHex, AExtSyntax, ACodePage);
+end;
+
+function TExtReplacePattern.GetNextElement(var P: PChar;
+  var Element: TExtReplacePatternElement): Boolean;
+var
+  p1: PChar;
+  s: string;
+  b: Byte;
+  TmpBuf: TBytes;
+begin
+  Result := False;
+  Finalize(Element);
+  FillChar(Element, SizeOf(Element), 0);
+  if bHex then  // In hex mode, skip all spaces
+  begin
+    while CharInSet(P^, H2BDelimiters) do
+      Inc(P);
+  end;
+  if P^ = #0 then Exit;
+
+  // Process subexpression placeholders "$..."
+  if bExtSyntax then
+  begin
+    case P^ of
+      cPlaceholder:  // '$' - subexpression placeholder
+        begin
+          Inc(P);
+//          p1 := P;
+//          while (P^ <> cTagEnd) and (P^ <> #0) do
+//            Inc(P);
+//          if P^ <> cTagEnd then
+//            raise EMatchPatternException.Create('Unmatched opening bracket');
+//          SetString(s, p1, P - p1);
+//          Inc(P);
+//          Element := ParseTag(s);
+          if (P^ < '0') or (P^ > '9') then
+            raise EMatchPatternException.Create('Error in replacement pattern');
+          Element._type := rpeIndex;
+          Element.Index := Ord(P^) - Ord('0');
+          Inc(P);
+          // TODO: Named subexpressions
+          FHasPlaceholders := True;
+          Result := True;
+        end;
+    end;
+  end;
+
+  if not Result then
+  // Raw data
+  begin
+    if bHex then  // Hex
+    begin
+      Result := ReadHexByte(P, b);
+      if Result then
+      begin
+        Element._type := rpeBytes;
+        Element.Data := [b];
+      end;
+    end
+    else  // Text
+    begin
+      Element._type := rpeBytes;
+      Element.Data := String2Data(P^, CodePage);
+      Inc(P);
+      Result := True;
+    end;
+  end;
 end;
 
 end.

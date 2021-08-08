@@ -351,6 +351,7 @@ begin
   with Searcher do
   begin
     FreeAndNil(Pattern);
+    FreeAndNil(ReplacePattern);
 
     // Search text
     Params.Text := EditFindText.Text;
@@ -378,9 +379,16 @@ begin
     else
       Params.Range := EntireFile;
 
-    // Parse search pattern
     try
-      Pattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase, Params.bExtSyntax, Params.FindCodePage);
+      // Parse replace pattern first, determine HasPlaceholders
+      if Params.bReplace then
+      begin
+        ReplacePattern := TExtReplacePattern.Create(Params.Replace, Params.bRepHex, Params.bExtSyntax, Params.ReplaceCodePage);
+      end;
+
+      // Parse search pattern
+      Pattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase, Params.bExtSyntax, Params.FindCodePage,
+        Assigned(ReplacePattern) and (ReplacePattern.HasPlaceholders));
       if Pattern.IsEmpty() then
         raise EMatchPatternException.Create('Specify search string');
       Pattern.CalcMinMaxMatchSize(MinMatchSize, MaxMatchSize);
@@ -390,9 +398,9 @@ begin
         raise EMatchPatternException.Create('Max allowed match size is 16 KBytes');
     except
       FreeAndNil(Pattern);
+      FreeAndNil(ReplacePattern);
       raise;
     end;
-
   end;
 
   // Where to search - editor or files
@@ -440,7 +448,7 @@ var
 begin
   ResultsFrame := nil;
   // Collect search parameters from input controls
-  FillParams(False, True);
+  FillParams(Action = saReplace, True);
   Result := 0;
   InFilesCount := 0;
 
@@ -578,9 +586,9 @@ begin
         try
           if Searcher.ReplaceLastFound(NewSize) then
           begin
-            SelectAfterOperation := TFileRange.Create(Searcher.LastFound.Start, Searcher.LastFound.Start + NewSize);
+            SelectAfterOperation := TFileRange.Create(Searcher.LastFoundRange.Start, Searcher.LastFoundRange.Start + NewSize);
             // Adjust search range
-            Searcher.Range.AEnd := Searcher.Range.AEnd + (NewSize - Searcher.LastFound.Size);
+            Searcher.Range.AEnd := Searcher.Range.AEnd + (NewSize - Searcher.LastFoundRange.Size);
           end;
         finally
           if Assigned(AEditor) then
