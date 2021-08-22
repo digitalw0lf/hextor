@@ -11,9 +11,10 @@ unit uDataSearcher;
 interface
 
 uses
-  System.SysUtils, System.Math, Generics.Collections,
+  System.SysUtils, System.Math, Generics.Collections, Winapi.Windows,
+  Winapi.ActiveX,
 
-  uHextorTypes, uEditedData, uCallbackList, uValueInterpretors;
+  uHextorTypes, uEditedData, uCallbackList, uValueInterpretors, uActiveScript;
 
 type
   EMatchPatternException = class (Exception);
@@ -40,6 +41,7 @@ type
     TFoundElement = record
       ElemIndex: Integer;
       Range: TFileRange;  // Relative addresses
+      Data: TBytes;
       constructor Create(AElemIndex: Integer; ARange: TFileRange{; AData: TBytes; AName: string; ADataType: string});
     end;
     TFoundElements = TArray<TFoundElement>;
@@ -84,7 +86,8 @@ type
     function ElemCompareStr(const Data: PByte; DataSize: Integer; const Elem: TElement; var PossibleMatches: TPossibleElemMatches): Boolean;
     function ElemCompareValues(const Data: PByte; DataSize: Integer; const Elem: TElement; var PossibleMatches: TPossibleElemMatches): Boolean;
     function AdjustItemRanges(Items: TFoundElements; Delta: TFilePointer): TFoundElements;
-    procedure MakeGroupsData(Data: PByte; const FoundElements: TFoundElements; var GroupsData: TArray<TBytes>);
+    procedure MakeGroupsData(Data: PByte; var FoundElements: TFoundElements; var GroupsData: TArray<TBytes>);
+    function ElementByName(const Name: string): Integer;
   public
     constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
     destructor Destroy(); override;
@@ -159,7 +162,25 @@ type
 
   TExtPatternDataSearcher = class (TCustomDataSearcher)
   // Searches for data that matches Pattern
+  protected type
+    TScriptFields = class(TInterfacedObject, IDispatch)
+    public
+      Owner: TExtPatternDataSearcher;
+      // Expose found elements to scripts in replace pattern
+      function GetIDsOfNames(const IID: TGUID; Names: Pointer;
+        NameCount: Integer; LocaleID: Integer; DispIDs: Pointer): HRESULT;
+        virtual; stdcall;
+      function GetTypeInfo(Index: Integer; LocaleID: Integer;
+        out TypeInfo): HRESULT; stdcall;
+      function GetTypeInfoCount(out Count: Integer): HRESULT; stdcall;
+      function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+        Flags: Word; var Params; VarResult: Pointer; ExcepInfo: Pointer;
+        ArgErr: Pointer): HRESULT; virtual; stdcall;
+    end;
   protected
+    ScriptEngine: TActiveScript;  // Expression evaluator
+    ScriptFields: TScriptFields;
+    LastMentionedType: TValueInterpretor;  // In replace placeholder - determines result size
     function GetReplacement(): TBytes; override;
   public
     Pattern: TExtMatchPattern;
@@ -170,6 +191,8 @@ type
     destructor Destroy(); override;
     function ParamsDefined(): Boolean; override;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; override;
+
+    procedure PrepareScriptEnv();
   end;
 
 implementation
@@ -576,6 +599,15 @@ begin
   end;
 end;
 
+function TExtMatchPattern.ElementByName(const Name: string): Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to Length(Elements) - 1 do
+    if Elements[i].Name = Name then Exit(i);
+  Result := -1;
+end;
+
 const
   H2BDelimiters = [' ', #9, #10, #13];
   H2BValidSet = ['0'..'9','A'..'F','a'..'f'];
@@ -620,11 +652,35 @@ begin
   Result := False;
 end;
 
+function ReadTag(var P: PChar): string;
+// Read a tag (char sequence between "{" and "}").
+// Tries to correctly handle internal closing brackets "}" inside of character constants
+var
+  p1: PChar;
+  InString: Boolean;
+  InBrackets: Integer;
+begin
+  Inc(P);
+  p1 := P;
+  InString := False;
+  InBrackets := 0;
+  while (P^ <> #0) do
+  begin
+    if (P^ = '''') or (P^ = '"') then InString := not InString;
+    if (not InString) and (CharInSet(P^, ['(', '[', '{'])) then Inc(InBrackets);
+    if (not InString) and (InBrackets > 0) and (CharInSet(P^, [')', ']', '}'])) then Dec(InBrackets);
+    if (not InString) and (InBrackets = 0) and (P^ = TExtMatchPattern.cTagEnd) then Break;
+    Inc(P);
+  end;
+  if P^ <> TExtMatchPattern.cTagEnd then
+    raise EMatchPatternException.Create('Unmatched opening bracket');
+  SetString(Result, p1, P - p1);
+  Inc(P);
+end;
 
 function TExtMatchPattern.GetNextElement(var P: PChar;
   var Element: TElement): Boolean;
 var
-  p1: PChar;
   s: string;
   b: Byte;
   TmpBuf: TBytes;
@@ -659,14 +715,7 @@ begin
         end;
       cTagStart:  // '{' - tag with typed data element
         begin
-          Inc(P);
-          p1 := P;
-          while (P^ <> cTagEnd) and (P^ <> #0) do
-            Inc(P);
-          if P^ <> cTagEnd then
-            raise EMatchPatternException.Create('Unmatched opening bracket');
-          SetString(s, p1, P - p1);
-          Inc(P);
+          s := ReadTag(P);
           Element := ParseTag(s);
           Result := True;
         end;
@@ -696,7 +745,7 @@ begin
                   Element.Data := [b];
                 end;
               end;
-            cTagStart, cAnyByte, cEscape:
+            cTagStart, cAnyByte, cEscape, cGroupStart, cGroupEnd:
               begin
                 Element._type := peStr;
                 Element.Text := P^;
@@ -746,19 +795,22 @@ begin
   Result := (Length(Elements) = 0);
 end;
 
-procedure TExtMatchPattern.MakeGroupsData(Data: PByte; const FoundElements: TFoundElements;
+procedure TExtMatchPattern.MakeGroupsData(Data: PByte; var FoundElements: TFoundElements;
   var GroupsData: TArray<TBytes>);
 // Extract bytes from source buffer according to SearchGroups
 var
   i, j: Integer;
   Buf: TBytes;
 begin
+  for i := 0 to Length(FoundElements) - 1 do
+    FoundElements[i].Data := MakeBytes(Data[FoundElements[i].Range.Start], FoundElements[i].Range.Size);
+
   SetLength(GroupsData, Length(SearchGroups));
   for i := 0 to Length(SearchGroups) - 1 do
   begin
     Buf := nil;
     for j := SearchGroups[i].Elem1 to SearchGroups[i].Elem2 do
-      Buf := Buf + MakeBytes(Data[FoundElements[j].Range.Start], FoundElements[j].Range.Size);
+      Buf := Buf + FoundElements[j].Data;
     GroupsData[i] := Buf;
   end;
 end;
@@ -931,12 +983,14 @@ begin
   a1 := a[0].Split([' '], TStringSplitOptions.ExcludeEmpty);
   // How many words are in first part of tag?
   case Length(a1) of
-    1:  // Type specified - this is a "ranges" condition
+    1, 2:  // Type [and name] specified - this is a "ranges" condition
       begin
         Result._type := peRanges;
         Result.DataType := ValueInterpretors.FindInterpretor(a1[0]);
         if Result.DataType = nil then
           raise EMatchPatternException.Create('Invalid type specifier: ' + a1[0]);
+        if Length(a1) = 2 then
+          Result.Name := a1[1];
         if a[1].StartsWith(cNot) then
         begin
           Result.Inverse := True;
@@ -948,16 +1002,16 @@ begin
         Result.SizeInBytes := GetElementSize(Result.DataType, Result.Ranges);
         ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
       end;
-    2:  // Type and name specified - this is a scripted condition
-      begin
-        Result._type := peScript;
-        Result.DataType := ValueInterpretors.FindInterpretor(a1[0]);
-        if Result.DataType = nil then
-          raise EMatchPatternException.Create('Invalid type specifier: ' + a1[0]);
-        Result.Name := a1[1];
-        Result.Text := a[1];  // Script text
-        ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
-      end;
+//    2:  // Type and name specified - this is a scripted condition
+//      begin
+//        Result._type := peScript;
+//        Result.DataType := ValueInterpretors.FindInterpretor(a1[0]);
+//        if Result.DataType = nil then
+//          raise EMatchPatternException.Create('Invalid type specifier: ' + a1[0]);
+//        Result.Name := a1[1];
+//        Result.Text := a[1];  // Script text
+//        ThirdElemToMinMaxCount(a, Result.MinCount, Result.MaxCount, Result.Greedy);
+//      end;
     else
       raise EMatchPatternException.Create('Error in tag');
   end;
@@ -1040,6 +1094,8 @@ destructor TExtPatternDataSearcher.Destroy;
 begin
   Pattern.Free;
   ReplacePattern.Free;
+  ScriptEngine.Free;
+  ScriptFields._Release();
   inherited;
 end;
 
@@ -1047,9 +1103,15 @@ function TExtPatternDataSearcher.GetReplacement: TBytes;
 // Returns data that should be used to replace last found needle.
 // Uses found subexpressions if replace pattern contains placeholders.
 var
-  i: Integer;
+  i, j: Integer;
   Elem: ^TExtReplacePatternElement;
+  V: Variant;
 begin
+  if Assigned(ScriptEngine) then
+  begin
+    ScriptEngine.Reset();
+    ScriptEngine.AddObject('ExtPatternDataSearcher', ScriptFields, True);
+  end;
   Result := nil;
   for i := 0 to Length(ReplacePattern.Elements) - 1 do
   begin
@@ -1062,7 +1124,22 @@ begin
           Result := Result + FoundGroupsData[Elem.Index]
         else
           raise EMatchPatternException.CreateFmt('Invalid subexpression index: %d', [Elem.Index]);
-      // TODO: rpeName, rpeScript
+      rpeName:
+        begin
+          j := Pattern.ElementByName(Elem.Text);
+          if j < 0 then
+            raise EMatchPatternException.CreateFmt('Invalid subexpression name: %s', [Elem.Text]);
+          Result := Result + FoundElements[j].Data;
+        end;
+      rpeScript:
+        begin
+          PrepareScriptEnv();
+          LastMentionedType := nil;
+          V := ScriptEngine.Eval(Elem.Text);
+          if LastMentionedType = nil then
+            raise EMatchPatternException.CreateFmt('Cannot determine value size for expression "%s"', [Elem.Text]);
+          Result := Result + LastMentionedType.FromVariant(V);
+        end;
     end;
   end;
 end;
@@ -1084,6 +1161,17 @@ end;
 function TExtPatternDataSearcher.ParamsDefined: Boolean;
 begin
   Result := (Pattern <> nil);
+end;
+
+procedure TExtPatternDataSearcher.PrepareScriptEnv;
+begin
+  if Assigned(ScriptEngine) then Exit;
+
+  ScriptFields := TScriptFields.Create();
+  ScriptFields._AddRef();
+  ScriptFields.Owner := Self;
+  ScriptEngine := TActiveScript.Create(nil);
+  ScriptEngine.AddObject('ExtPatternDataSearcher', ScriptFields, True);
 end;
 
 { TExtMatchPattern.TPossibleElemMatches }
@@ -1141,10 +1229,8 @@ end;
 function TExtReplacePattern.GetNextElement(var P: PChar;
   var Element: TExtReplacePatternElement): Boolean;
 var
-  p1: PChar;
   s: string;
   b: Byte;
-  TmpBuf: TBytes;
 begin
   Result := False;
   Finalize(Element);
@@ -1163,20 +1249,28 @@ begin
       cPlaceholder:  // '$' - subexpression placeholder
         begin
           Inc(P);
-//          p1 := P;
-//          while (P^ <> cTagEnd) and (P^ <> #0) do
-//            Inc(P);
-//          if P^ <> cTagEnd then
-//            raise EMatchPatternException.Create('Unmatched opening bracket');
-//          SetString(s, p1, P - p1);
-//          Inc(P);
-//          Element := ParseTag(s);
-          if (P^ < '0') or (P^ > '9') then
+          if P^ = TExtMatchPattern.cTagStart then
+          // Named subexpression
+          begin
+            s := ReadTag(P);
+            if s = '' then
+              raise EMatchPatternException.Create('Error in replacement pattern');
+            if IsValidIdent(s, False) then
+              Element._type := rpeName
+            else
+              Element._type := rpeScript;
+            Element.Text := s;
+          end
+          else
+          // Indexed subexpression
+          if (P^ >= '0') and (P^ <= '9') then
+          begin
+            Element._type := rpeIndex;
+            Element.Index := Ord(P^) - Ord('0');
+            Inc(P);
+          end
+          else
             raise EMatchPatternException.Create('Error in replacement pattern');
-          Element._type := rpeIndex;
-          Element.Index := Ord(P^) - Ord('0');
-          Inc(P);
-          // TODO: Named subexpressions
           FHasPlaceholders := True;
           Result := True;
         end;
@@ -1203,6 +1297,61 @@ begin
       Result := True;
     end;
   end;
+end;
+
+{ TExtPatternDataSearcher.TOleFields }
+
+function TExtPatternDataSearcher.TScriptFields.GetIDsOfNames(const IID: TGUID;
+  Names: Pointer; NameCount, LocaleID: Integer; DispIDs: Pointer): HRESULT;
+type
+  PNames = ^TNames;
+  TNames = array[0..100] of POleStr;
+  PDispIDs = ^TDispIDs;
+  TDispIDs = array[0..100] of Integer;
+var
+  i: Integer;
+  AName: string;
+begin
+  AName := PNames(Names)^[0];
+  i := Owner.Pattern.ElementByName(AName);
+  if i >= 0 then
+  begin
+    PInteger(DispIDs)^ := i;
+    Exit(S_OK);
+  end;
+  Result := DISP_E_UNKNOWNNAME;
+end;
+
+function TExtPatternDataSearcher.TScriptFields.GetTypeInfo(Index,
+  LocaleID: Integer; out TypeInfo): HRESULT;
+begin
+  Result := E_NOTIMPL;
+end;
+
+function TExtPatternDataSearcher.TScriptFields.GetTypeInfoCount(
+  out Count: Integer): HRESULT;
+begin
+  Result := E_NOTIMPL;
+end;
+
+function TExtPatternDataSearcher.TScriptFields.Invoke(DispID: Integer;
+  const IID: TGUID; LocaleID: Integer; Flags: Word; var Params; VarResult,
+  ExcepInfo, ArgErr: Pointer): HRESULT;
+var
+  Put: Boolean;
+begin
+  // Unknown DispID
+  if (DispID < 0) then
+    Exit(DISP_E_MEMBERNOTFOUND);
+  Put := ((Flags and (DISPATCH_PROPERTYPUT or DISPATCH_PROPERTYPUTREF)) <> 0);
+  if Put then
+    Exit(DISP_E_BADVARTYPE);
+  Result := S_OK;
+  POleVariant(VarResult)^ := Owner.Pattern.Elements[DispID].DataType.ToVariant(
+    Owner.FoundElements[DispID].Data[0], Length(Owner.FoundElements[DispID].Data));
+  // Original value type determines output value size.
+  // E.g. ${X+1} will generate a value of same size as X
+  Owner.LastMentionedType := Owner.Pattern.Elements[DispID].DataType;
 end;
 
 end.
