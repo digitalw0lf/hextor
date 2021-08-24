@@ -652,6 +652,51 @@ begin
   Result := False;
 end;
 
+procedure ReadEscapeSeq(var P: PChar; var IsStr: Boolean; var Data: TBytes; var Text: string);
+var
+  b: Byte;
+begin
+  Inc(P);
+  case P^ of
+    #0:
+      begin
+        raise EMatchPatternException.Create('Escape sequence expected');
+      end;
+    'x':
+      begin
+        Inc(P);
+        if not ReadHexByte(P, b) then
+          raise EMatchPatternException.Create('Hex byte expected');
+        IsStr := False;
+        Data := [b];
+      end;
+    'r':
+      begin
+        IsStr := True;
+        Text := #13;
+        Inc(P);
+      end;
+    'n':
+      begin
+        IsStr := True;
+        Text := #10;
+        Inc(P);
+      end;
+    't':
+      begin
+        IsStr := True;
+        Text := #9;
+        Inc(P);
+      end;
+    else
+      begin
+        IsStr := True;
+        Text := P^;
+        Inc(P);
+      end;
+  end;
+end;
+
 function ReadTag(var P: PChar): string;
 // Read a tag (char sequence between "{" and "}").
 // Tries to correctly handle internal closing brackets "}" inside of character constants
@@ -684,6 +729,7 @@ var
   s: string;
   b: Byte;
   TmpBuf: TBytes;
+  IsStr: Boolean;
 begin
   Result := False;
   Finalize(Element);
@@ -733,30 +779,10 @@ begin
         end;
       cEscape:  // '\' - escape sequence
         begin
-          Inc(P);
-          case P^ of
-            'x':
-              begin
-                Inc(P);
-                Result := ReadHexByte(P, b);
-                if Result then
-                begin
-                  Element._type := peBytes;
-                  Element.Data := [b];
-                end;
-              end;
-            cTagStart, cAnyByte, cEscape, cGroupStart, cGroupEnd:
-              begin
-                Element._type := peStr;
-                Element.Text := P^;
-                Inc(P);
-                Result := True;
-              end;
-            else
-              begin
-                raise EMatchPatternException.Create('Invalid escape char: ' + P^);
-              end;
-          end;
+          ReadEscapeSeq(P, IsStr, Element.Data, Element.Text);
+          if IsStr then Element._type := peStr
+                   else Element._type := peBytes;
+          Result := True;
         end;
     end;
   end;
@@ -1231,6 +1257,7 @@ function TExtReplacePattern.GetNextElement(var P: PChar;
 var
   s: string;
   b: Byte;
+  IsStr: Boolean;
 begin
   Result := False;
   Finalize(Element);
@@ -1272,6 +1299,14 @@ begin
           else
             raise EMatchPatternException.Create('Error in replacement pattern');
           FHasPlaceholders := True;
+          Result := True;
+        end;
+      TExtMatchPattern.cEscape:  // '\...' - Escape sequence
+        begin
+          ReadEscapeSeq(P, IsStr, Element.Data, s);
+          Element._type := rpeBytes;
+          if IsStr then
+            Element.Data := String2Data(s, CodePage);
           Result := True;
         end;
     end;
