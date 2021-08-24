@@ -1095,7 +1095,7 @@ begin
   Pattern.Free;
   ReplacePattern.Free;
   ScriptEngine.Free;
-  ScriptFields._Release();
+  //ScriptFields._Release();
   inherited;
 end;
 
