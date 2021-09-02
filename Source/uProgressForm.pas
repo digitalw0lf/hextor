@@ -13,7 +13,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Samples.Gauges, Vcl.StdCtrls,
-  System.Types,
+  System.Types, System.Win.TaskbarCore, Vcl.Taskbar,
 
   uHextorTypes, uHextorGUI;
 
@@ -22,6 +22,7 @@ type
     ProgressGauge: TGauge;
     ProgressTextLabel: TLabel;
     BtnAbort: TButton;
+    Taskbar1: TTaskbar;
     procedure BtnAbortClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -50,7 +51,6 @@ implementation
 
 procedure TProgressForm.BtnAbortClick(Sender: TObject);
 begin
-//  FOperationAborted := True;
   Close();
 end;
 
@@ -60,6 +60,7 @@ begin
 
   if Visible then
   begin
+    Taskbar1.ProgressState := TTaskBarProgressState.None;
     EnableTaskWindows(WindowList);
     if Screen.SaveFocusedList.Count > 0 then
     begin
@@ -96,6 +97,10 @@ begin
   ProgressGauge.Progress := Round(TotalProgress * 100);
   s := FitTextInWidth(Text, ProgressTextLabel.Canvas, ProgressTextLabel.Width);
   ProgressTextLabel.Caption := s;
+
+  Taskbar1.ProgressState := TTaskBarProgressState.Normal;
+  Taskbar1.ProgressMaxValue := 1000;
+  Taskbar1.ProgressValue := Round(TotalProgress * 1000);
 
   if not Visible then
     ShowLikeModal();
