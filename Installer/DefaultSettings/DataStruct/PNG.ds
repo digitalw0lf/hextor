@@ -1,0 +1,24 @@
+// PNG image file.
+// Only shows a list of chunks for now.
+
+char file_header[8];  // ‰PNG\x0d\x0a\x1a\x0a
+
+{
+  #bigendian
+  uint32 data_length;
+  ansi chunk_type[4];
+
+  if (chunks.index == 0) {  // TODO: switch(chunk_type) case "IHDR": ...
+    uint32 width, height;
+    uint8 bit_depth;
+    uint8 color_type;
+    uint8 compression_method;
+    uint8 filter_method;
+    uint8 interlace_method;  // values 0 "no interlace" or 1 "Adam7 interlace"
+  }
+  else {
+    byte data[data_length];
+  };
+
+  uint32 crc; #format hex
+} chunks[];
