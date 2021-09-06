@@ -8,3 +8,4 @@ rm ../Installer/AppVersionDefine.inc
 (echo -n -e '#define MyAppVersion "'; echo -n $ver_tag; echo -n -e '"\r\n') >> ../Installer/AppVersionDefine.inc
 # Version to web update info
 sed -i -E "s/(<META NAME=\"mxVersion\" CONTENT=\")[^\"]*(\">)/\1$ver_tag\2/" ../../Hextor-pages/download/webupdate.htm 
+sed -i -E "s/(<META NAME=\"mxDownload\" CONTENT=\"https\:\/\/github\.com\/digitalw0lf\/hextor\/releases\/download\/)[^\/]*(\/HextorSetup\.exe\">)/\1$ver_tag\2/" ../../Hextor-pages/download/webupdate.htm 
