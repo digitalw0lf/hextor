@@ -15,7 +15,8 @@ uses
   System.Math, Winapi.ActiveX, Variants, ComObj,
   Generics.Defaults,
 
-  uHextorTypes, uValueInterpretors, {uLogFile,} uCallbackList, uActiveScript;
+  uHextorTypes, uValueInterpretors, {uLogFile,} uCallbackList, uActiveScript,
+  uOleAutoAPIWrapper;
 
 const
   // Synthetic "case" label for "default" branch
@@ -293,6 +294,7 @@ type
     EndOfData: Boolean;        // End of input data reached
     ActiveBreakStatement: TBreakStatementType;  // Indicates that we encountered "break" or "continue" and now skipping rest of current structure
     FieldsProcessed: Integer;  // To show some progress
+    APIEnv: TAPIEnvironment;
     procedure Seek(Addr: TFilePointer);
     function GetFieldSize(DS: TDSSimpleField): Integer;
     procedure InterpretSimple(DS: TDSSimpleField);
@@ -307,7 +309,8 @@ type
     procedure Interpret(DS: TDSField; Addr, MaxSize: TFilePointer);
     constructor Create();
     destructor Destroy(); override;
-
+    [API]
+    property Cur_Addr: TFilePointer read FCurAddr;
 //    procedure CheckParent(DS: TDSField);
     class procedure DbgDescribe(DS: TDSField; Text: TStrings; Indent: string; AParent: TDSField);
     class function DbgDescr(DS: TDSField): string;
@@ -343,10 +346,10 @@ type
   protected
     ScriptEngine: TActiveScript;
     class procedure ForceEvaluator();
-    procedure PrepareScriptEnv(CurField: TDSField);
-    function Evaluate(Expr: string; CurField: TDSField): Variant;
+    procedure PrepareScriptEnv(CurField: TDSField; DSInterpretor: TDSInterpretor);
+    function Evaluate(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
   public
-    class function Eval(Expr: string; CurField: TDSField): Variant;
+    class function Eval(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
     constructor Create();
     destructor Destroy(); override;
   end;
@@ -1837,6 +1840,7 @@ constructor TDSInterpretor.Create;
 begin
   inherited;
 //  DSStack := TStack<TDSField>.Create();
+  APIEnv := TAPIEnvironment.Create();
 end;
 
 class function TDSInterpretor.DbgDescr(DS: TDSField): string;
@@ -1875,6 +1879,8 @@ end;
 destructor TDSInterpretor.Destroy;
 begin
 //  DSStack.Free;
+  APIEnv.ObjectDestroyed(Self);
+  APIEnv.Free;
   inherited;
 end;
 
@@ -1983,7 +1989,7 @@ begin
     end;
   end
   else
-    Count := TDSExprEvaluator.Eval(DS.ACount, DS);
+    Count := TDSExprEvaluator.Eval(DS.ACount, DS, Self);
 
   DS.FFields.Clear();
 
@@ -2044,7 +2050,7 @@ var
   i: Integer;
 begin
   // Calculate condition
-  ExprValue := TDSExprEvaluator.Eval(DS.ACondition, DS);
+  ExprValue := TDSExprEvaluator.Eval(DS.ACondition, DS, Self);
 
   AFields := nil;
   // Find fields corresponding to condition value
@@ -2085,7 +2091,7 @@ begin
   if SameName(DS.Name, 'addr') then
   // Jump to absolute address in file
   begin
-    Addr := TDSExprEvaluator.Eval(DS.Value, DS);
+    Addr := TDSExprEvaluator.Eval(DS.Value, DS, Self);
     Seek(Addr);
     DS.BufAddr := Addr;
     // If #addr directive is a first field of a structure, adjust starting address
@@ -2103,7 +2109,7 @@ begin
   if SameName(DS.Name, 'align_pos') then
   // Align next field to specified boundary relative to parent structure start
   begin
-    Align := TDSExprEvaluator.Eval(DS.Value, DS);
+    Align := TDSExprEvaluator.Eval(DS.Value, DS, Self);
     if DS.Parent <> nil then
       Addr := DS.Parent.BufAddr
     else
@@ -2130,7 +2136,7 @@ procedure TDSInterpretor.ProcessHelperVar(DS: TDSHelperVariable);
 var
   Value: Variant;
 begin
-  Value := TDSExprEvaluator.Eval(DS.Value, DS);
+  Value := TDSExprEvaluator.Eval(DS.Value, DS, Self);
   DS.Parent.SetHelperVar(DS.Name, Value);
 end;
 
@@ -2489,7 +2495,7 @@ begin
   inherited;
 end;
 
-function TDSExprEvaluator.Evaluate(Expr: string; CurField: TDSField): Variant;
+function TDSExprEvaluator.Evaluate(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
 begin
 //  WriteLogF('Struct_Intepret', 'Expression: ' + Expr);
   try
@@ -2498,7 +2504,7 @@ begin
     if TryEvalConst(Expr, Result) then
       Exit;
 
-    PrepareScriptEnv(CurField);
+    PrepareScriptEnv(CurField, DSInterpretor);
     Result := ScriptEngine.Eval(Expr);
 
     if VarIsEmpty(Result) then
@@ -2509,11 +2515,11 @@ begin
   end;
 end;
 
-class function TDSExprEvaluator.Eval(Expr: string; CurField: TDSField): Variant;
+class function TDSExprEvaluator.Eval(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
 begin
   // Make sure evaluator instance created and use it to calculate expression
   ForceEvaluator();
-  Result := FDSExprEvaluator.Evaluate(Expr, CurField);
+  Result := FDSExprEvaluator.Evaluate(Expr, CurField, DSInterpretor);
 end;
 
 class procedure TDSExprEvaluator.ForceEvaluator;
@@ -2523,41 +2529,21 @@ begin
     FDSExprEvaluator := TDSExprEvaluator.Create();
 end;
 
-procedure TDSExprEvaluator.PrepareScriptEnv(CurField: TDSField);
+procedure TDSExprEvaluator.PrepareScriptEnv(CurField: TDSField; DSInterpretor: TDSInterpretor);
 // Populate ScriptEngine with already parsed fields to use them in expressions.
 // Innermost have higher precedence.
 var
   DS: TDSField;
-//  Ok: Boolean;
-//  TryCounter: Integer;
 begin
-//  Ok := False;
-//  TryCounter := 0;
-//  // Sometimes MSScriptControl throws EOleException for no reason when adding object.
-//  // We just try 3 times.
-//  repeat
-//    try
-      ScriptEngine.Reset();
-      DS := CurField;
-      while DS <> nil do
-      begin
-        if DS is TDSCompoundField then
-          ScriptEngine.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
-        DS := DS.Parent;
-      end;
-//      Ok := True;
-//    except
-//      on E: EOleException do
-//      begin
-////        WriteLogF('Struct_Intepret', AnsiString('TDSInterpretor.PrepareScriptEnv:E: ' + E.Message));
-//        if TryCounter <= 3 then
-//          Sleep(50)
-//        else
-//          raise;
-//      end;
-//    end;
-//    Inc(TryCounter);
-//  until Ok;
+  ScriptEngine.Reset();
+  ScriptEngine.AddObject('interpretor', DSInterpretor.APIEnv.GetAPIWrapper(DSInterpretor), True);
+  DS := CurField;
+  while DS <> nil do
+  begin
+    if DS is TDSCompoundField then
+      ScriptEngine.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
+    DS := DS.Parent;
+  end;
 end;
 
 initialization
