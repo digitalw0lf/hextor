@@ -112,7 +112,7 @@ object MainForm: TMainForm
     end
     object EditByteCols: TComboBox
       Left = 101
-      Top = 0
+      Top = 2
       Width = 74
       Height = 21
       Hint = 'Byte column count'
@@ -346,15 +346,25 @@ object MainForm: TMainForm
           inherited PageControl1: TPageControl
             Width = 412
             Height = 519
+            ExplicitWidth = 412
+            ExplicitHeight = 519
             inherited InitialTab: TTabSheet
-              ExplicitWidth = 404
-              ExplicitHeight = 491
+              ExplicitLeft = 4
+              ExplicitTop = 24
+              ExplicitWidth = 489
+              ExplicitHeight = 579
             end
             inherited ComparisonTab: TTabSheet
+              ExplicitLeft = 4
+              ExplicitTop = 24
               ExplicitWidth = 404
               ExplicitHeight = 491
               inherited DiffBar: TPaintBox
                 Height = 491
+                ExplicitHeight = 491
+              end
+              inherited BtnRecompare: TButton
+                Images = nil
               end
             end
           end
@@ -648,8 +658,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 389
-        Height = 35
+        Width = 259
+        Height = 17
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -817,6 +827,12 @@ object MainForm: TMainForm
         object URLEncode1: TMenuItem
           Action = ActionCopyAsURLEncode
         end
+        object Cstringconstant1: TMenuItem
+          Action = ActionCopyAsCppString
+        end
+        object Delphistringconstant1: TMenuItem
+          Action = ActionCopyAsDelphiString
+        end
       end
       object MIPaste: TMenuItem
         Action = ActionPaste
@@ -979,6 +995,12 @@ object MainForm: TMainForm
       ShortCut = 24666
       OnExecute = ActionRedoExecute
     end
+    object ActionCopyAsDelphiString: TAction
+      Category = 'Edit'
+      Caption = 'Delphi string constant'
+      Hint = 'Copy data as Delphi string constant (escaped)'
+      OnExecute = ActionCopyExecute
+    end
     object ActionNew: TAction
       Category = 'File'
       Caption = 'New'
@@ -1002,6 +1024,12 @@ object MainForm: TMainForm
       ImageIndex = 2
       ShortCut = 16467
       OnExecute = ActionSaveExecute
+    end
+    object ActionCopyAsCppString: TAction
+      Category = 'Edit'
+      Caption = 'C++ string constant'
+      Hint = 'Copy data as C++ string constant (escaped)'
+      OnExecute = ActionCopyExecute
     end
     object ActionSaveAs: TAction
       Category = 'File'

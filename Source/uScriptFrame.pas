@@ -74,6 +74,7 @@ type
     procedure Init();
     procedure Uninit();
     function Eval(const Text: string): Variant;
+    procedure AddLog(const Text: string);
   end;
 
 implementation
@@ -151,12 +152,7 @@ begin
 
   //t := GetNanosec() - t;
   Timer.Stop();
-
-  MemoOutput.Lines.Add('Result: ' + string(Res) + ', duration: ' + R2S(Timer.Elapsed.TotalMilliseconds*1000, 0) + ' mks');
-  //ShowMemoCaret(MemoOutput, True);
-//  MemoOutput.SelStart := MemoOutput.GetTextLen;
-//  MemoOutput.Perform(EM_SCROLLCARET, 0, 0);
-  SendMessage(MemoOutput.Handle, WM_VSCROLL, SB_BOTTOM, 0);
+  AddLog('Result: ' + string(Res) + ', duration: ' + R2S(Timer.Elapsed.TotalMilliseconds*1000, 0) + ' mks');
 end;
 
 function TScriptFrame.BuiltInScriptsFolder: string;
@@ -256,6 +252,12 @@ begin
   ScriptEngine.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
   // Parsed structure from StructFrame
   ScriptEngine.AddObject('_StructFrame', MainForm.APIEnv.GetAPIWrapper(MainForm.StructFrame.DSScriptEnv), True);
+end;
+
+procedure TScriptFrame.AddLog(const Text: string);
+begin
+  MemoOutput.Lines.Add(Text);
+  SendMessage(MemoOutput.Handle, WM_VSCROLL, SB_BOTTOM, 0);
 end;
 
 procedure TScriptFrame.BtnClearOutputClick(Sender: TObject);

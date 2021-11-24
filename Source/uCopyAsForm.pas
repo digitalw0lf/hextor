@@ -58,6 +58,8 @@ type
       function ValueToStr(const V: Variant; Notation: TNotation): string; virtual;
       function TranslateType(const TypeName: string): string;
     end;
+    // Built-in string escape languages
+    TEscapeLanguage = (elNone, elCpp, elDelphi);
   private
     { Private declarations }
     BuiltinLayoutsFolder, UserLayoutsFolder: string;
@@ -70,6 +72,8 @@ type
     { Public declarations }
     Data: TBytes;
     function DataToText(const AData: TBytes; ElemType: string; Notation: TNotation; LayoutName: string; ValuesPerLine: Integer = -1; MaxElements: Integer = -1): string;
+
+    class function DataToEsapedString(const AData: TBytes; Language: TEscapeLanguage; CodePage: Integer): string;
   end;
 
 var
@@ -99,6 +103,66 @@ end;
 procedure TCopyAsForm.CBElemTypeChange(Sender: TObject);
 begin
   ShowPreview();
+end;
+
+class function TCopyAsForm.DataToEsapedString(const AData: TBytes;
+  Language: TEscapeLanguage; CodePage: Integer): string;
+const
+  StrQuotes: array[TEscapeLanguage] of Char = (#0, '"', '''');
+var
+  sb: TStringBuilder;
+  i: Integer;
+  b: Byte;
+  c: Char;
+  s: string;
+begin
+  sb := TStringBuilder.Create(Length(AData));
+  try
+    sb.Append(StrQuotes[Language]);
+    for i := 0 to Length(AData)-1 do
+    begin
+      b := AData[i];
+
+      case Language of
+        elCpp:
+          begin
+            case b of
+              9: s := '\t';
+              10: s := '\n';
+              13: s := '\r';
+              Ord(''''): s := '\''';
+              Ord('"'): s := '\"';
+              Ord('?'): s := '\?';
+              Ord('\'): s := '\\';
+              else
+                begin
+                  if b < 32 then
+                    s := '\x' + IntToHex(b, 2)
+                  else
+                    s := Data2String([b], CodePage);
+                end;
+            end;
+          end;
+        elDelphi:
+          begin
+            if b = Ord('''') then
+              s := ''''''  // Two single qwuotes
+            else
+            if b < 32 then
+              s := '''#$' + IntToHex(b, 2) + ''''
+            else
+              s := Data2String([b], CodePage);
+          end;
+      end;
+
+      sb.Append(s);
+    end;
+    sb.Append(StrQuotes[Language]);
+
+    Result := sb.ToString();
+  finally
+    sb.Free;
+  end;
 end;
 
 function TCopyAsForm.DataToText(const AData: TBytes; ElemType: string;

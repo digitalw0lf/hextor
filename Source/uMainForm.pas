@@ -68,6 +68,7 @@ type
   public
     procedure Sleep(milliseconds: Cardinal);
     procedure Alert(V: Variant);
+    procedure Print(V: Variant);
     function HexToData(const Text: string): TByteBuffer;
     destructor Destroy(); override;
   end;
@@ -252,6 +253,10 @@ type
     DropFileCatcher1: TDropFileCatcher;
     ActionFileConcat: TAction;
     Concatenatefiles1: TMenuItem;
+    ActionCopyAsCppString: TAction;
+    ActionCopyAsDelphiString: TAction;
+    Cstringconstant1: TMenuItem;
+    Delphistringconstant1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -521,6 +526,16 @@ begin
     if Sender = ActionCopyAsURLEncode then
     begin
       s := TNetEncoding.URL.Encode(Data2String(Buf), [], []);
+    end
+    else
+    if Sender = ActionCopyAsCppString then
+    begin
+      s := CopyAsForm.DataToEsapedString(Buf, elCpp, TextEncoding);
+    end
+    else
+    if Sender = ActionCopyAsDelphiString then
+    begin
+      s := CopyAsForm.DataToEsapedString(Buf, elDelphi, TextEncoding);
     end
     else
     if ActiveControl=PaneHex then
@@ -1087,6 +1102,8 @@ begin
       ActionCopyAsArray.Enabled := ActionCopy.Enabled;
       ActionCopyAsBase64.Enabled := ActionCopy.Enabled;
       ActionCopyAsURLEncode.Enabled := ActionCopy.Enabled;
+      ActionCopyAsCppString.Enabled := ActionCopy.Enabled;
+      ActionCopyAsDelphiString.Enabled := ActionCopy.Enabled;
       ActionCut.Enabled := (ActionCopy.Enabled) and (dspResizable in DataSource.GetProperties());
       ActionPaste.Enabled := Clipboard.HasFormat(CF_UNICODETEXT) and (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
       ActionPasteAs.Enabled := ActionPaste.Enabled;
@@ -2001,6 +2018,11 @@ function THextorUtils.HexToData(const Text: string): TByteBuffer;
 begin
   Result := TByteBuffer.Create();
   Result.Data := Hex2Data(Text);
+end;
+
+procedure THextorUtils.Print(V: Variant);
+begin
+  MainForm.ScriptFrame.AddLog(string(V));
 end;
 
 procedure THextorUtils.Sleep(milliseconds: Cardinal);
