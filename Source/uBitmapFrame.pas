@@ -349,6 +349,7 @@ var
   x, y: Integer;
   Value, Clr: Cardinal;
   R: TRect;
+  Range: TFileRange;
 begin
   SX := Round(MainPaintBox.Width / DisplayScale);
   SY := Round(MainPaintBox.Height / DisplayScale);
@@ -380,11 +381,12 @@ begin
   // Frame of range visible in editor panes
   if AWidth > 4 then
   begin
+    Range := FEditor.VisibleRange;
     R.Left := 0;
     R.Right := AWidth-1;
-    AddrToScreen(FEditor.FirstVisibleAddr()*8, x, y, False);
+    AddrToScreen(Range.Start*8, x, y, False);
     R.Top := y;
-    AddrToScreen((FEditor.FirstVisibleAddr() + FEditor.VisibleBytesCount())*8, x, y, False);
+    AddrToScreen(Range.AEnd*8, x, y, False);
     R.Bottom := y - 1;
     ScrBmp.Canvas.Pen.Color := clYellow;
     DrawEditorViewFrame(ScrBmp.Canvas, R);

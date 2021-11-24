@@ -1008,9 +1008,14 @@ procedure TMainForm.ApplyByteColEdit;
 // Apply byte column count from edit field
 var
   n: Integer;
+  S: string;
 begin
-  n := StrToIntDef(EditByteCols.Text, -1);
-  if n <> -1 then
+  S := EditByteCols.Text;
+  if S = 'Line breaks' then
+    n := bcByLineBreaks
+  else
+    n := StrToIntDef(S, bcByWindowWidth);
+  if n >= 0 then
     n := BoundValue(n, 1, 16384);
   TEditorForm.Settings.ByteColumns := n;
   TEditorForm.Settings.Changed(False);
@@ -1900,8 +1905,11 @@ begin
   if Editor <> nil then
   begin
     EditByteCols.Enabled := True;
-    if Editor.ByteColumnsSetting <= 0 then
+    if Editor.ByteColumnsSetting = bcByWindowWidth then
       EditByteCols.Text := 'Auto (' + IntToStr(Editor.ByteColumns) + ')'
+    else
+    if Editor.ByteColumnsSetting = bcByLineBreaks then
+      EditByteCols.Text := 'Line breaks'
     else
       EditByteCols.Text := IntToStr(Editor.ByteColumns);
   end
