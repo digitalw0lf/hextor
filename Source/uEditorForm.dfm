@@ -265,6 +265,7 @@ object EditorForm: TEditorForm
     PageSize = 0
     TabOrder = 5
     OnChange = VertScrollBarChange
+    OnScroll = VertScrollBarScroll
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286
