@@ -56,7 +56,7 @@ type
   protected
     { Protected declarations }
     FLines: TStringList;
-    TextLength, MaxLineWidth: Integer;  // Updated internally during paint
+    TextLength, FMaxLineWidth: Integer;  // Updated internally during paint
     ScrBmp: TBitmap;
     SelStart, SelLength: Integer;
     FVisRegions: TVisualTextRegionArray;
@@ -86,6 +86,7 @@ type
     function GetCharPos(Index: Integer): TPoint;
     function GetCharRect(Pos: TPoint): TRect; overload;
     function GetCharRect(Index: Integer): TRect; overload;
+    property MaxLineWidth: Integer read FMaxLineWidth;
     procedure SetSelection(AStart, ALength: Integer);
     procedure SetVisRegions(const ARegions: TVisualTextRegionArray);
     procedure BeginUpdate();
@@ -304,7 +305,7 @@ var
     else
     // Joint shape
     begin
-      r2 := GetCharRect(Point({Length(Lines[p1.Y])}MaxLineWidth-1, p1.Y));
+      r2 := GetCharRect(Point(FMaxLineWidth-1, p1.Y));
       r3 := GetCharRect(Point(0, p2.Y));
       ScrBmp.Canvas.Polygon([
         Point(r1.Left, r1.Top),
@@ -531,12 +532,12 @@ var
   i, L: Integer;
 begin
   TextLength := 0;
-  MaxLineWidth := 0;
+  FMaxLineWidth := 0;
   for i:=0 to FLines.Count-1 do
   begin
     L := Length(FLines[i]);
     Inc(TextLength, L);
-    MaxLineWidth := Max(MaxLineWidth, L);
+    FMaxLineWidth := Max(FMaxLineWidth, L);
   end;
 end;
 

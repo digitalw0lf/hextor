@@ -124,6 +124,8 @@ type
     FVisibleRange: TFileRange;
     FLineRanges: array of TFileRange;  // Address range of every visible line
     FLineRangesValid: Boolean;
+    FEOFInScreen: Boolean;  // Empty space for caret after end of file is visible on screen
+    FMaxLineWidth: Integer;  // Max length of visible lines (in bytes)
     FHorzScrollPos: Integer;
     FFSkipSearcher: TFFSkipSearcher;
     FFSkipBackByte, FFSkipFwdByte: Byte;
@@ -166,7 +168,7 @@ type
     function GetVisibleLinesCount(): Integer;
     procedure InvalidateLineRanges();
     procedure RequireLineRanges();
-    function CalcScrollDelta(DeltaLines: Int64): TFilePointer;
+    function CalcScrollDelta(Addr: TFilePointer; DeltaLines: Int64): TFilePointer;
 //    function VisibleBytesCount: Integer;
 //  public type
 //    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
@@ -402,10 +404,12 @@ var
   FileSize: TFilePointer;
   ByteplacesInScreen: Integer;
 begin
+  // Calculate scrollbar range and page size.
+  // Exact page size is significant for the last page (screen) of file.
   case ByteColumns of
     bcByLineBreaks:
       begin
-        // TODO
+        // TODO:
         FVertScrollMax := GetFileSize() + 1;
         FVertScrollPage := 1;
       end;
@@ -415,13 +419,14 @@ begin
         FVertScrollPage := BoundValue(GetRowsInWindow() * ByteColumns, 1, FVertScrollMax);
       end;
   end;
-
+  // Don't allow navigating beyond file bounds
   AFirstVisibleAddr := BoundValue(AFirstVisibleAddr, 0, FVertScrollMax - FVertScrollPage + 1);
 
+  // Calculate addresses for each visible line
   case ByteColumns of
     bcByLineBreaks:
       begin
-        // TODO
+        // TODO:
         {}
         FVisibleRange.Start := 0;
         FVisibleRange.AEnd := 70;
@@ -435,6 +440,7 @@ begin
       end;
     else
       begin
+        // Align to column width
         Range.Start := AFirstVisibleAddr div ByteColumns * ByteColumns;
         Range.AEnd := Range.Start + ByteColumns * GetRowsInWindow();
         FileSize := GetFileSize();
@@ -443,9 +449,13 @@ begin
         begin
           Range.AEnd := FileSize;
           ByteplacesInScreen := Range.Size + 1;  // File end inside screen -> reserve extra charplace for caret after end of file
+          FEOFInScreen := True;
         end
         else
+        begin
           ByteplacesInScreen := Range.Size;
+          FEOFInScreen := False;
+        end;
         FVisibleRange := Range;
         Rows := DivRoundUp(ByteplacesInScreen, ByteColumns);
         SetLength(FLineRanges, Rows);
@@ -456,15 +466,20 @@ begin
         end;
       end;
   end;
+
+  FMaxLineWidth := 0;
+  for i := 0 to High(FLineRanges) - 1 do
+    FMaxLineWidth := Max(FMaxLineWidth, FLineRanges[i].Size);
+
   FLineRangesValid := True;
 end;
 
-function TEditorForm.CalcScrollDelta(DeltaLines: Int64): TFilePointer;
-// How to change current first visible address to scroll by specified number of lines
+function TEditorForm.CalcScrollDelta(Addr: TFilePointer; DeltaLines: Int64): TFilePointer;
+// How to change given address to scroll by specified number of lines
 begin
   if ByteColumns = bcByLineBreaks then
   begin
-    // TODO
+    // TODO:
     Result := DeltaLines;
   end
   else
@@ -654,6 +669,7 @@ procedure TEditorForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
     cp := CaretPos;
     cb := CaretInByte;
 
+    // Horizontal move
     if (Sender=PaneHex) then
     begin
       cp2 := cp*2+cb+dx;
@@ -666,16 +682,8 @@ procedure TEditorForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
       cp := cp + dx;
     end;
 
-    case ByteColumns of
-      bcByWindowWidth:
-        begin
-          // TODO
-        end;
-      else
-        begin
-          cp := cp + ByteColumns*dy;
-        end;
-    end;
+    // Vertical move
+    cp := cp + CalcScrollDelta(CaretPos, dy);
 
     if StartOfByte then cb := 0;
 
@@ -874,7 +882,7 @@ var
   Delta: Integer;
 begin
   Delta := - WheelDelta div 120 * Settings.ScrollWithWheel;
-  FirstVisibleAddr := FirstVisibleAddr + CalcScrollDelta(Delta);
+  FirstVisibleAddr := FirstVisibleAddr + CalcScrollDelta(FirstVisibleAddr, Delta);
 end;
 
 function TEditorForm.GetByteAtScreenCoord(Pane: TEditorPane; Coord: TPoint;
@@ -908,22 +916,26 @@ function TEditorForm.GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer
 // Horizontal scroll does not affects it (it is handled by Pane itself).
 // Pos is in chars.
 var
-  N: Integer;
+  N, VisLines: Integer;
 begin
   RequireLineRanges();
-  if not VisibleRange.Intersects(Addr) then Exit(False);
-  for N := 0 to GetVisibleLinesCount() - 1 do
+  VisLines := GetVisibleLinesCount();
+  if not (VisibleRange.Intersects(Addr) or (FEOFInScreen and (Addr = VisibleRange.AEnd))) then Exit(False);
+
+  for N := 0 to VisLines - 1 do
   begin
-    if GetLineRange(N).Intersects(Addr) then
+    if (GetLineRange(N).Intersects(Addr)) or
+       // Special case for empty caret space at end of file
+       (FEOFInScreen and (N = VisLines - 1) and (FLineRanges[N].AEnd = Addr)) then
     begin
       Pos.Y := N;
-      Pos.X := Addr - GetLineRange(N).Start;
+      Pos.X := Addr - FLineRanges[N].Start;
       if Pane = PaneHex then
         Pos.X := Pos.X * 3;
       Exit(True);
     end;
   end;
-  Result := False;
+  Result := False;  // This may happen when region folding will be implemented
 end;
 
 function TEditorForm.GetByteScreenRect(Pane: TEditorPane; Addr: TFilePointer;
@@ -1225,10 +1237,10 @@ var
   Delta: Int64;
 begin
   case ScrollCode of
-    scLineUp:   Delta := CalcScrollDelta(-1);
-    scLineDown: Delta := CalcScrollDelta(1);
-    scPageUp:   Delta := CalcScrollDelta(-GetRowsInWindow());
-    scPageDown: Delta := CalcScrollDelta(GetRowsInWindow());
+    scLineUp:   Delta := CalcScrollDelta(FirstVisibleAddr, -1);
+    scLineDown: Delta := CalcScrollDelta(FirstVisibleAddr, 1);
+    scPageUp:   Delta := CalcScrollDelta(FirstVisibleAddr, -GetRowsInWindow());
+    scPageDown: Delta := CalcScrollDelta(FirstVisibleAddr, GetRowsInWindow());
     else Exit;
   end;
   ScrollPos := VertScrollBar.Position + Delta;
@@ -1274,41 +1286,49 @@ procedure TEditorForm.ScrollToShow(Addr: TFilePointer;
 // RowsFromBorder, ColsFromBorder ensures enough distance from window corners
 var
   Pos: TPoint;
-  Changed: Boolean;
+  ScreenRows, ScreenCols: Integer;
+  Changed, InScreen: Boolean;
 begin
+  ScreenRows := GetRowsInWindow();
+  ScreenCols := GetColsInWindow(False);
   if RowsFromBorder = -1 then RowsFromBorder := 8;
-  RowsFromBorder := BoundValue(RowsFromBorder, 0, GetRowsInWindow() div 2);
+  RowsFromBorder := BoundValue(RowsFromBorder, 0, ScreenRows div 2);
   if ColsFromBorder = -1 then ColsFromBorder := 8;
-  ColsFromBorder := BoundValue(ColsFromBorder, 0, GetColsInWindow() div 2);
+  ColsFromBorder := BoundValue(ColsFromBorder, 0, ScreenCols div 2);
 
   BeginUpdate();
   try
     // Vertical scroll
     Changed := False;
-    GetByteScreenPosition(PaneText, Addr, Pos);
-    if (Addr < VisibleRange.Start) or (Pos.Y < RowsFromBorder) then
+    InScreen := GetByteScreenPosition(PaneText, Addr, Pos);
+    if (Addr < VisibleRange.Start) or (InScreen and (Pos.Y < RowsFromBorder)) then
     begin
       ScrollToShowAtLine(Addr, RowsFromBorder);
       Changed := True;
+      InScreen := True;
     end
     else
-    if (Addr > {TODO: >= } VisibleRange.AEnd) or (Pos.Y > GetRowsInWindow() - RowsFromBorder - 1) then
+    if (Addr >= VisibleRange.AEnd) or (InScreen and (Pos.Y > ScreenRows - RowsFromBorder - 1)) then
     begin
-      ScrollToShowAtLine(Addr, GetRowsInWindow() - RowsFromBorder - 1);
+      ScrollToShowAtLine(Addr, ScreenRows - RowsFromBorder - 1);
       Changed := True;
+      InScreen := True;
     end;
 
     // Horizontal scroll
     if Changed then
     begin
       CalculateLineRanges(FirstVisibleAddr);
-      GetByteScreenPosition(PaneText, Addr, Pos);
+      InScreen := GetByteScreenPosition(PaneText, Addr, Pos);
     end;
-    if Pos.X < HorzScrollPos + ColsFromBorder then
-      HorzScrollPos := Pos.X - ColsFromBorder
-    else
-    if Pos.X > HorzScrollPos + GetColsInWindow() - ColsFromBorder - 1 then
-      HorzScrollPos := Pos.X - GetColsInWindow() + ColsFromBorder + 1;
+    if InScreen then
+    begin
+      if Pos.X < HorzScrollPos + ColsFromBorder then
+        HorzScrollPos := Pos.X - ColsFromBorder
+      else
+      if Pos.X > HorzScrollPos + ScreenCols - ColsFromBorder - 1 then
+        HorzScrollPos := Pos.X - ScreenCols + ColsFromBorder + 1;
+    end;
   finally
     EndUpdate();
   end;
@@ -1323,16 +1343,7 @@ procedure TEditorForm.ScrollToShowAtLine(Addr: TFilePointer;
   LineNumber: Integer);
 // Scroll to show given address at given screen line
 begin
-  case ByteColumns of
-    bcByLineBreaks:
-      begin
-        // TODO
-      end;
-    else
-      begin
-        FirstVisibleAddr := Addr - ByteColumns * LineNumber;
-      end;
-  end;
+  FirstVisibleAddr := Addr + CalcScrollDelta(Addr, -LineNumber);
 end;
 
 procedure TEditorForm.SelectAndShow(AStart, AEnd: TFilePointer;
@@ -1956,10 +1967,10 @@ procedure TEditorForm.UpdateScrollBars;
 begin
   RequireLineRanges();
   // Horizontal scroll bar
-  if ByteColumns {TODO: Max visible line width} > GetColsInWindow(False) then
+  if FMaxLineWidth > GetColsInWindow(False) then
   begin
     HorzScrollBar.Visible := True;
-    HorzScrollBar.Max := ByteColumns - 1;
+    HorzScrollBar.Max := FMaxLineWidth - 1;
     HorzScrollBar.PageSize := GetColsInWindow(False);
     HorzScrollBar.LargeChange := HorzScrollBar.PageSize;
   end
