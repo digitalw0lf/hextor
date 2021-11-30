@@ -136,7 +136,9 @@ type
   // Class for searching in TEditedData.
   // Actual match criteria are defined in derived classes
   protected
-    function FindInBlock(const Data: PByte; DataSize: Integer; Start: Integer; Direction: Integer; MoreDataFollows: Boolean; var Ptr, Size: Integer): Boolean;
+    FCurrentAbsPtr: TFilePointer;  // Absolute address in file of Data passed to Match()
+    FCurrentDirection: Integer;    // Current search direction
+    function FindInBlock(const Data: PByte; DataSize: Integer; DataAbsPtr: TFilePointer; Start: Integer; Direction: Integer; MoreDataFollows: Boolean; var Ptr, Size: Integer): Boolean;
     function GetReplacement(): TBytes; virtual;
   public
     Haystack: TEditedData;
@@ -145,6 +147,7 @@ type
     MinMatchSize, MaxMatchSize: Integer;  // Possible match size for current needle
     LastFoundRange: TFileRange;
     FSearchInProgress: Boolean;
+    constructor Create();
     function ParamsDefined(): Boolean; virtual;
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; virtual; abstract;
     function FindNext(Start: TFilePointer; Direction: Integer; var Ptr: TFilePointer; var Size: Integer): Boolean;
@@ -266,7 +269,7 @@ begin
           Data := Haystack.Get(Block.Start, Block.Size{, False});
           // Search in it
 //          t := GetNanosec();
-          Result := FindInBlock(@Data[0], Length(Data), Ptr - Block.Start, Direction, not LastBlock, IPtr, Size);
+          Result := FindInBlock(@Data[0], Length(Data), Block.Start, Ptr - Block.Start, Direction, not LastBlock, IPtr, Size);
 //          t := GetNanosec() - t;
 //          WriteLogFmt('FindInBlock: (%x-%x) sz: %d ptr: %x time: %d', [Block.Start, Block.AEnd, Block.Size, Ptr, t div 1000000]);
           Ptr := Block.Start + IPtr;
@@ -297,7 +300,13 @@ begin
   end;
 end;
 
-function TCustomDataSearcher.FindInBlock(const Data: PByte; DataSize: Integer;
+constructor TCustomDataSearcher.Create;
+begin
+  inherited;
+  Params.Range := EntireFile;
+end;
+
+function TCustomDataSearcher.FindInBlock(const Data: PByte; DataSize: Integer; DataAbsPtr: TFilePointer;
   Start: Integer; Direction: Integer; MoreDataFollows: Boolean; var Ptr, Size: Integer): Boolean;
 // Search in given loaded block.
 // Ptr is shifted in given direction, even if nothing found,
@@ -310,8 +319,10 @@ begin
   // to not miss large items on block boundary
   if MoreDataFollows then StopWhen := MaxMatchSize
                      else StopWhen := MinMatchSize;
+  FCurrentDirection := Direction;
   while (Ptr>=0) and (Ptr<DataSize) do
   begin
+    FCurrentAbsPtr := DataAbsPtr + Ptr;
     if Match(@Data[Ptr], DataSize-Ptr, Size) then
       Exit(True);
     Inc(Ptr, Direction);

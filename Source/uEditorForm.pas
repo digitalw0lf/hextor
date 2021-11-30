@@ -45,6 +45,15 @@ type
     function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; override;
   end;
 
+  TLineBreakSearcher = class(TCustomDataSearcher)
+  // Searcher for line breaks in "bcByLineBreaks" mode
+  public
+    LineBreakToken: string[2];  // CR or LF or CRLF
+    LastFoundLineBreak: TFilePointer;
+    constructor Create();
+    function Match(const Data: PByte; DataSize: Integer; var Size: Integer): Boolean; override;
+  end;
+
   TEditorForm = class(TForm)
     PaneHex: TEditorPane;
     PaneAddr: TEditorPane;
@@ -110,7 +119,6 @@ type
     FCaretInByte: Integer;
     TypingActionCode: Integer;  // To combine sequentially typed chars into one "Undo" action
     FHasUnsavedChanges: Boolean;
-//    FTopVisibleRow: TFilePointer;
     FUpdating: Integer;
     FNeedUpdatePanes: Boolean;          // We need to call UpdatePanes() when long operation ends
     FNeedCallSomeDataChanged: Boolean;  // We need to call SomeDataChanged() when long operation ends
@@ -131,6 +139,8 @@ type
     FFSkipBackByte, FFSkipFwdByte: Byte;
     FTextEncoding: Integer;
     FNowSelecting: Boolean;
+    FLineBreakSearcher: TLineBreakSearcher;
+    FDetectedLineBreakToken: RawByteString;
     class var FSettings: TEditorSettings;
     procedure SetCaretPos(Value: TFilePointer);
     procedure UpdatePanesCarets();
@@ -138,7 +148,6 @@ type
     procedure SetCaretInByte(const Value: Integer);
     procedure SetHasUnsavedChanges(const Value: Boolean);
     procedure UpdateFormCaption();
-//    procedure SetTopVisibleRow(Value: TFilePointer);
     procedure SetByteColumns(Value: Integer);
     procedure UpdatePaneWidths();
     procedure ShowSelectionInfo();
@@ -158,9 +167,7 @@ type
     procedure SetSelectedRange(const Value: TFileRange);
     procedure EditorGetTaggedRegions(Editor: TEditorForm; Start: TFilePointer;
       AEnd: TFilePointer; AData: PByteArray; Regions: TTaggedDataRegionList);
-//    function FirstVisibleAddr: TFilePointer;
     procedure SetFirstVisibleAddr(Value: TFilePointer);
-//    procedure SetTopVisibleRow(Value: TFilePointer);
     procedure CalculateLineRanges(AFirstVisibleAddr: TFilePointer);
     function GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer;
       var Pos: TPoint): Boolean;
@@ -169,9 +176,7 @@ type
     procedure InvalidateLineRanges();
     procedure RequireLineRanges();
     function CalcScrollDelta(Addr: TFilePointer; DeltaLines: Int64): TFilePointer;
-//    function VisibleBytesCount: Integer;
-//  public type
-//    TSaveMethod = (smUnknown, smPartialInplace, smFull, smTempFile);
+    function FindNextLineBreak(Start: TFilePointer; Direction: Integer; {out} SeparatorSize: PInteger = nil): TFilePointer;
   public type
     TCaretInSelection = (CaretNoMove, CaretAtStart, CaretAtEnd);
   public const
@@ -210,12 +215,10 @@ type
     procedure UpdateSkipFFButtons(const AData: TBytes);
     function GetRowsInWindow(): Integer;
     function GetColsInWindow(IncludePartial: Boolean = True): Integer;
-//    function FirstVisibleAddr(): TFilePointer;
-//    function VisibleBytesCount(): Integer;
-//    function GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer; var Pos: TPoint): Boolean;
     function GetByteScreenRect(Pane: TEditorPane; Addr: TFilePointer; var Rect: TRect): Boolean;
     function GetByteAtScreenCoord(Pane: TEditorPane; Coord: TPoint; var Addr: TFilePointer; {out} CaretInByte: PInteger = nil): Boolean;
-    procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte);
+    procedure ChangeBytes(Addr: TFilePointer; const Value: array of Byte); overload;
+    procedure ChangeBytes(Addr: TFilePointer; Size: Int64; Value: PByteArray); overload;
     function DeleteSelected(): TFilePointer;
     procedure ReplaceSelected(NewSize: TFilePointer; Value: PByteArray);
     [API]
@@ -242,7 +245,6 @@ type
     [API]
     procedure EndUpdate();
     property HasUnsavedChanges: Boolean read FHasUnsavedChanges write SetHasUnsavedChanges;
-//    property TopVisibleRow: TFilePointer read FTopVisibleRow write SetTopVisibleRow;
     property VisibleRange: TFileRange read FVisibleRange;
     property FirstVisibleAddr: TFilePointer read FVisibleRange.Start write SetFirstVisibleAddr;
     property HorzScrollPos: Integer read FHorzScrollPos write SetHorzScrollPos;
@@ -366,9 +368,6 @@ var
   Start, Ptr: TFilePointer;
   Dir, Size: Integer;
 begin
-  FFSkipSearcher.Haystack := Data;
-  FFSkipSearcher.Params.Range := EntireFile;
-
   Dir := (Sender as TSpeedButton).Tag;
   if Dir < 0 then
   begin
@@ -397,52 +396,77 @@ end;
 
 procedure TEditorForm.CalculateLineRanges(AFirstVisibleAddr: TFilePointer);
 // Calculate visible range and line addresses so given address is visible
-// in first line on screen
+// in first line on screen.
+//
+// This method should calculate:
+// FVertScrollMax, FVertScrollPage,
+// FVisibleRange, FLineRanges,
+// FEOFInScreen, FMaxLineWidth,
+// FLineRangesValid
 var
   Range: TFileRange;
-  i, Rows: Integer;
+  i, Rows, ScreenRows: Integer;
   FileSize: TFilePointer;
   ByteplacesInScreen: Integer;
+  Start, Ptr: TFilePointer;
+  Size: Integer;
 begin
+  ScreenRows := GetRowsInWindow();
   // Calculate scrollbar range and page size.
   // Exact page size is significant for the last page (screen) of file.
-  case ByteColumns of
+  case ByteColumnsSetting of
     bcByLineBreaks:
       begin
-        // TODO:
+        // Simplified for now
         FVertScrollMax := GetFileSize() + 1;
         FVertScrollPage := 1;
       end;
     else
       begin
         FVertScrollMax := NextAlignBoundary(GetFileSize() + 1, ByteColumns);
-        FVertScrollPage := BoundValue(GetRowsInWindow() * ByteColumns, 1, FVertScrollMax);
+        FVertScrollPage := BoundValue(ScreenRows * ByteColumns, 1, FVertScrollMax);
       end;
   end;
   // Don't allow navigating beyond file bounds
   AFirstVisibleAddr := BoundValue(AFirstVisibleAddr, 0, FVertScrollMax - FVertScrollPage + 1);
 
   // Calculate addresses for each visible line
-  case ByteColumns of
+  case ByteColumnsSetting of
     bcByLineBreaks:
       begin
-        // TODO:
-        {}
-        FVisibleRange.Start := 0;
-        FVisibleRange.AEnd := 70;
-        SetLength(FLineRanges, 5);
-        FLineRanges[0] := TFileRange.Create(0, 10);
-        FLineRanges[1] := TFileRange.Create(10, 30);
-        FLineRanges[2] := TFileRange.Create(30, 40);
-        FLineRanges[3] := TFileRange.Create(40, 60);
-        FLineRanges[4] := TFileRange.Create(60, 70);
-        {}
+        FEOFInScreen := False;
+        FLineRanges := [];
+        Size := 0;
+        FLineBreakSearcher.LastFoundLineBreak := -1;
+
+        // Find a beginning of current line
+        Start := FindNextLineBreak(AFirstVisibleAddr, -1, @Size);
+        // Find N lines
+        for i := 0 to ScreenRows - 1 do
+        begin
+          if Start >= GetFileSize() then
+          begin
+            // End of file
+            FEOFInScreen := True;
+            if (Size > 0) or (FLineRanges = nil) then
+            begin
+              // Last line ends with line break - add empty line to display
+              FLineRanges := FLineRanges + [TFileRange.Create(Start, Start)];
+            end;
+            Break;
+          end;
+          Ptr := FindNextLineBreak(Start + 1, 1, @Size);
+          FLineRanges := FLineRanges + [TFileRange.Create(Start, Ptr)];
+          Start := Ptr;
+        end;
+        FVisibleRange.Start := FLineRanges[0].Start;
+        FVisibleRange.AEnd := FLineRanges[High(FLineRanges)].AEnd;
       end;
     else
       begin
         // Align to column width
         Range.Start := AFirstVisibleAddr div ByteColumns * ByteColumns;
-        Range.AEnd := Range.Start + ByteColumns * GetRowsInWindow();
+        Range.AEnd := Range.Start + ByteColumns * ScreenRows;
         FileSize := GetFileSize();
         // Show extra empty row at file end to allow placing cursor there
         if Range.AEnd > FileSize then
@@ -468,19 +492,51 @@ begin
   end;
 
   FMaxLineWidth := 0;
-  for i := 0 to High(FLineRanges) - 1 do
+  for i := 0 to High(FLineRanges) do
     FMaxLineWidth := Max(FMaxLineWidth, FLineRanges[i].Size);
 
   FLineRangesValid := True;
 end;
 
+procedure TEditorForm.ChangeBytes(Addr: TFilePointer; Size: Int64;
+  Value: PByteArray);
+begin
+  Data.Change(Addr, Size, Value);
+end;
+
 function TEditorForm.CalcScrollDelta(Addr: TFilePointer; DeltaLines: Int64): TFilePointer;
 // How to change given address to scroll by specified number of lines
+// (returns delta bytes)
+var
+  Ptr, LineEnd, FileSize: TFilePointer;
+  LBSize, PosInLine, i, Direction: Integer;
 begin
-  if ByteColumns = bcByLineBreaks then
+  if DeltaLines = 0 then Exit(0);
+
+  if ByteColumnsSetting = bcByLineBreaks then
   begin
-    // TODO:
-    Result := DeltaLines;
+    FileSize := GetFileSize();
+    LBSize := 0;
+    FLineBreakSearcher.LastFoundLineBreak := -1;
+    // Find a beginning of current line
+    Ptr := FindNextLineBreak(Addr, -1, @LBSize);
+    PosInLine := Addr - (Ptr);
+    Direction := Sign(DeltaLines);
+
+    for i := 0 to Abs(DeltaLines) - 1 do
+    begin
+      if (Direction < 0) and (Ptr <= 0) then Break;
+      if (Direction > 0) and (Ptr >= FileSize) then Break;
+      Ptr := FindNextLineBreak(Ptr + IfThen(Direction < 0, -Length(FLineBreakSearcher.LineBreakToken), 1), Direction, @LBSize);
+    end;
+    // Limit by length of new line
+    if PosInLine > 0 then
+    begin
+      LineEnd := FindNextLineBreak(Ptr + 1, 1);
+      Ptr := Min(Ptr + PosInLine, LineEnd - 1);
+    end;
+
+    Result := Ptr - Addr;
   end
   else
   begin
@@ -493,7 +549,7 @@ procedure TEditorForm.CalculateByteColumns();
 var
   Cols: Integer;
 begin
-  if ByteColumnsSetting = bcByWindowWidth then
+  if (ByteColumnsSetting = bcByLineBreaks) or (ByteColumnsSetting = bcByWindowWidth) then
   begin
     Cols := (VertScrollBar.Left - PaneHex.Left - PaneHex.CharWidth - PaneText.CharWidth) div (PaneHex.CharWidth*3 + PaneText.CharWidth);
     if Cols < 1 then Cols := 1;
@@ -523,7 +579,7 @@ end;
 procedure TEditorForm.DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize,
   NewSize: TFilePointer; Value: PByteArray);
 begin
-  if (OldSize <> NewSize) or (ByteColumns = bcByLineBreaks) then
+  if (OldSize <> NewSize) or (ByteColumnsSetting = bcByLineBreaks) then
     InvalidateLineRanges();
 
   if OldSize <> NewSize then
@@ -548,7 +604,33 @@ begin
   Data.Free;
   DataSource.Free;
   FFSkipSearcher.Free;
+  FLineBreakSearcher.Free;
   inherited;
+end;
+
+function TEditorForm.FindNextLineBreak(Start: TFilePointer; Direction: Integer;
+  {out} SeparatorSize: PInteger): TFilePointer;
+// For bcByLineBreaks mode: find next line break address.
+// Returns the beginning of next line, not a start of line-break sequence.
+// May return a pointer to start or end of file if no line-break token found.
+var
+  Size: Integer;
+  FileSize: TFilePointer;
+begin
+  FileSize := GetFileSize();
+  Start := Start - Length(FLineBreakSearcher.LineBreakToken);
+  if (Direction = 1) and (Start < 0) then Start := 0;
+  if (Direction = -1) and (Start > FileSize) then Start := FileSize;
+  if FLineBreakSearcher.FindNext(Start, Direction, Result, Size) then
+    Result := Result + Size
+  else
+  begin
+    Result := IfThen(Direction = -1, 0, FileSize);
+    Size := 0;
+  end;
+  if SeparatorSize <> nil then
+    SeparatorSize^ := Size;
+  FLineBreakSearcher.LastFoundLineBreak := Result;
 end;
 
 procedure TEditorForm.FormActivate(Sender: TObject);
@@ -578,10 +660,14 @@ begin
   UndoStack := TUndoStack.Create(Data);
   UndoStack.OnActionCreating.Add(UndoActionCreating);
   UndoStack.OnActionReverted.Add(UndoActionReverted);
+  FFSkipSearcher := TFFSkipSearcher.Create();
+  FFSkipSearcher.Haystack := Data;
+  FLineBreakSearcher := TLineBreakSearcher.Create();
+  FLineBreakSearcher.Haystack := Data;
 
+  FDetectedLineBreakToken := #13#10;  // TODO: Auto-detect from visible data
   ByteColumnsSetting := Settings.ByteColumns;
   CalculateByteColumns();
-  FFSkipSearcher := TFFSkipSearcher.Create();
   OnGetTaggedRegions.Add(EditorGetTaggedRegions);
 
   MainForm.AddEditor(Self);
@@ -691,25 +777,31 @@ procedure TEditorForm.PaneHexKeyDown(Sender: TObject; var Key: Word;
     CaretInByte := cb;
   end;
 
+var
+  Pt: TPoint;
+  Pos: TFilePointer;
+  Range: TFileRange;
 begin
   BeginUpdate();
   try
     case Key of
-      VK_HOME:
+      VK_HOME, VK_END:
         if ssCtrl in Shift then
           begin end //MainForm.ActionGoToStart.Execute()
         else
         begin
-          MoveCaret((CaretPos div ByteColumns)*ByteColumns, KeyboardStateToShiftState());
-          CaretInByte := 0;
-        end;
-
-      VK_END:
-        if ssCtrl in Shift then
-          begin end //MainForm.ActionGoToEnd.Execute()
-        else
-        begin
-          MoveCaret((CaretPos div ByteColumns)*ByteColumns + ByteColumns - 1, KeyboardStateToShiftState());
+          if not GetByteScreenPosition(nil, CaretPos, Pt) then
+          begin
+            // Caret out of view. Scroll to caret first to obtain line ranges.
+            ScrollToCaret();
+            if not GetByteScreenPosition(nil, CaretPos, Pt) then Exit;
+          end;
+          Range := GetLineRange(Pt.Y);
+          if KEY = VK_HOME then
+            Pos := Range.Start
+          else
+            Pos := Max(Range.AEnd - 1, Range.Start);
+          MoveCaret(Pos, KeyboardStateToShiftState());
           CaretInByte := 0;
         end;
 
@@ -763,24 +855,6 @@ begin
           end;
         end;
     end;
-
-//    if ssCtrl in Shift then
-//    begin
-//      case Key of
-//        Ord('A'): MainForm.ActionSelectAll.Execute();
-//        Ord('X'): MainForm.ActionCut.Execute();
-////        Ord('C'), VK_INSERT: MainForm.ActionCopy.Execute();
-//        Ord('V'): MainForm.ActionPaste.Execute();
-//        Ord('F'): MainForm.ActionFind.Execute();
-//      end;
-//      Key := 0;
-//    end;
-//
-//    if (ssShift in Shift) and (Key = VK_INSERT) then
-//    begin
-//      MainForm.ActionPaste.Execute();
-//      Key := 0;
-//    end;
 
   finally
     EndUpdate();
@@ -915,6 +989,7 @@ function TEditorForm.GetByteScreenPosition(Pane: TEditorPane; Addr: TFilePointer
 // Returns Row/Column of given byte on Pane, if this byte is visible on screen now.
 // Horizontal scroll does not affects it (it is handled by Pane itself).
 // Pos is in chars.
+// Pane may be nil, in this case 1 character per byte assumed.
 var
   N, VisLines: Integer;
 begin
@@ -1148,27 +1223,31 @@ end;
 procedure TEditorForm.PaneTextKeyPress(Sender: TObject; var Key: Char);
 var
   s: RawByteString;
-  c: AnsiChar;
+//  c: AnsiChar;
 begin
-  if Key >= ' ' then
+  if (Key >= ' ') or
+     ((Key = Char(VK_RETURN)) and (ByteColumnsSetting = bcByLineBreaks)) then
   begin
     BeginUpdate();
     UndoStack.BeginAction('type_'+IntToStr(TypingActionCode), 'Typing');
     try
-      // Maybe some better way to convert single unicode char to selected CP char?
+      // Convert typed unicode char to selected CP char
       s := RawByteString(string(Key));  // Converts to system CP
       SetCodePage(s, TextEncoding, True);
-      c := s[Low(s)];
+      if (Key = Char(VK_RETURN)) then
+      begin
+        // Respect line break style of current file
+        s := FDetectedLineBreakToken;
+      end;
+
       if InsertMode then
       begin
-//        DeleteSelected();
-//        EditedData.Insert(CaretPos, 1, @c);
-        ReplaceSelected(1, @c);
+        ReplaceSelected(Length(s), @s[Low(s)]);
       end
       else
       begin
-        ChangeBytes(CaretPos, [Byte(c)]);
-        MoveCaret(CaretPos + 1, []);
+        ChangeBytes(CaretPos, Length(s), @s[Low(s)]);
+        MoveCaret(CaretPos + Length(s), []);
       end;
     finally
       UndoStack.EndAction();
@@ -1308,7 +1387,7 @@ begin
       InScreen := True;
     end
     else
-    if (Addr >= VisibleRange.AEnd) or (InScreen and (Pos.Y > ScreenRows - RowsFromBorder - 1)) then
+    if (Addr >= VisibleRange.AEnd + IfThen(FEOFInScreen, 1, 0)) or (InScreen and (Pos.Y > ScreenRows - RowsFromBorder - 1)) then
     begin
       ScrollToShowAtLine(Addr, ScreenRows - RowsFromBorder - 1);
       Changed := True;
@@ -1422,6 +1501,7 @@ begin
   if FByteColumnsSetting <> Value then
   begin
     FByteColumnsSetting := Value;
+    InvalidateLineRanges();
     CalculateByteColumns();
   end;
 end;
@@ -1770,10 +1850,8 @@ var
   i, j: Integer;
   AddrChars: Integer;
   Lines: TStringList;
-  //s: AnsiString;
   s: RawByteString;
   FileSize: TFilePointer;
-//  IncludesFileEnd: Boolean;
   ws: string;
   t: Cardinal;
 
@@ -1783,17 +1861,18 @@ var
   begin
     for i:=Low(Buf) to High(Buf) do
     begin
-      if ((Buf[i] < ' ') {and (Buf[i] <> #$0A) and (Buf[i] <> #$0D)}) or
+      // Unprintable chars
+      if ((Buf[i] < ' ') and (Buf[i] <> #$0A) and (Buf[i] <> #$0D)) or
          (Buf[i] = #$7F) or (Buf[i] = #$98) then
-        Buf[i] := '.';
+        Buf[i] := #$B7;
     end;
     Result := string(Buf);
-//    // Carriage return symbols
-//    for i:=Low(Result) to High(Result) do
-//    begin
-//      if (Result[i] = #$000D) or (Result[i] = #$000A) then
-//        Result[i] := #$21B5;
-//    end;
+    // Carriage return symbols
+    for i:=Low(Result) to High(Result) do
+    begin
+      if (Result[i] = #$000D) or (Result[i] = #$000A) then
+        Result[i] := #$2193;
+    end;
   end;
 
 begin
@@ -1816,8 +1895,6 @@ begin
 //    StartTimeMeasure();
     AData := GetEditedData(VisRange.Start, VisRange.Size);
 //    EndTimeMeasure('GetData', True);
-
-//    IncludesFileEnd := (Length(AData) < Rows * ByteColumns);
 
     // Address
     Lines := PaneAddr.Lines;
@@ -1897,7 +1974,7 @@ procedure TEditorForm.UpdatePanesCarets;
 // Update panes carets and text/background colors
 var
   cp: TPoint;
-  p, FirstVis: TFilePointer;
+  FirstVis: TFilePointer;
   VisSize: Integer;
   TaggedRegions: TTaggedDataRegionList;
   AData: TBytes;
@@ -1928,8 +2005,7 @@ begin
   FirstVis := VisibleRange.Start;
   VisSize := VisibleRange.Size;
 
-  p := FCaretPos - FirstVis;
-  cp := Point(p mod ByteColumns, p div ByteColumns);
+  GetByteScreenPosition(PaneText, FCaretPos, cp);
 
   // TODO: cache this inside EditorForm?
   AData := Data.Get(FirstVis, VisSize);
@@ -2034,11 +2110,6 @@ begin
   ShowBtn(BtnSkipFFFwd, High(AData) - Min(Length(AData) div 4, 4096), High(AData), FFSkipFwdByte, 'Skip forward to next non-% byte');
 end;
 
-//function TEditorForm.VisibleBytesCount: Integer;
-//begin
-//  Result := GetVisibleRowsCount() * ByteColumns;
-//end;
-
 procedure TEditorForm.Open(DataSourceType: THextorDataSourceType;
   const APath: string; ResetCaret: Boolean);
 var
@@ -2091,6 +2162,38 @@ begin
   ScrollWithWheel := 3;
   ByteColumns := bcByWindowWidth;
   HighlightMatches := True;
+end;
+
+{ TLineBreakSearcher }
+
+constructor TLineBreakSearcher.Create;
+begin
+  inherited;
+  LineBreakToken := #10;
+  MinMatchSize := Length(LineBreakToken);
+  MaxMatchSize := Length(LineBreakToken);
+  LastFoundLineBreak := -1;
+end;
+
+function TLineBreakSearcher.Match(const Data: PByte; DataSize: Integer;
+  var Size: Integer): Boolean;
+const
+  // Prevent freezing on files without line breaks
+  LineLengthLimit = 64*1024;
+begin
+  //if (LastFoundRange <> NoRange) and (Abs(FCurrentAbsPtr + 1 - LastFoundRange.AEnd) >= 1024) then
+  if (LastFoundLineBreak >= 0) and (Abs(FCurrentAbsPtr + 1 - LastFoundLineBreak) >= LineLengthLimit) then
+  begin
+    // Limit line length
+    Size := 1;
+    Exit(True);
+  end;
+
+  Size := Length(LineBreakToken);
+  if (DataSize >= Size) and (CompareMem(Data, @LineBreakToken[1], Size)) then
+    Result := True
+  else
+    Result := False;
 end;
 
 initialization
