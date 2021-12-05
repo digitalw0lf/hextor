@@ -252,6 +252,7 @@ type
     DropFileCatcher1: TDropFileCatcher;
     ActionFileConcat: TAction;
     Concatenatefiles1: TMenuItem;
+    Openemulatedsource1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -327,6 +328,7 @@ type
     procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
       Control: TWinControl; Files: TStrings; DropPoint: TPoint);
     procedure ActionFileConcatExecute(Sender: TObject);
+    procedure Openemulatedsource1Click(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -1597,6 +1599,15 @@ begin
     Result.Close();
     raise;
   end;
+end;
+
+procedure TMainForm.Openemulatedsource1Click(Sender: TObject);
+var
+  s: string;
+begin
+  s := 't_1EB';
+  if not InputQuery('Open emulated source', '"b_size" or "t_size"', s) then Exit;
+  Open(TRandGenDataSource, s);
 end;
 
 function TMainForm.OpenFile(const AFileName: string): TEditorForm;

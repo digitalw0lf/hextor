@@ -314,6 +314,13 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSaveDescr: TToolButton
+              ExplicitWidth = 26
+            end
+            inherited LblStructName: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
           end
           inherited SavedDescrsMenu: TPopupMenu
             Images = nil
@@ -339,18 +346,26 @@ object MainForm: TMainForm
           inherited PageControl1: TPageControl
             Width = 412
             Height = 519
+            ExplicitWidth = 412
+            ExplicitHeight = 519
             inherited InitialTab: TTabSheet
               ExplicitWidth = 404
               ExplicitHeight = 491
             end
             inherited ComparisonTab: TTabSheet
+              ExplicitLeft = 4
+              ExplicitTop = 24
               ExplicitWidth = 404
               ExplicitHeight = 491
               inherited DiffBar: TPaintBox
                 Height = 491
+                ExplicitHeight = 491
               end
+              inherited BtnRecompare: TButton
+                Images = nil
               end
             end
+          end
           inherited CompareSelectFormPanel: TPanel
             inherited ImageProxy1: THintedImageProxy
               Image = nil
@@ -408,6 +423,13 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSave: TToolButton
+              ExplicitWidth = 26
+            end
+            inherited LblScriptName: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
           end
           inherited SavedScriptsMenu: TPopupMenu
             Images = nil
@@ -498,10 +520,6 @@ object MainForm: TMainForm
             Height = 195
             ExplicitWidth = 412
             ExplicitHeight = 195
-            inherited StaticText1: TStaticText
-              Width = 406
-              ExplicitWidth = 406
-            end
             inherited ResultListView: TListView
               Width = 412
               Height = 172
@@ -560,6 +578,10 @@ object MainForm: TMainForm
       object PgRegions: TTabSheet
         Caption = 'Regions'
         ImageIndex = 9
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         inline RegionsFrame: TRegionsFrame
           Left = 0
           Top = 0
@@ -910,6 +932,10 @@ object MainForm: TMainForm
       object CreateTestFile1: TMenuItem
         Caption = 'Create Test File'
         OnClick = CreateTestFile1Click
+      end
+      object Openemulatedsource1: TMenuItem
+        Caption = 'Open emulated source'
+        OnClick = Openemulatedsource1Click
       end
       object Something1: TMenuItem
         Caption = 'Something'

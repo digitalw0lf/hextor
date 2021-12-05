@@ -56,6 +56,7 @@ type
   end;
 
   THextorDataSource = class
+  // Base class for all data sources
   private
     FPath, FDisplayName: string;
     function GetDisplayName: string; virtual;
@@ -78,6 +79,7 @@ type
   THextorDataSourceType = class of THextorDataSource;
 
   TCachedDataSource = class (THextorDataSource)
+  // Base class for slow datasources which need caching
   protected
     Cache: TDataCache;
   public
@@ -91,6 +93,7 @@ type
   end;
 
   TFileDataSource = class (TCachedDataSource)
+  // Handle-based data sources
   protected
     FileStream: TFileStream;
   public
@@ -119,12 +122,34 @@ type
   end;
 
   TProcMemDataSource = class (THextorDataSource)
+  // Process memory
   protected
     const PageSize = 4096;
   protected
     FSize: TFilePointer;
   public
     hProcess: Cardinal;
+    constructor Create(const APath: string); override;
+    destructor Destroy(); override;
+    procedure Open(Mode: Word); override;
+    function GetProperties(): TDataSourceProperties; override;
+    function GetSize(): TFilePointer; override;
+    function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
+    function ChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; override;
+    function GetRegions(const ARange: TFileRange): TSourceRegionArray; override;
+  end;
+
+  TRandGenDataSource = class (THextorDataSource)
+  // Emulate large data source with random generated data
+  protected
+    const PageSize = 32*1024;
+  protected
+    FTextual: Boolean;
+    FSize: TFilePointer;
+    CachedPageAddr: TFilePointer;
+    CachedPage: TBytes;
+    procedure GenPage(Addr: TFilePointer);
+  public
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
     procedure Open(Mode: Word); override;
@@ -672,6 +697,113 @@ var
 begin
   for i := 0 to Length(Self)-1 do
     Self[i].Free;
+end;
+
+{ TRandGenDataSource }
+
+function TRandGenDataSource.ChangeData(Addr: TFilePointer; Size: Integer;
+  const Data): Integer;
+begin
+  // Not implemented
+  Result := 0;
+end;
+
+constructor TRandGenDataSource.Create(const APath: string);
+var
+  s: TArray<string>;
+begin
+  inherited;
+  s := APath.Split(['_']);
+  FTextual := (s[0] = 't');
+  FSize := Str2FileSize(s[1]);
+  if (FSize < 0) then
+    raise Exception.Create('Invalid file size');
+  CachedPageAddr := -PageSize;
+end;
+
+destructor TRandGenDataSource.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TRandGenDataSource.GenPage(Addr: TFilePointer);
+const
+  Words: array[0..107] of AnsiString = (
+    'the ', 'be ', 'to ', 'of ', 'and ', 'a ', 'in ', 'that ', 'have ', 'I ', 'it ', 'for ', 'not ', 'on ', 'with ', 'he ', 'as ', 'you ', 'do ', 'at ', 'this ', 'but ', 'his ', 'by ', 'from ', 'they ', 'we ', 'say ',
+    'her ', 'she ', 'or ', 'an ', 'will ', 'my ', 'one ', 'all ', 'would ', 'there ', 'their ', 'what ', 'so ', 'up ', 'out ', 'if ', 'about ', 'who ', 'get ', 'which ', 'go ', 'me ', 'when ', 'make ', 'can ', 'like ',
+    'time ', 'no ', 'just ', 'him ', 'know ', 'take ', 'people ', 'into ', 'year ', 'your ', 'good ', 'some ', 'could ', 'them ', 'see ', 'other ', 'than ', 'then ', 'now ', 'look ', 'only ', 'come ', 'its ', 'over ',
+    'think ', 'also ', 'back ', 'after ', 'use ', 'two ', 'how ', 'our ', 'work ', 'first ', 'well ', 'way ', 'even ', 'new ', 'want ', 'because ', 'any ', 'these ', 'give ', 'day ', 'most ', 'us ',
+    ', ', '. ', '! ', #13#10,
+    ', ', '. ', '! ', #13#10
+  );
+var
+  i, n: Integer;
+  s1: AnsiString;
+begin
+  if Addr = CachedPageAddr then Exit;
+  if Length(CachedPage) <> PageSize then
+    SetLength(CachedPage, PageSize);
+  if FTextual then
+  begin
+    RandSeed := Addr div PageSize;
+    i := 0;
+    while i < PageSize do
+    begin
+      n := Random(Length(Words));
+      Move(Words[n][Low(AnsiString)], CachedPage[i], Min(Length(Words[n]), PageSize - i));
+      Inc(i, Length(Words[n]));
+    end;
+  end
+  else
+  begin
+    for i := 0 to PageSize div 4 - 1 do
+    begin
+      PIntegerArray(@CachedPage[0])[i] := i * (i mod 256) * (Addr div 1024 + 1) + Addr;
+    end;
+  end;
+  s1 := '-------- ADDR  ' + IntToHex(Addr, 16) + ' --------';
+  Move(s1[Low(s1)], CachedPage[0], Length(s1));
+  CachedPageAddr := Addr;
+end;
+
+function TRandGenDataSource.GetData(Addr: TFilePointer; Size: Integer;
+  var Data): Integer;
+var
+  i: Integer;
+  a: Int64;
+begin
+  if Addr + Size > FSize then
+    Size := FSize - Addr;
+  for i := 0 to Size - 1 do
+  begin
+    a := Addr + i;
+    if (a < CachedPageAddr) or (a >= CachedPageAddr + PageSize) then
+      GenPage(a div PageSize * PageSize);
+    PByteArray(@Data)[i] := CachedPage[a mod PageSize];
+  end;
+  Result := Size;
+end;
+
+function TRandGenDataSource.GetProperties: TDataSourceProperties;
+begin
+  Result := [dspWritable, dspResizable];
+end;
+
+function TRandGenDataSource.GetRegions(
+  const ARange: TFileRange): TSourceRegionArray;
+begin
+  Result := inherited;
+end;
+
+function TRandGenDataSource.GetSize: TFilePointer;
+begin
+  Result := FSize;
+end;
+
+procedure TRandGenDataSource.Open(Mode: Word);
+begin
+
 end;
 
 end.

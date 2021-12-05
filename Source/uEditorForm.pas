@@ -2005,7 +2005,8 @@ begin
   FirstVis := VisibleRange.Start;
   VisSize := VisibleRange.Size;
 
-  GetByteScreenPosition(PaneText, FCaretPos, cp);
+  if not GetByteScreenPosition(PaneText, FCaretPos, cp) then
+    cp := Point(-1, -1);
 
   // TODO: cache this inside EditorForm?
   AData := Data.Get(FirstVis, VisSize);
