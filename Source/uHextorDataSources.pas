@@ -762,7 +762,7 @@ begin
       PIntegerArray(@CachedPage[0])[i] := i * (i mod 256) * (Addr div 1024 + 1) + Addr;
     end;
   end;
-  s1 := '-------- ADDR  ' + IntToHex(Addr, 16) + ' --------';
+  s1 := AnsiString('-------- ADDR  ' + IntToHex(Addr, 16) + ' --------');
   Move(s1[Low(s1)], CachedPage[0], Length(s1));
   CachedPageAddr := Addr;
 end;

@@ -143,7 +143,7 @@ type
     procedure Scroll(ScrollCode: TScrollCode; var ScrollPos: Int64); dynamic;
   public
     constructor Create(AOwner: TComponent); override;
-    procedure SetParams(APosition, AMin, AMax: Int64);
+    procedure SetParams(APosition, AMin, AMax: Int64); overload;
   published
     property Align;
     property Anchors;

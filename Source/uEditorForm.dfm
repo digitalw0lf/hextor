@@ -66,35 +66,16 @@ object EditorForm: TEditorForm
   OnResize = FormResize
   PixelsPerInch = 96
   TextHeight = 13
-  object Shape1: TShape
-    Left = 81
-    Top = 0
-    Width = 4
-    Height = 627
-    Align = alLeft
-    Brush.Color = 14737632
-    Pen.Style = psClear
-    ExplicitLeft = 93
-    ExplicitTop = -6
-    ExplicitHeight = 624
-  end
-  object Shape2: TShape
-    Left = 770
-    Top = 0
-    Width = 4
-    Height = 627
-    Align = alLeft
-    Brush.Color = 14737632
-    Pen.Style = psClear
-    ExplicitLeft = 835
-    ExplicitTop = -6
-    ExplicitHeight = 624
-  end
   object PaneHex: TEditorPane
+    AlignWithMargins = True
     Left = 85
     Top = 0
     Width = 685
     Height = 627
+    Margins.Left = 4
+    Margins.Top = 0
+    Margins.Right = 0
+    Margins.Bottom = 0
     Align = alLeft
     BevelOuter = bvNone
     Color = clWindow
@@ -121,6 +102,7 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 610
   end
   object PaneAddr: TEditorPane
     Left = 0
@@ -144,12 +126,18 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 610
   end
   object PaneText: TEditorPane
+    AlignWithMargins = True
     Left = 774
     Top = 0
     Width = 258
     Height = 627
+    Margins.Left = 4
+    Margins.Top = 0
+    Margins.Right = 0
+    Margins.Bottom = 0
     Align = alClient
     BevelOuter = bvNone
     Color = clWindow
@@ -176,6 +164,7 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 610
     DesignSize = (
       258
       627)
@@ -243,17 +232,6 @@ object EditorForm: TEditorForm
         Width = 200
       end>
   end
-  object HorzScrollBar: TScrollBar
-    Left = 0
-    Top = 627
-    Width = 1049
-    Height = 17
-    Align = alBottom
-    PageSize = 0
-    TabOrder = 4
-    Visible = False
-    OnChange = HorzScrollBarChange
-  end
   object VertScrollBar: TScrollBar64
     Left = 1032
     Top = 0
@@ -263,9 +241,21 @@ object EditorForm: TEditorForm
     Kind = sbVertical
     Max = 0
     PageSize = 0
-    TabOrder = 5
+    TabOrder = 4
     OnChange = VertScrollBarChange
     OnScroll = VertScrollBarScroll
+    ExplicitHeight = 610
+  end
+  object HorzScrollBar: TScrollBar64
+    Left = 0
+    Top = 627
+    Width = 1049
+    Height = 17
+    Align = alBottom
+    Max = 0
+    PageSize = 0
+    TabOrder = 5
+    OnChange = HorzScrollBarChange
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286

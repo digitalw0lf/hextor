@@ -86,7 +86,8 @@ type
   TTaggedDataRegionList = class (TObjectList<TTaggedDataRegion>)
   public
     AcceptRange: TFileRange;
-    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil): TTaggedDataRegion;
+    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor;
+      Data: Pointer = nil; CanAppend: Boolean = false): TTaggedDataRegion;
     constructor Create(); overload;
     constructor Create(const AAcceptRange: TFileRange); overload;
   end;
@@ -1036,10 +1037,23 @@ end;
 { TTaggedDataRegionList }
 
 function TTaggedDataRegionList.AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer;
-  TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil): TTaggedDataRegion;
+  TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil; CanAppend: Boolean = false): TTaggedDataRegion;
+// Add region to list if it intersects current accepted range.
+// CanAppend: region can be appended to last region with identical properties
 begin
   if (AcceptRange = EntireFile) or (AcceptRange.Intersects2(RangeStart, RangeEnd)) then
   begin
+    if (CanAppend) and (Count > 0) then
+    begin
+      Result := Last();
+      if (Owner = Result.Owner) and (RangeStart = Result.Range.AEnd) and
+         (TextColor = Result.TextColor) and (BgColor = Result.BgColor) and (FrameColor = Result.FrameColor) and
+         (Data = Result.Data) then
+      begin
+        Result.Range.AEnd := RangeEnd;
+        Exit;
+      end;
+    end;
     Result := TTaggedDataRegion.Create(Owner, TFileRange.Create(RangeStart, RangeEnd), TextColor, BgColor, FrameColor);
     Result.Data := Data;
     Add(Result);

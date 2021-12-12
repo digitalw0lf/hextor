@@ -39,6 +39,7 @@ uses
 const
   Color_NoDataTx    = clGray;  // E.g. unallocated memory range
   Color_SrcRegionFr = clGray;  // Native regions of Data Source
+  Color_LineBreakTx = clGray;  // \r\n bytes in text editor mode
   Color_ChangedByte = $B0F0FF;
   Color_SelectionBg = $F5DDBF; //clHighlight;
   Color_SelectionTx = clNone; //clHighlightText;
@@ -253,6 +254,17 @@ type
     ActionFileConcat: TAction;
     Concatenatefiles1: TMenuItem;
     Openemulatedsource1: TMenuItem;
+    ActionShowPaneAddr: TAction;
+    ActionShowPaneHex: TAction;
+    ActionShowPaneText: TAction;
+    N7: TMenuItem;
+    ShowAddrpane1: TMenuItem;
+    ShowHexpane1: TMenuItem;
+    ShowHexpane2: TMenuItem;
+    ToolButton14: TToolButton;
+    ToolButton15: TToolButton;
+    ToolButton16: TToolButton;
+    ToolButton17: TToolButton;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -329,6 +341,7 @@ type
       Control: TWinControl; Files: TStrings; DropPoint: TPoint);
     procedure ActionFileConcatExecute(Sender: TObject);
     procedure Openemulatedsource1Click(Sender: TObject);
+    procedure ActionShowPaneAddrExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -952,6 +965,14 @@ begin
   SettingsForm.ShowModal();
 end;
 
+procedure TMainForm.ActionShowPaneAddrExecute(Sender: TObject);
+var
+  PaneType: TEditorPaneType;
+begin
+  PaneType := TEditorPaneType((Sender as TAction).Tag);
+  ActiveEditor.ShowPanes[PaneType] := (Sender as TAction).Checked;
+end;
+
 procedure TMainForm.ActionUndoExecute(Sender: TObject);
 begin
   with ActiveEditor do
@@ -1100,6 +1121,10 @@ begin
 
       ActionSelectAll.Enabled := True; //FocusInEditor;
 
+      ActionShowPaneAddr.Enabled := True;
+      ActionShowPaneHex.Enabled := True;
+      ActionShowPaneText.Enabled := True;
+
       ActionSetFileSize.Enabled := (DataSource <> nil) and (dspResizable in DataSource.GetProperties());
       ActionFillBytes.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
       ActionModifyWithExpr.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and (SelLength > 0);
@@ -1120,8 +1145,9 @@ begin
 
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or
+         (ActionList1.Actions[i].Category = 'View') or
          ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) or
-         (ActionList1.Actions[i].Category = 'Operations') then
+         ((ActionList1.Actions[i].Category = 'Operations') and (ActionList1.Actions[i] <> ActionDebugMode)) then
         ActionList1.Actions[i].Enabled := False;
 
     ActionUndo.Caption := 'Undo';
@@ -1923,6 +1949,11 @@ begin
       EditByteCols.Text := 'Line breaks'
     else
       EditByteCols.Text := IntToStr(Editor.ByteColumns);
+
+    // Update visible panes buttons
+    ActionShowPaneAddr.Checked := Editor.ShowPanes[epAddr];
+    ActionShowPaneHex.Checked := Editor.ShowPanes[epHex];
+    ActionShowPaneText.Checked := Editor.ShowPanes[epText];
   end
   else
     EditByteCols.Enabled := False;
