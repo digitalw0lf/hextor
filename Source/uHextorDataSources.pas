@@ -569,8 +569,11 @@ procedure TProcMemDataSource.Open(Mode: Word);
 var
   ProcID, Access: Cardinal;
   Regions: TSourceRegionArray;
+  i: Integer;
 begin
-  ProcID := StrToInt(Path);
+  i := Pos(' ', Path);
+  if i = 0 then i := Length(Path) + 1;
+  ProcID := StrToInt(Copy(Path, Low(Path), i - 1));
   if hProcess <> 0 then  CloseHandle(hProcess);
   case Mode of
     fmCreate, fmOpenReadWrite: Access := PROCESS_ALL_ACCESS;

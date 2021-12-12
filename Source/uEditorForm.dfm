@@ -102,7 +102,6 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
-    ExplicitHeight = 610
   end
   object PaneAddr: TEditorPane
     Left = 0
@@ -126,7 +125,6 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
-    ExplicitHeight = 610
   end
   object PaneText: TEditorPane
     AlignWithMargins = True
@@ -164,7 +162,6 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
-    ExplicitHeight = 610
     DesignSize = (
       258
       627)
@@ -225,7 +222,7 @@ object EditorForm: TEditorForm
     Panels = <
       item
         Text = 'Addr: ? (0x?)'
-        Width = 200
+        Width = 250
       end
       item
         Text = 'Byte: ?'
@@ -244,7 +241,6 @@ object EditorForm: TEditorForm
     TabOrder = 4
     OnChange = VertScrollBarChange
     OnScroll = VertScrollBarScroll
-    ExplicitHeight = 610
   end
   object HorzScrollBar: TScrollBar64
     Left = 0

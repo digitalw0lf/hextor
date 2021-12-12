@@ -18,8 +18,8 @@ object RegionsFrame: TRegionsFrame
     Width = 411
     Height = 554
     Align = alClient
-    Header.AutoSizeIndex = 0
-    Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    Header.AutoSizeIndex = 2
+    Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoShowSortGlyphs, hoVisible, hoAutoResizeInclCaption]
     TabOrder = 1
     TreeOptions.PaintOptions = [toHideFocusRect, toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages]
     TreeOptions.SelectionOptions = [toFullRowSelect]
@@ -30,7 +30,7 @@ object RegionsFrame: TRegionsFrame
       item
         Position = 0
         Text = 'Address'
-        Width = 100
+        Width = 151
       end
       item
         Position = 1
@@ -40,7 +40,7 @@ object RegionsFrame: TRegionsFrame
       item
         Position = 2
         Text = 'Description'
-        Width = 400
+        Width = 441
       end>
   end
 end

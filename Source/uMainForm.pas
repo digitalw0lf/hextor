@@ -737,9 +737,10 @@ var
   s: string;
 begin
   if ProcessSelectForm.ShowModal() <> mrOk then Exit;
-  s := ProcessSelectForm.SelectedPID;
+  s := ProcessSelectForm.SelectedPID() + ' ' + ProcessSelectForm.SelectedName();
 
   Open(TProcMemDataSource, s);
+  ShowToolFrame(RegionsFrame);
 end;
 
 procedure TMainForm.ActionPasteExecute(Sender: TObject);
