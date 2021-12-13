@@ -34,6 +34,10 @@ object CompareFrame: TCompareFrame
     object ComparisonTab: TTabSheet
       Caption = 'ComparisonTab'
       ImageIndex = 1
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
       object DiffBar: TPaintBox
         Left = 0
         Top = 0

@@ -21,6 +21,9 @@ const
   KByte = 1024;
   MByte = 1024*1024;
   GByte = 1024*1024*1024;
+  TerraByte: Int64 = Int64(1024)*1024*1024*1024;
+  PetaByte:  Int64 = Int64(1024)*1024*1024*1024*1024;
+  ExaByte:   Int64 = Int64(1024)*1024*1024*1024*1024*1024;
 
   HexCharsSet: TSysCharSet = ['0'..'9', 'A'..'F', 'a'..'f'];
 
@@ -83,7 +86,8 @@ type
   TTaggedDataRegionList = class (TObjectList<TTaggedDataRegion>)
   public
     AcceptRange: TFileRange;
-    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil): TTaggedDataRegion;
+    function AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer; TextColor, BgColor, FrameColor: TColor;
+      Data: Pointer = nil; CanAppend: Boolean = false): TTaggedDataRegion;
     constructor Create(); overload;
     constructor Create(const AAcceptRange: TFileRange); overload;
   end;
@@ -716,45 +720,53 @@ end;
 function FileSize2Str(s: TFilePointer; FracDigits:integer=1): string;
 // String representation of data size "10 B", "1.2 KB", "23.45 MB"
 begin
-  if s<1024 then
+  if s<KByte then
     Result:=IntToStr(s)+' B'
-  else if s<1024*1024 then
-    Result:=R2S(s/1024,FracDigits)+' KB'
-  else if s<1024*1024*1024 then
-    Result:=R2S(s/(1024*1024),FracDigits)+' MB'
-  else if s<Int64(1024)*1024*1024*1024 then
-    Result:=R2S(s/(1024*1024*1024),FracDigits)+' GB'
+  else if s<MByte then
+    Result:=R2S(s/KByte, FracDigits)+' KB'
+  else if s<GByte then
+    Result:=R2S(s/(MByte), FracDigits)+' MB'
+  else if s<TerraByte then
+    Result:=R2S(s/GByte, FracDigits)+' GB'
+  else if s<PetaByte then
+    Result:=R2S(s/TerraByte, FracDigits)+' TB'
+  else if s<ExaByte then
+    Result:=R2S(s/PetaByte, FracDigits)+' PB'
   else
-    Result:=R2S(s/(1.0*1024*1024*1024*1024),FracDigits)+' TB';
+    Result:=R2S(s/ExaByte, FracDigits)+' EB';
 end;
 
 function Str2FileSize(const s: string): TFilePointer;
 // Convert a string like "10.5 MB", " 12 kbytes" etc. to number of bytes
 var
-  i,l:integer;
-  Mult:Int64;
-  s1:UnicodeString;
+  i, L: integer;
+  Mult: Int64;
+  s1: UnicodeString;
 begin
-  Mult:=1; l:=Length(s)+1;
+  Mult := 1; L := Length(s) + 1;
   for i:=1 to Length(s) do
   begin
     if not CharInSet(s[i],['0'..'9','.',',',' ',#9]) then
     begin
       if CharInSet(s[i],['b','B','á','Á']) then Mult:=1
       else
-      if CharInSet(s[i],['k','K','ê','Ê']) then Mult:=1024
+      if CharInSet(s[i],['k','K','ê','Ê']) then Mult:=KByte
       else
-      if CharInSet(s[i],['m','M','ì','Ì']) then Mult:=1024*1024
+      if CharInSet(s[i],['m','M','ì','Ì']) then Mult:=MByte
       else
-      if CharInSet(s[i],['g','G','ã','Ã']) then Mult:=1024*1024*1024
+      if CharInSet(s[i],['g','G','ã','Ã']) then Mult:=GByte
       else
-      if CharInSet(s[i],['t','T','ò','Ò']) then Mult:=Int64(1024)*1024*1024*1024
+      if CharInSet(s[i],['t','T','ò','Ò']) then Mult:=TerraByte
+      else
+      if CharInSet(s[i],['p','P','ï','Ï']) then Mult:=PetaByte
+      else
+      if CharInSet(s[i],['e','E','ý','Ý']) then Mult:=ExaByte
       else raise EConvertError.CreateFmt('"%s" is not a valid size', [s]);
-      l:=i;
+      L:=i;
       break;
     end;
   end;
-  s1:=Trim(Copy(s,1,l-1));
+  s1:=Trim(Copy(s,1,L-1));
   Result:=Round(S2R(s1)*Mult);
 end;
 
@@ -1025,10 +1037,23 @@ end;
 { TTaggedDataRegionList }
 
 function TTaggedDataRegionList.AddRegion(Owner: TObject; RangeStart, RangeEnd: TFilePointer;
-  TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil): TTaggedDataRegion;
+  TextColor, BgColor, FrameColor: TColor; Data: Pointer = nil; CanAppend: Boolean = false): TTaggedDataRegion;
+// Add region to list if it intersects current accepted range.
+// CanAppend: region can be appended to last region with identical properties
 begin
   if (AcceptRange = EntireFile) or (AcceptRange.Intersects2(RangeStart, RangeEnd)) then
   begin
+    if (CanAppend) and (Count > 0) then
+    begin
+      Result := Last();
+      if (Owner = Result.Owner) and (RangeStart = Result.Range.AEnd) and
+         (TextColor = Result.TextColor) and (BgColor = Result.BgColor) and (FrameColor = Result.FrameColor) and
+         (Data = Result.Data) then
+      begin
+        Result.Range.AEnd := RangeEnd;
+        Exit;
+      end;
+    end;
     Result := TTaggedDataRegion.Create(Owner, TFileRange.Create(RangeStart, RangeEnd), TextColor, BgColor, FrameColor);
     Result.Data := Data;
     Add(Result);

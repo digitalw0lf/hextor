@@ -39,6 +39,7 @@ uses
 const
   Color_NoDataTx    = clGray;  // E.g. unallocated memory range
   Color_SrcRegionFr = clGray;  // Native regions of Data Source
+  Color_LineBreakTx = clGray;  // \r\n bytes in text editor mode
   Color_ChangedByte = $B0F0FF;
   Color_SelectionBg = $F5DDBF; //clHighlight;
   Color_SelectionTx = clNone; //clHighlightText;
@@ -253,6 +254,18 @@ type
     DropFileCatcher1: TDropFileCatcher;
     ActionFileConcat: TAction;
     Concatenatefiles1: TMenuItem;
+    Openemulatedsource1: TMenuItem;
+    ActionShowPaneAddr: TAction;
+    ActionShowPaneHex: TAction;
+    ActionShowPaneText: TAction;
+    N7: TMenuItem;
+    ShowAddrpane1: TMenuItem;
+    ShowHexpane1: TMenuItem;
+    ShowHexpane2: TMenuItem;
+    ToolButton14: TToolButton;
+    ToolButton15: TToolButton;
+    ToolButton16: TToolButton;
+    ToolButton17: TToolButton;
     ActionCopyAsCppString: TAction;
     ActionCopyAsDelphiString: TAction;
     Cstringconstant1: TMenuItem;
@@ -332,6 +345,8 @@ type
     procedure DropFileCatcher1DropFiles(Sender: TDropFileCatcher;
       Control: TWinControl; Files: TStrings; DropPoint: TPoint);
     procedure ActionFileConcatExecute(Sender: TObject);
+    procedure Openemulatedsource1Click(Sender: TObject);
+    procedure ActionShowPaneAddrExecute(Sender: TObject);
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -737,9 +752,10 @@ var
   s: string;
 begin
   if ProcessSelectForm.ShowModal() <> mrOk then Exit;
-  s := ProcessSelectForm.SelectedPID;
+  s := ProcessSelectForm.SelectedPID() + ' ' + ProcessSelectForm.SelectedName();
 
   Open(TProcMemDataSource, s);
+  ShowToolFrame(RegionsFrame);
 end;
 
 procedure TMainForm.ActionPasteExecute(Sender: TObject);
@@ -965,6 +981,14 @@ begin
   SettingsForm.ShowModal();
 end;
 
+procedure TMainForm.ActionShowPaneAddrExecute(Sender: TObject);
+var
+  PaneType: TEditorPaneType;
+begin
+  PaneType := TEditorPaneType((Sender as TAction).Tag);
+  ActiveEditor.ShowPanes[PaneType] := (Sender as TAction).Checked;
+end;
+
 procedure TMainForm.ActionUndoExecute(Sender: TObject);
 begin
   with ActiveEditor do
@@ -1023,9 +1047,14 @@ procedure TMainForm.ApplyByteColEdit;
 // Apply byte column count from edit field
 var
   n: Integer;
+  S: string;
 begin
-  n := StrToIntDef(EditByteCols.Text, -1);
-  if n <> -1 then
+  S := EditByteCols.Text;
+  if S = 'Line breaks' then
+    n := bcByLineBreaks
+  else
+    n := StrToIntDef(S, bcByWindowWidth);
+  if n >= 0 then
     n := BoundValue(n, 1, 16384);
   TEditorForm.Settings.ByteColumns := n;
   TEditorForm.Settings.Changed(False);
@@ -1110,6 +1139,10 @@ begin
 
       ActionSelectAll.Enabled := True; //FocusInEditor;
 
+      ActionShowPaneAddr.Enabled := True;
+      ActionShowPaneHex.Enabled := True;
+      ActionShowPaneText.Enabled := True;
+
       ActionSetFileSize.Enabled := (DataSource <> nil) and (dspResizable in DataSource.GetProperties());
       ActionFillBytes.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties());
       ActionModifyWithExpr.Enabled := (DataSource <> nil) and (dspWritable in DataSource.GetProperties()) and (SelLength > 0);
@@ -1130,8 +1163,9 @@ begin
 
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or
+         (ActionList1.Actions[i].Category = 'View') or
          ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) or
-         (ActionList1.Actions[i].Category = 'Operations') then
+         ((ActionList1.Actions[i].Category = 'Operations') and (ActionList1.Actions[i] <> ActionDebugMode)) then
         ActionList1.Actions[i].Enabled := False;
 
     ActionUndo.Caption := 'Undo';
@@ -1611,6 +1645,15 @@ begin
   end;
 end;
 
+procedure TMainForm.Openemulatedsource1Click(Sender: TObject);
+var
+  s: string;
+begin
+  s := 't_1EB';
+  if not InputQuery('Open emulated source', '"b_size" or "t_size"', s) then Exit;
+  Open(TRandGenDataSource, s);
+end;
+
 function TMainForm.OpenFile(const AFileName: string): TEditorForm;
 begin
   Result := Open(TFileDataSource, AFileName);
@@ -1917,10 +1960,18 @@ begin
   if Editor <> nil then
   begin
     EditByteCols.Enabled := True;
-    if Editor.ByteColumnsSetting <= 0 then
+    if Editor.ByteColumnsSetting = bcByWindowWidth then
       EditByteCols.Text := 'Auto (' + IntToStr(Editor.ByteColumns) + ')'
     else
+    if Editor.ByteColumnsSetting = bcByLineBreaks then
+      EditByteCols.Text := 'Line breaks'
+    else
       EditByteCols.Text := IntToStr(Editor.ByteColumns);
+
+    // Update visible panes buttons
+    ActionShowPaneAddr.Checked := Editor.ShowPanes[epAddr];
+    ActionShowPaneHex.Checked := Editor.ShowPanes[epHex];
+    ActionShowPaneText.Checked := Editor.ShowPanes[epText];
   end
   else
     EditByteCols.Enabled := False;

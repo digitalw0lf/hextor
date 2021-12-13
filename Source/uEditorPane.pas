@@ -56,7 +56,7 @@ type
   protected
     { Protected declarations }
     FLines: TStringList;
-    TextLength: Integer;  // Updated internally during paint
+    TextLength, FMaxLineWidth: Integer;  // Updated internally during paint
     ScrBmp: TBitmap;
     SelStart, SelLength: Integer;
     FVisRegions: TVisualTextRegionArray;
@@ -64,6 +64,7 @@ type
     FNeedUpdate: Boolean;
     CharAttr: TCharAttributesArray;
     LineFirstChar: array of Integer;  // Index of first character of every line
+    CharPos: array of TPoint;  // Row/column of every character on screen
 //    BgColors, TxColors: array of TColor;
     procedure Paint; override;
     procedure InternalPaint();
@@ -82,7 +83,10 @@ type
     function CharHeight(): Integer;
     function CharWidth(): Integer;
     function GetCharAt(x, y: Integer; var Pos: TPoint; var Index: Integer): Boolean;
-    function GetCharRect(Pos: TPoint): TRect;
+    function GetCharPos(Index: Integer): TPoint;
+    function GetCharRect(Pos: TPoint): TRect; overload;
+    function GetCharRect(Index: Integer): TRect; overload;
+    property MaxLineWidth: Integer read FMaxLineWidth;
     procedure SetSelection(AStart, ALength: Integer);
     procedure SetVisRegions(const ARegions: TVisualTextRegionArray);
     procedure BeginUpdate();
@@ -190,6 +194,23 @@ begin
     Index := LineFirstChar[Pos.Y] + Pos.X;
 end;
 
+function TEditorPane.GetCharPos(Index: Integer): TPoint;
+// Row/column of given character on screen
+begin
+  if (Index < 0) or (Index >= Length(CharPos)) then Exit(Point(-1, -1));
+  Result := CharPos[Index];
+end;
+
+function TEditorPane.GetCharRect(Index: Integer): TRect;
+var
+  p: TPoint;
+begin
+  if (Index < 0) or (Index >= Length(CharPos)) then
+    Exit(Rect(0, 0, 0, 0));
+  p := CharPos[Index];
+  Result := GetCharRect(p);
+end;
+
 function TEditorPane.GetCharRect(Pos: TPoint): TRect;
 // Line and column index to screen coords
 begin
@@ -215,7 +236,7 @@ var
   R: TRect;
   s, s1: string;
   DefaultAttr: TCharAttributes;
-  CharPos: array of TPoint;  // Line and column of every char
+//  CharPos: array of TPoint;  // Line and column of every char
 
   procedure DrawRegionOutline(const Region: TVisualTextRegion);
   // Draw contour around tagged range of text
@@ -284,7 +305,7 @@ var
     else
     // Joint shape
     begin
-      r2 := GetCharRect(Point(Length(Lines[p1.Y])-1, p1.Y));
+      r2 := GetCharRect(Point(FMaxLineWidth-1, p1.Y));
       r3 := GetCharRect(Point(0, p2.Y));
       ScrBmp.Canvas.Polygon([
         Point(r1.Left, r1.Top),
@@ -508,11 +529,16 @@ end;
 procedure TEditorPane.CalcTextLength();
 // Re-calculate total char count
 var
-  i: Integer;
+  i, L: Integer;
 begin
   TextLength := 0;
+  FMaxLineWidth := 0;
   for i:=0 to FLines.Count-1 do
-    Inc(TextLength, Length(FLines[i]));
+  begin
+    L := Length(FLines[i]);
+    Inc(TextLength, L);
+    FMaxLineWidth := Max(FMaxLineWidth, L);
+  end;
 end;
 
 function TEditorPane.CharHeight: Integer;

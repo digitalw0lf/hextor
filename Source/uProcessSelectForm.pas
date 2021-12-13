@@ -51,6 +51,7 @@ type
     Timer1: TTimer;
     BtnClearFilter: TSpeedButton;
     BtnRefreshList: TSpeedButton;
+    CBOpenRegionsFrame: TCheckBox;
     procedure PaintBox1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure PaintBox1MouseUp(Sender: TObject; Button: TMouseButton;
@@ -80,6 +81,7 @@ type
     procedure ShowProcessList();
     procedure SelectProcessInList(pid: Cardinal);
     function SelectedPID(): string;
+    function SelectedName(): string;
   end;
 
 var
@@ -296,6 +298,14 @@ procedure TProcessSelectForm.PaintBox1MouseUp(Sender: TObject;
 begin
   if Button=mbLeft then
     DraggingPointer := False;
+end;
+
+function TProcessSelectForm.SelectedName: string;
+begin
+  if ListView1.Selected <> nil then
+    Result := ListView1.Selected.Caption
+  else
+    Result := '';
 end;
 
 function TProcessSelectForm.SelectedPID: string;

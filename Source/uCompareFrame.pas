@@ -283,8 +283,9 @@ begin
   begin
     if X < DiffBar.Width div 2 then n := 0
                                else n := 1;
-    p := ScrToPos(n, Y) - Editors[n].VisibleBytesCount div 2;
-    Editors[n].TopVisibleRow := p div Editors[n].ByteColumns;
+    p := ScrToPos(n, Y); // - Editors[n].VisibleRange.Size div 2;
+    //Editors[n].TopVisibleRow := p div Editors[n].ByteColumns;
+    Editors[n].ScrollToShowAtCenter(p);
   end;
 end;
 
@@ -313,8 +314,8 @@ begin
     RAll := DiffBarRect(n);
     R.Left := RAll.Left;
     R.Right := RAll.Right - 1;
-    R.Top := PosToScr(n, Editors[n].FirstVisibleAddr);
-    R.Bottom := PosToScr(n, Editors[n].FirstVisibleAddr + Editors[n].VisibleBytesCount) - 1;
+    R.Top := PosToScr(n, Editors[n].VisibleRange.Start);
+    R.Bottom := PosToScr(n, Editors[n].VisibleRange.AEnd) - 1;
     DiffBar.Canvas.Pen.Color := clBlack;
     DrawEditorViewFrame(DiffBar.Canvas, R);
   end;
@@ -511,9 +512,9 @@ begin
 
       Editors[1-n].BeginUpdate();
       try
-        CenterPos := Sender.FirstVisibleAddr() + Sender.VisibleBytesCount() div 2;
+        CenterPos := Sender.FirstVisibleAddr + Sender.VisibleRange.Size div 2;
         CenterPos := Comparer.GetCorrespondingPosition(n, CenterPos);
-        Editors[1-n].TopVisibleRow := CenterPos div Editors[1-n].ByteColumns - Editors[1-n].GetVisibleRowsCount() div 2;
+        Editors[1-n].ScrollToShowAtCenter(CenterPos);
 
         Editors[1-n].HorzScrollPos := Sender.HorzScrollPos;
       finally

@@ -322,6 +322,17 @@ object ProcessSelectForm: TProcessSelectForm
       OnMouseUp = PaintBox1MouseUp
     end
   end
+  object CBOpenRegionsFrame: TCheckBox
+    Left = 8
+    Top = 395
+    Width = 177
+    Height = 17
+    Caption = 'Switch to Regions tool frame'
+    Checked = True
+    State = cbChecked
+    TabOrder = 5
+    Visible = False
+  end
   object Timer1: TTimer
     Interval = 100
     OnTimer = Timer1Timer

@@ -117,6 +117,7 @@ procedure TSearchResultsTabFrame.AddListItem(AGroupNode: Pointer; AData: TEdited
 // Add found item to list of search results
 const
   ContextBytes = 8;
+  MaxValueBytes = 1024;
 var
   GroupNode, Node: PVirtualNode;
   RGroupNode, RNode: PResultTreeNode;
@@ -134,7 +135,7 @@ begin
   // Display some data before/after found item
   DispRange.Start := Max(ARange.Start - ContextBytes, 0);
   DispRange.AEnd := Min(ARange.AEnd + ContextBytes, AData.GetSize());
-  ABuf := AData.Get(DispRange.Start, Min(DispRange.Size, 100));
+  ABuf := AData.Get(DispRange.Start, Min(DispRange.Size, MaxValueBytes));
   RNode.DisplayHex[0] := Data2Hex(Copy(ABuf, 0, ARange.Start-DispRange.Start));
   RNode.DisplayHex[1] := Data2Hex(Copy(ABuf, ARange.Start-DispRange.Start, ARange.Size));
   RNode.DisplayHex[2] := Data2Hex(Copy(ABuf, ARange.AEnd-DispRange.Start, MaxInt));
