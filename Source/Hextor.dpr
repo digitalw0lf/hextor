@@ -47,7 +47,8 @@ uses
   uBookmarksFrame in 'uBookmarksFrame.pas' {BookmarksFrame: TFrame},
   uRegionsFrame in 'uRegionsFrame.pas' {RegionsFrame: TFrame},
   uFileSplitForm in 'uFileSplitForm.pas' {FileSplitForm},
-  uFileConcatForm in 'uFileConcatForm.pas' {FileConcatForm};
+  uFileConcatForm in 'uFileConcatForm.pas' {FileConcatForm},
+  uMediaFrame in 'uMediaFrame.pas' {MediaFrame: TFrame};
 
 {$R *.res}
 

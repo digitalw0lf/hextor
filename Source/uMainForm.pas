@@ -32,7 +32,7 @@ uses
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
   uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct,
-  uBookmarksFrame, uRegionsFrame;
+  uBookmarksFrame, uRegionsFrame, uMediaFrame;
 
 {$I AppVersion.inc}
 
@@ -270,6 +270,8 @@ type
     ActionCopyAsDelphiString: TAction;
     Cstringconstant1: TMenuItem;
     Delphistringconstant1: TMenuItem;
+    PgMedia: TTabSheet;
+    MediaFrame1: TMediaFrame;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
