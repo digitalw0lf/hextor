@@ -113,7 +113,6 @@ var
   sb: TStringBuilder;
   i: Integer;
   b: Byte;
-  c: Char;
   s: string;
 begin
   sb := TStringBuilder.Create(Length(AData));

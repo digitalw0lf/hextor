@@ -18,11 +18,11 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Math, Vcl.ExtCtrls, Vcl.Samples.Gauges,
   System.UITypes, System.IOUtils, System.Types, Vcl.Buttons, System.StrUtils,
-  System.Masks, Winapi.ShellAPI, Generics.Collections,
+  System.Masks, Winapi.ShellAPI, Generics.Collections, Vcl.Clipbrd, Vcl.Menus,
 
   uHextorTypes, uMainForm, uEditorForm, uEditedData, uCallbackList,
   uDataSearcher, uSearchResultsTabFrame, uHextorDataSources, uDataSaver,
-  uHextorGUI, uModuleSettings, Vcl.Menus;
+  uHextorGUI, uModuleSettings;
 
 type
   TSearchSettings = class (TModuleSettings)
@@ -71,8 +71,11 @@ type
     RBFindHex: TRadioButton;
     RBFindText: TRadioButton;
     DropFileCatcher1: TDropFileCatcher;
-    ClearHistMenu: TPopupMenu;
+    EditOptionsMenu: TPopupMenu;
     Clearhistory1: TMenuItem;
+    BtnEditFindTextOptions: TSpeedButton;
+    Pasteescaped1: TMenuItem;
+    BtnEditReplaceTextOptions: TSpeedButton;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -92,6 +95,8 @@ type
     procedure Clearhistory1Click(Sender: TObject);
     procedure EditFindTextKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
+    procedure BtnEditFindTextOptionsClick(Sender: TObject);
+    procedure Pasteescaped1Click(Sender: TObject);
   private type
     TSearchAction = (saCount, saList, saReplace);
     TFindWhereType = (fwCurrentFile, fwAllOpenFiles, fwSelectedDirectories);
@@ -113,6 +118,7 @@ type
     function GetTargetEditorNoEx: TEditorForm;
     procedure AutosizeForm();
     procedure CheckEnabledControls();
+    function GetCorrespondingEditControl(Sender: TComponent): TComboBox;
     procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
     procedure FindInOpenFiles(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
     procedure FindInDirectories(Action: TSearchAction; ResultsFrame: TSearchResultsTabFrame; var Count, InFilesCount: Integer);
@@ -182,6 +188,11 @@ begin
   h := h + (Height - ClientHeight) + 2;
   Constraints.MinHeight := h;
   Constraints.MaxHeight := h;
+end;
+
+procedure TFindReplaceForm.BtnEditFindTextOptionsClick(Sender: TObject);
+begin
+  PopupFromControl(EditOptionsMenu, Sender as TControl);
 end;
 
 procedure TFindReplaceForm.BtnFindCountClick(Sender: TObject);
@@ -259,16 +270,8 @@ procedure TFindReplaceForm.Clearhistory1Click(Sender: TObject);
 var
   CB: TComboBox;
 begin
-  if ClearHistMenu.PopupComponent = LblFind then
-    CB := EditFindText
-  else if ClearHistMenu.PopupComponent = LblReplaceWith then
-    CB := EditReplaceText
-  else if ClearHistMenu.PopupComponent = RBInSelectedDirectories then
-    CB := EditInDirectories
-  else if ClearHistMenu.PopupComponent = LblFileMasks then
-    CB := EditFileNameMask
-  else Exit;
-
+  CB := GetCorrespondingEditControl(EditOptionsMenu.PopupComponent);
+  if CB = nil then Exit;
   CB.Items.Clear();
   CB.Text := '';
   StoreToSettings();
@@ -772,6 +775,21 @@ begin
   CheckEnabledControls();
 end;
 
+function TFindReplaceForm.GetCorrespondingEditControl(
+  Sender: TComponent): TComboBox;
+begin
+  if (Sender = LblFind) or (Sender = BtnEditFindTextOptions) then
+    Result := EditFindText
+  else if (Sender = LblReplaceWith) or (Sender = BtnEditReplaceTextOptions) then
+    Result := EditReplaceText
+  else if Sender = RBInSelectedDirectories then
+    Result := EditInDirectories
+  else if Sender = LblFileMasks then
+    Result := EditFileNameMask
+  else
+    Result := nil;
+end;
+
 function TFindReplaceForm.GetTargetEditor: TEditorForm;
 begin
   Result := MainForm.ActiveEditor;
@@ -780,6 +798,54 @@ end;
 function TFindReplaceForm.GetTargetEditorNoEx: TEditorForm;
 begin
   Result := MainForm.GetActiveEditorNoEx;
+end;
+
+function EscapeSearchChars(const Text: string): string;
+var
+  sb: TStringBuilder;
+  i: Integer;
+  c: Char;
+  s: string;
+begin
+  sb := TStringBuilder.Create(Length(Text));
+  for i := Low(Text) to High(Text) do
+  begin
+    c := Text[i];
+    case c of
+      #9: s := '\t';
+      #10: s := '\n';
+      #13: s := '\r';
+      '?', '\', '{', '(', ')': s := '\' + c;
+      NullCharClipboardReplace: s := '\x00';
+      else
+        begin
+          if c < ' ' then
+            s := '\x' + IntToHex(Ord(c), 2)
+          else
+            s := c;
+        end;
+    end;
+    sb.Append(s);
+  end;
+  Result := sb.ToString();
+  sb.Free;
+end;
+
+procedure TFindReplaceForm.Pasteescaped1Click(Sender: TObject);
+var
+  Text, SubText: string;
+  CB: TComboBox;
+  SelStart, SelEnd: Integer;
+begin
+  CB := GetCorrespondingEditControl(EditOptionsMenu.PopupComponent);
+  if CB = nil then Exit;
+  SubText := EscapeSearchChars(Clipboard.AsText);
+  Text := CB.Text;
+  SelStart := CB.SelStart;
+  SelEnd := CB.SelStart + CB.SelLength;
+  Text := Text.Substring(0, SelStart) + SubText + Text.Substring(SelEnd, MaxInt);
+  CB.Text := Text;
+  CB.SelStart := SelStart + Length(SubText);
 end;
 
 procedure TFindReplaceForm.RBInCurrentEditorClick(Sender: TObject);

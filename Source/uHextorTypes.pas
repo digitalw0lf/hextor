@@ -29,6 +29,9 @@ const
 
   CharsInvalidInFileName = '/\:*?"<>|';
 
+  // Null character cannot be copied to clipboard. Replace with this value.
+  NullCharClipboardReplace = #$FFFD;
+
   cDay = 1.0;
   cHour = cDay / 24;
   cMinute = cHour / 60;
@@ -538,7 +541,7 @@ var
 begin
   for i := Low(S) to High(S) do
     if S[i] = #0 then
-      S[i] := #$FFFD;
+      S[i] := NullCharClipboardReplace;
 end;
 
 procedure StrFromClipboardInplace(var S: string);
@@ -547,7 +550,7 @@ var
   i: Integer;
 begin
   for i := Low(S) to High(S) do
-    if S[i] = #$FFFD then
+    if S[i] = NullCharClipboardReplace then
       S[i] := #0;
 end;
 

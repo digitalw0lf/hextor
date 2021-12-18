@@ -67,7 +67,7 @@ object FindReplaceForm: TFindReplaceForm
         Width = 60
         Height = 13
         Caption = 'File mask(s):'
-        PopupMenu = ClearHistMenu
+        PopupMenu = EditOptionsMenu
       end
       object Label5: TLabel
         Left = 16
@@ -114,7 +114,7 @@ object FindReplaceForm: TFindReplaceForm
         Width = 130
         Height = 17
         Caption = 'Selected directories:'
-        PopupMenu = ClearHistMenu
+        PopupMenu = EditOptionsMenu
         TabOrder = 2
         OnClick = RBInCurrentEditorClick
       end
@@ -166,12 +166,21 @@ object FindReplaceForm: TFindReplaceForm
         Width = 65
         Height = 13
         Caption = 'Replace with:'
-        PopupMenu = ClearHistMenu
+        PopupMenu = EditOptionsMenu
+      end
+      object BtnEditReplaceTextOptions: TSpeedButton
+        Left = 498
+        Top = 16
+        Width = 21
+        Height = 22
+        Anchors = [akTop, akRight]
+        Caption = '...'
+        OnClick = BtnEditFindTextOptionsClick
       end
       object EditReplaceText: TComboBox
         Left = 87
         Top = 16
-        Width = 432
+        Width = 407
         Height = 22
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
@@ -232,7 +241,7 @@ object FindReplaceForm: TFindReplaceForm
         Width = 24
         Height = 13
         Caption = 'Find:'
-        PopupMenu = ClearHistMenu
+        PopupMenu = EditOptionsMenu
       end
       object ImageProxy1: THintedImageProxy
         Left = 407
@@ -246,10 +255,19 @@ object FindReplaceForm: TFindReplaceForm
           ' includes hex byte in text pattern<br><b>{i32:1000}</b> matches ' +
           '32-bit value 1000<br>See help for more options'
       end
+      object BtnEditFindTextOptions: TSpeedButton
+        Left = 498
+        Top = 16
+        Width = 21
+        Height = 22
+        Anchors = [akTop, akRight]
+        Caption = '...'
+        OnClick = BtnEditFindTextOptionsClick
+      end
       object EditFindText: TComboBox
         Left = 87
         Top = 16
-        Width = 432
+        Width = 407
         Height = 22
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]
@@ -390,11 +408,15 @@ object FindReplaceForm: TFindReplaceForm
     Left = 336
     Top = 344
   end
-  object ClearHistMenu: TPopupMenu
+  object EditOptionsMenu: TPopupMenu
     Left = 352
     Top = 8
+    object Pasteescaped1: TMenuItem
+      Caption = 'Paste escaped'
+      OnClick = Pasteescaped1Click
+    end
     object Clearhistory1: TMenuItem
-      Caption = 'Clear history'
+      Caption = 'Clear dropdown history'
       OnClick = Clearhistory1Click
     end
   end

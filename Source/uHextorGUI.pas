@@ -228,6 +228,7 @@ begin
   end;
   p:=Point(0,Control.Height);
   p:=Control.ClientToScreen(p);
+  Menu.PopupComponent := Control;
   Menu.Popup(p.X,p.Y);
 end;
 
