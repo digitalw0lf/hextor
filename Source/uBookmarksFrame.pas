@@ -407,12 +407,12 @@ begin
   begin
     rh := Pane.CharHeight * 3 div 4;
     rw := rh * 3 div 4;
-    Canvas.Pen.Color := Color_BookmarkFr;
+    Canvas.Pen.Color := ColorForCurrentTheme(Color_BookmarkFr);
     Canvas.Pen.Style := psSolid;
     Canvas.Pen.Mode := pmCopy;
-    Canvas.Brush.Color := Color_BookmarkBg;
+    Canvas.Brush.Color := ColorForCurrentTheme(Color_BookmarkBg);
     Canvas.Brush.Style := bsSolid;
-    Canvas.Font.Color := Pane.Font.Color;
+    Canvas.Font.Color := ColorForCurrentTheme(Pane.Font.Color);
     Canvas.Font.Height := Pane.Font.Height * 3 div 4;
 
     for i:=0 to Bookmarks.Count-1 do

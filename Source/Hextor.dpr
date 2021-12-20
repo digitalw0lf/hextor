@@ -55,6 +55,7 @@ uses
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
+  Application.Title := 'Hextor';
   Application.HelpFile := 'Hextor.chm';
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TFindReplaceForm, FindReplaceForm);

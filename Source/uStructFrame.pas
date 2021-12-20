@@ -22,7 +22,7 @@ uses
   uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper;
 
 const
-  Color_DSFieldBg = $FFF8F8;
+  Color_DSFieldBg = $FFF0F0;
   Color_DSFieldFr = $F8E0E0;
   Color_ErrDSFieldBg = $B090FF;
   Color_SelDSFieldBg = $FFD0D0;

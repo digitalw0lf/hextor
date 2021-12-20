@@ -25,7 +25,7 @@ uses
   Vcl.ImgList, System.UITypes, Winapi.SHFolder, System.Rtti, Winapi.ShellAPI,
   Vcl.FileCtrl, Vcl.Buttons, Vcl.Samples.Gauges,
   System.StrUtils, System.IOUtils, Vcl.HtmlHelpViewer,
-  Vcl.StdActns, System.NetEncoding,
+  Vcl.StdActns, System.NetEncoding, Vcl.Themes, SynEdit,
 
   uEditorPane, {uLogFile,} superobject, uModuleSettings,
   uHextorTypes, uHextorDataSources, uEditorForm,
@@ -48,7 +48,7 @@ const
   Color_DiffBg = $05CBEF;
   Color_DiffFr = $05CBEF;
   Color_FoundItemBg = $79EBFF;
-  Color_FoundItemFr = $00D7FD;
+  Color_FoundItemFr = $40D7FD;
 
 //  MAX_TAB_WIDTH = 200;
 
@@ -62,6 +62,7 @@ type
     ActiveRightPage: Integer;
     RightPanelWidth: Integer;
     RecentFiles: array of TRecentFileRec;
+    Theme: Integer;
   end;
 
   [API]
@@ -272,6 +273,12 @@ type
     Delphistringconstant1: TMenuItem;
     PgMedia: TTabSheet;
     MediaFrame1: TMediaFrame;
+    ActionThemeDark: TAction;
+    ActionThemeLight: TAction;
+    MIThemesMenu: TMenuItem;
+    MIThemeDark: TMenuItem;
+    MIThemeLight: TMenuItem;
+    N8: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -349,6 +356,9 @@ type
     procedure ActionFileConcatExecute(Sender: TObject);
     procedure Openemulatedsource1Click(Sender: TObject);
     procedure ActionShowPaneAddrExecute(Sender: TObject);
+    procedure ActionThemeDarkExecute(Sender: TObject);
+  private const
+    AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
     TShortCutSet = record
       ShortCut: TShortCut;
@@ -389,6 +399,7 @@ type
     procedure BeginAddEditors();
     procedure EndAddEditors();
     function GetNameForNewFile(): string;
+    procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
   public
     { Public declarations }
     Settings: TMainFormSettings;
@@ -991,6 +1002,13 @@ begin
   ActiveEditor.ShowPanes[PaneType] := (Sender as TAction).Checked;
 end;
 
+procedure TMainForm.ActionThemeDarkExecute(Sender: TObject);
+begin
+  Settings.Theme := (Sender as TAction).Tag;
+  Settings.Changed();
+  TStyleManager.TrySetStyle(AppThemeNames[Settings.Theme]);
+end;
+
 procedure TMainForm.ActionUndoExecute(Sender: TObject);
 begin
   with ActiveEditor do
@@ -1162,10 +1180,13 @@ begin
     ActionRevert.Enabled := False;
     ActionClose.Enabled := False;
     ActionCloseAll.Enabled := False;
+    ActionShowPaneAddr.Enabled := False;
+    ActionShowPaneHex.Enabled := False;
+    ActionShowPaneText.Enabled := False;
 
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or
-         (ActionList1.Actions[i].Category = 'View') or
+//         (ActionList1.Actions[i].Category = 'View') or
          ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) or
          ((ActionList1.Actions[i].Category = 'Operations') and (ActionList1.Actions[i] <> ActionDebugMode)) then
         ActionList1.Actions[i].Enabled := False;
@@ -1204,6 +1225,51 @@ begin
       if Editors[i] <> EditorForTabMenu then
         Editors[i].Close();
   end;
+end;
+
+procedure EnumComponents(Component: TComponent; Func: TProc<TComponent>);
+var
+  i: Integer;
+begin
+  for i := 0 to Component.ComponentCount - 1 do
+  begin
+    Func(Component.Components[i]);
+    EnumComponents(Component.Components[i], Func);
+  end;
+end;
+
+procedure TMainForm.CMStyleChanged(var Message: TMessage);
+var
+  i: Integer;
+  WindowClr, WindowTextClr, BtnFaceClr, InfoBkClr: TColor;
+begin
+  WindowClr := Vcl.Graphics.ColorToRGB(StyleServices(Self).ColorToRGB(clWindow));
+  WindowTextClr := Vcl.Graphics.ColorToRGB(StyleServices(Self).ColorToRGB(clWindowText));
+  BtnFaceClr := Vcl.Graphics.ColorToRGB(StyleServices(Self).ColorToRGB(clBtnFace));
+  InfoBkClr := Vcl.Graphics.ColorToRGB(StyleServices(Self).ColorToRGB(clInfoBk));
+
+  IsDarkThemeEnabled := GetRValue(WindowClr) < GetRValue(WindowTextClr);
+
+  // SynEdit does not respects theme colors, so we manually find all SynEdit's
+  // and change main colors.
+  // Maybe there is some better solution.
+  for i := 0 to Screen.FormCount - 1 do
+    EnumComponents(Screen.Forms[i],
+      procedure(Component: TComponent)
+      var
+        Edit: TSynEdit;
+      begin
+        if Component is TSynEdit then
+        begin
+          Edit := TSynEdit(Component);
+          Edit.Color := WindowClr;
+          Edit.Font.Color := WindowTextClr;
+          Edit.Gutter.Color := BtnFaceClr;
+          Edit.Gutter.Font.Color := WindowTextClr;
+          if Edit.ActiveLineColor <> clNone then
+            Edit.ActiveLineColor := InfoBkClr;
+        end;
+      end);
 end;
 
 procedure TMainForm.Copyfullname1Click(Sender: TObject);
@@ -1407,6 +1473,15 @@ begin
   APIEnv.VariantToValueProc := VariantToValueProc;
 
   ScriptFrame.Init();
+
+  TStyleManager.Engine.RegisterStyleHook(TCustomSynEdit, TMemoStyleHook );
+  if (Settings.Theme > 0) and (Settings.Theme < Length(AppThemeNames)) then
+  begin
+    TStyleManager.TrySetStyle(AppThemeNames[Settings.Theme]);
+    ActionThemeDark.Checked := (Settings.Theme = ActionThemeDark.Tag);
+    ActionThemeLight.Checked := (Settings.Theme = ActionThemeLight.Tag);
+  end;
+
 end;
 
 procedure TMainForm.FormDblClick(Sender: TObject);

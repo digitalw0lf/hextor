@@ -16,7 +16,7 @@ uses
   WinApi.Messages, Vcl.Graphics, Winapi.Windows, System.Math, Winapi.ShellAPI,
   Generics.Collections, Vcl.Themes, Vcl.AppEvnts,
 
-  uFormattedTextDraw;
+  uFormattedTextDraw, uHextorTypes;
 
 type
   // Всплывающая подсказка, отображающая форматированный текст при помощи DrawFmtText()
@@ -202,6 +202,10 @@ function PopulateMenuWithFileList(Menu: TMenuItem; AfterItem, BeforeItem: TMenuI
   Template: TMenuItem; FolderImageIndex: Integer; const Path, Mask: string;
   FilesForMenuItems: TDictionary<Integer, string>): Integer;
 function FitTextInWidth(const Text: string; Canvas: TCanvas; MaxWidth: Integer; DotsPosition: Double = 0.66): string;
+function ColorForCurrentTheme(Color: TColor): TColor;
+
+var
+  IsDarkThemeEnabled: Boolean = False;  // True if current VCL theme is more Dark then Light
 
 procedure Register;
 
@@ -361,6 +365,52 @@ begin
   Result := Copy(Text, Low(Text), Trunc(chars * DotsPosition)) +
             '...' +
             Copy(Text, Length(Text) - Trunc(chars * (1 - DotsPosition)) + 5, MaxInt);
+end;
+
+function ColorForDarkTheme(Clr: TColor): TColor;
+//const
+//  Base = $19;
+var
+  r, g, b, m: Integer;
+begin
+  r := GetRValue(Clr);
+  g := GetGValue(Clr);
+  b := GetBValue(Clr);
+//  m := Min(r, Min(g, b));
+//  r := Base + r - m;
+//  g := Base + g - m;
+//  b := Base + b - m;
+  //m := Min(Min(r, Min(g, b)), $80);
+  m := $80;
+  if (r + g + b >= $80*3) then
+  begin
+    r := r - m;
+    g := g - m;
+    b := b - m;
+  end
+  else
+  begin
+    r := r + m;
+    g := g + m;
+    b := b + m;
+  end;
+
+  Result := RGB(BoundValue(r, 0, 255), BoundValue(g, 0, 255), BoundValue(b, 0, 255));
+end;
+
+function ColorForCurrentTheme(Color: TColor): TColor;
+// If Dark theme is currently selected, darked passed color
+begin
+  Result := Color;
+  if Result = clNone then Exit;
+  if (Result and $80000000) <> 0 then
+  begin
+    // StyleServices.ColorToRGB() alone does not works when default Windows theme selected
+    Result := Vcl.Graphics.ColorToRGB(StyleServices().ColorToRGB(Result));
+  end
+  else
+    if IsDarkThemeEnabled then
+      Result := ColorForDarkTheme(Color);
 end;
 
 { tFmtHintWindow }

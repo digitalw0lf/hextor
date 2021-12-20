@@ -97,6 +97,7 @@ object ScriptFrame: TScriptFrame
     TabWidth = 2
     WantTabs = True
     FontSmoothing = fsmNone
+    ExplicitTop = 24
   end
   object ToolBar1: TToolBar
     Left = 0
@@ -162,8 +163,8 @@ object ScriptFrame: TScriptFrame
     end
   end
   object Timer1: TTimer
-    Left = 104
-    Top = 288
+    Left = 144
+    Top = 296
   end
   object SynJScriptSyn1: TSynJScriptSyn
     Options.AutoDetectEnabled = False

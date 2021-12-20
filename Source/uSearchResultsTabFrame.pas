@@ -13,9 +13,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.ComCtrls,
-  System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Clipbrd,
+  System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Clipbrd, Vcl.Menus,
 
-  uEditorForm, uHextorTypes, uHextorDataSources, uEditedData, Vcl.Menus;
+  uEditorForm, uHextorTypes, uHextorDataSources, uEditedData, uHextorGUI;
 
 type
   TSearchResultsTabFrame = class(TFrame)
@@ -399,7 +399,8 @@ var
 begin
   if IsGroupNode(Node) then
   begin
-    TargetCanvas.Font.Color := clNavy;
+    if not (vsSelected in Node.States) then
+      TargetCanvas.Font.Color := ColorForCurrentTheme(clNavy);
     Exit;
   end;
 

@@ -12,9 +12,9 @@ interface
 
 uses
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Controls, Vcl.ExtCtrls,
-  Vcl.Graphics, System.Types, Winapi.Messages, Math,
+  Vcl.Graphics, System.Types, Winapi.Messages, Math, Vcl.Themes,
 
-  uHextorTypes {, uLogFile};
+  uHextorTypes, uHextorGUI {, uLogFile};
 
 type
   TEditorPane = class;
@@ -236,7 +236,6 @@ var
   R: TRect;
   s, s1: string;
   DefaultAttr: TCharAttributes;
-//  CharPos: array of TPoint;  // Line and column of every char
 
   procedure DrawRegionOutline(const Region: TVisualTextRegion);
   // Draw contour around tagged range of text
@@ -271,7 +270,7 @@ var
     }
     ScrBmp.Canvas.Pen.Style := psSolid;
     ScrBmp.Canvas.Pen.Mode := pmCopy;
-    ScrBmp.Canvas.Pen.Color := Region.FrameColor;
+    ScrBmp.Canvas.Pen.Color := ColorForCurrentTheme( Region.FrameColor );
     ScrBmp.Canvas.Pen.Width := Region.FrameWidth;
     ScrBmp.Canvas.Brush.Style := bsClear;
 
@@ -321,7 +320,7 @@ var
   end;
 
 begin
-  ScrBmp.Canvas.Brush.Color := Self.Color;
+  ScrBmp.Canvas.Brush.Color := ColorForCurrentTheme(Self.Color);
   ScrBmp.Canvas.Font := Self.Font;
   ScrBmp.Canvas.FillRect(ClientRect);
   if Assigned(OnBeforeDraw) then
@@ -329,8 +328,8 @@ begin
   CalcTextLength();
   VisibleRange := TFileRange.Create(0, TextLength);
   CharSize := ScrBmp.Canvas.TextExtent('O');
-  DefaultAttr.TxColor := Self.Font.Color;
-  DefaultAttr.BgColor := Self.Color;
+  DefaultAttr.TxColor := ColorForCurrentTheme(Self.Font.Color);
+  DefaultAttr.BgColor := ColorForCurrentTheme(Self.Color);
   SetLength(LineFirstChar, Lines.Count);
   SetLength(CharPos, TextLength);
   FirstCharInLine := 0;
@@ -406,6 +405,7 @@ begin
       Pen.Color := clGray;
       Brush.Color := clGray;
     end;
+    Pen.Mode := pmMergePenNot;
     if InsertModeCaret then
     begin
       MoveTo(R.Left, R.Top);
@@ -415,7 +415,6 @@ begin
     end
     else
     begin
-      Pen.Mode := pmMergePenNot;
       Rectangle(R);
     end;
     Pen.Mode := pmCopy;
@@ -491,15 +490,18 @@ procedure TEditorPane.CalcCharAttributes;
 // Calculate font and bg color for each character using VisRanges
 var
   i, j, n1, n2: Integer;
-  DefBgColor, DefTxColor: TColor;
+  BgColor, TxColor: TColor;
 begin
   CalcTextLength();
   SetLength(CharAttr, TextLength);
 
+  // Default colors.
+  TxColor := ColorForCurrentTheme(Font.Color);
+  BgColor := ColorForCurrentTheme(Color);
   for i:=0 to TextLength-1 do
   begin
-    CharAttr[i].TxColor := clNone;
-    CharAttr[i].BgColor := clNone;
+    CharAttr[i].TxColor := TxColor;
+    CharAttr[i].BgColor := BgColor;
   end;
 
   // Fill char attributes with colors from ranges
@@ -508,21 +510,14 @@ begin
     n1 := Max(FVisRegions[i].Range.Start, 0);
     n2 := Min(FVisRegions[i].Range.AEnd, TextLength);
     if n2 <= n1 then Continue;
+    TxColor := ColorForCurrentTheme(FVisRegions[i].TextColor);
+    BgColor := ColorForCurrentTheme(FVisRegions[i].BgColor);
 
     for j:=n1 to n2-1 do
     begin
-      CharAttr[j].TxColor := AverageColor(CharAttr[j].TxColor, FVisRegions[i].TextColor);
-      CharAttr[j].BgColor := AverageColor(CharAttr[j].BgColor, FVisRegions[i].BgColor);
+      CharAttr[j].TxColor := AverageColor(CharAttr[j].TxColor, TxColor);
+      CharAttr[j].BgColor := AverageColor(CharAttr[j].BgColor, BgColor);
     end;
-  end;
-
-  // Default colors
-  DefBgColor := Color;
-  DefTxColor := Font.Color;
-  for i:=0 to TextLength-1 do
-  begin
-    if CharAttr[i].TxColor = clNone then CharAttr[i].TxColor := DefTxColor;
-    if CharAttr[i].BgColor = clNone then CharAttr[i].BgColor := DefBgColor;
   end;
 end;
 

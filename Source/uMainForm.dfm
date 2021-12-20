@@ -25,9 +25,9 @@ object MainForm: TMainForm
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 604
-    Top = 51
+    Top = 47
     Width = 4
-    Height = 588
+    Height = 592
     Align = alRight
     AutoSnap = False
     ResizeStyle = rsUpdate
@@ -76,9 +76,8 @@ object MainForm: TMainForm
     Left = 0
     Top = 0
     Width = 1028
-    Height = 26
+    Height = 22
     AutoSize = True
-    ButtonHeight = 26
     ButtonWidth = 26
     Caption = 'ToolBar1'
     Images = ImageList16
@@ -219,7 +218,7 @@ object MainForm: TMainForm
   end
   object MDITabs: TTabControl
     Left = 0
-    Top = 26
+    Top = 22
     Width = 1028
     Height = 25
     Align = alTop
@@ -234,9 +233,9 @@ object MainForm: TMainForm
   end
   object RightPanel: TPanel
     Left = 608
-    Top = 51
+    Top = 47
     Width = 420
-    Height = 588
+    Height = 592
     Align = alRight
     BevelOuter = bvNone
     DoubleBuffered = True
@@ -247,7 +246,7 @@ object MainForm: TMainForm
       Left = 0
       Top = 0
       Width = 420
-      Height = 547
+      Height = 551
       ActivePage = PgMedia
       Align = alClient
       MultiLine = True
@@ -259,16 +258,16 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited ValuesTreeView: TVirtualStringTree
             Width = 412
-            Height = 501
+            Height = 505
             ExplicitWidth = 412
-            ExplicitHeight = 501
+            ExplicitHeight = 505
             Columns = <
               item
                 Position = 0
@@ -290,7 +289,7 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           HelpType = htKeyword
           HelpKeyword = 'Structure-analyzer'
           Align = alClient
@@ -298,7 +297,7 @@ object MainForm: TMainForm
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited PnlButtonBar2: TPanel
             Top = 242
             Width = 412
@@ -329,11 +328,11 @@ object MainForm: TMainForm
           inherited DSTreeView: TVirtualStringTree
             Top = 283
             Width = 412
-            Height = 218
+            Height = 222
             TabOrder = 2
             ExplicitTop = 283
             ExplicitWidth = 412
-            ExplicitHeight = 218
+            ExplicitHeight = 222
           end
           inherited EditFieldValue: TEdit
             TabOrder = 3
@@ -356,19 +355,19 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           DoubleBuffered = True
           ParentBackground = False
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited PageControl1: TPageControl
             Width = 412
-            Height = 501
+            Height = 505
             ExplicitWidth = 412
-            ExplicitHeight = 501
+            ExplicitHeight = 505
             inherited InitialTab: TTabSheet
               ExplicitLeft = 4
               ExplicitTop = 24
@@ -379,9 +378,9 @@ object MainForm: TMainForm
               ExplicitLeft = 4
               ExplicitTop = 24
               ExplicitWidth = 404
-              ExplicitHeight = 473
+              ExplicitHeight = 477
               inherited DiffBar: TPaintBox
-                Height = 473
+                Height = 477
                 ExplicitHeight = 491
               end
               inherited BtnRecompare: TButton
@@ -407,21 +406,21 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited Splitter1: TSplitter
-            Top = 365
+            Top = 369
             Width = 412
             ExplicitTop = 387
             ExplicitWidth = 412
           end
           inherited OutputPanel: TPanel
-            Top = 369
+            Top = 373
             Width = 412
-            ExplicitTop = 369
+            ExplicitTop = 373
             ExplicitWidth = 412
             inherited MemoOutput: TRichEdit
               Width = 412
@@ -438,9 +437,9 @@ object MainForm: TMainForm
           end
           inherited ScriptEdit: TSynEdit
             Width = 412
-            Height = 339
+            Height = 343
             ExplicitWidth = 412
-            ExplicitHeight = 339
+            ExplicitHeight = 343
           end
           inherited ToolBar1: TToolBar
             Width = 412
@@ -459,22 +458,22 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           DoubleBuffered = False
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited MainPaintBox: TPaintBox
             Width = 314
-            Height = 452
+            Height = 456
             ExplicitWidth = 299
             ExplicitHeight = 474
           end
           inherited LeftPanel: TPanel
-            Height = 452
-            ExplicitHeight = 452
+            Height = 456
+            ExplicitHeight = 456
           end
           inherited TopPanel: TPanel
             Width = 412
@@ -482,9 +481,9 @@ object MainForm: TMainForm
           end
           inherited VertScrollBar: TScrollBar64
             Left = 395
-            Height = 452
+            Height = 456
             ExplicitLeft = 395
-            ExplicitHeight = 452
+            ExplicitHeight = 456
           end
         end
       end
@@ -495,16 +494,16 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited PageControl: TPageControl
             Width = 412
-            Height = 501
+            Height = 505
             ExplicitWidth = 412
-            ExplicitHeight = 501
+            ExplicitHeight = 505
           end
         end
       end
@@ -515,11 +514,11 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited Splitter1: TSplitter
             Width = 412
             ExplicitWidth = 412
@@ -533,18 +532,18 @@ object MainForm: TMainForm
           end
           inherited Panel2: TPanel
             Width = 412
-            Height = 177
+            Height = 181
             ExplicitWidth = 412
-            ExplicitHeight = 177
+            ExplicitHeight = 181
             inherited StaticText1: TStaticText
               Width = 406
               ExplicitWidth = 406
             end
             inherited ResultListView: TListView
               Width = 412
-              Height = 154
+              Height = 158
               ExplicitWidth = 412
-              ExplicitHeight = 154
+              ExplicitHeight = 158
             end
           end
         end
@@ -556,20 +555,20 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
           end
           inherited SynEdit1: TSynEdit
             Width = 412
-            Height = 460
+            Height = 464
             ExplicitWidth = 412
-            ExplicitHeight = 460
+            ExplicitHeight = 464
           end
         end
       end
@@ -580,11 +579,11 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited ToolBar1: TToolBar
             Width = 412
             Images = nil
@@ -592,9 +591,9 @@ object MainForm: TMainForm
           end
           inherited BookmarksTreeView: TVirtualStringTree
             Width = 412
-            Height = 475
+            Height = 479
             ExplicitWidth = 412
-            ExplicitHeight = 475
+            ExplicitHeight = 479
           end
         end
       end
@@ -605,20 +604,20 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
           end
           inherited RegionsTreeView: TVirtualStringTree
             Width = 412
-            Height = 460
+            Height = 464
             ExplicitWidth = 412
-            ExplicitHeight = 460
+            ExplicitHeight = 464
           end
         end
       end
@@ -629,47 +628,47 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 501
+          Height = 505
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 501
+          ExplicitHeight = 505
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
           end
           inherited ContentPanel: TPanel
             Width = 412
-            Height = 460
+            Height = 464
             ExplicitWidth = 412
-            ExplicitHeight = 460
+            ExplicitHeight = 464
             inherited Image1: TImage
               Width = 412
-              Height = 460
+              Height = 464
               ExplicitWidth = 412
               ExplicitHeight = 460
             end
             inherited MediaPlayerPanel: TPanel
               Width = 412
-              Height = 460
+              Height = 464
               ExplicitWidth = 412
-              ExplicitHeight = 460
+              ExplicitHeight = 464
               inherited Panel1: TPanel
-                Top = 419
+                Top = 423
                 Width = 412
-                ExplicitTop = 419
+                ExplicitTop = 423
                 ExplicitWidth = 412
               end
               inherited Panel2: TPanel
                 Width = 412
-                Height = 419
+                Height = 423
                 ExplicitWidth = 412
-                ExplicitHeight = 419
+                ExplicitHeight = 423
               end
             end
             inherited ErrorMemo: TMemo
               Width = 406
-              Height = 454
+              Height = 458
             end
           end
         end
@@ -677,7 +676,7 @@ object MainForm: TMainForm
     end
     object MsgPanel: TPanel
       Left = 0
-      Top = 547
+      Top = 551
       Width = 420
       Height = 41
       Align = alBottom
@@ -940,6 +939,20 @@ object MainForm: TMainForm
     object MIView: TMenuItem
       Caption = 'View'
       OnClick = MIViewClick
+      object MIThemesMenu: TMenuItem
+        Caption = 'Theme'
+        object MIThemeDark: TMenuItem
+          Action = ActionThemeDark
+          AutoCheck = True
+        end
+        object MIThemeLight: TMenuItem
+          Action = ActionThemeLight
+          AutoCheck = True
+        end
+      end
+      object N8: TMenuItem
+        Caption = '-'
+      end
       object MIEncodingMenu: TMenuItem
         Caption = 'Text encoding'
         OnClick = MIEncodingMenuClick
@@ -1415,6 +1428,25 @@ object MainForm: TMainForm
       Hint = 'Show/hide Hex pane'
       ImageIndex = 27
       OnExecute = ActionShowPaneAddrExecute
+    end
+    object ActionThemeDark: TAction
+      Tag = 1
+      Category = 'View'
+      AutoCheck = True
+      Caption = 'Dark'
+      GroupIndex = 1
+      Hint = 'Switch to Dark theme'
+      OnExecute = ActionThemeDarkExecute
+    end
+    object ActionThemeLight: TAction
+      Tag = 2
+      Category = 'View'
+      AutoCheck = True
+      Caption = 'Light'
+      Checked = True
+      GroupIndex = 1
+      Hint = 'Switch to Dark theme'
+      OnExecute = ActionThemeDarkExecute
     end
   end
   object SaveDialog1: TSaveDialog

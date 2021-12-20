@@ -2004,7 +2004,6 @@ begin
         ws := Copy(ws, Low(ws), 5) + '…' + Copy(ws, High(ws) - 4, 5);
       Lines.Add(ws);
     end;
-    PaneAddr.Refresh();
 
     // Hex
 //    StartTimeMeasure();
@@ -2123,6 +2122,7 @@ begin
 
     Update(PaneHex, 3);
     Update(PaneText, 1);
+    PaneAddr.SetVisRegions(nil);  // Update char attributes
   finally
     TaggedRegions.Free;
   end;

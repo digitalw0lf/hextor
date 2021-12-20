@@ -12,7 +12,9 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, System.Types;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, System.Types,
+
+  uHextorGUI;
 
 type
   TBitsEditorForm = class(TForm)
@@ -108,10 +110,10 @@ begin
 
   with ScrBmp.Canvas do
   begin
-    Brush.Color := PaintBox1.Color;
+    Brush.Color := ColorForCurrentTheme(PaintBox1.Color);
     FillRect(Rect(0, 0, ScrBmp.Width, ScrBmp.Height));
 
-    Pen.Color := clBlack;
+    Pen.Color := ColorForCurrentTheme(clBlack);
     Font.Name := PaintBox1.Font.Name;
     for i:=0 to ValueSize*8-1 do
     begin
@@ -119,16 +121,16 @@ begin
       s := IntToStr((Value shr i) and 1);
       if ((Value shr i) and 1)<>0 then
       begin
-        Font.Color := clBlack;
+        Font.Color := ColorForCurrentTheme(clWindowText);
       end
       else
       begin
-        Font.Color := clLtGray;
+        Font.Color := ColorForCurrentTheme(clGrayText);
       end;
 
       R := BitRect(i);
 
-      Brush.Color := clWhite;
+      Brush.Color := ColorForCurrentTheme(clWindow);
       Brush.Style := bsSolid;
       Rectangle(R);
       Font.Size := 14;
@@ -136,7 +138,7 @@ begin
       R1 := R;
       TextRect(R1, s, [tfCenter, tfVerticalCenter]);
 
-      Font.Color := clBlack;
+      Font.Color := ColorForCurrentTheme(clWindowText);
       Font.Size := 8;
       // bit number
       R1 := Rect(R.Left, R.Top-15, R.Right, R.Top);
