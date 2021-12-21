@@ -2031,6 +2031,7 @@ begin
     begin
       LineRange := GetLineRange(i);
       SetLength(s, LineRange.Size);
+      SetCodePage(s, TextEncoding, False);
       for j := 0 to LineRange.Size - 1 do
       begin
         s[Low(s) + j] := AnsiChar(AData[LineRange.Start + j - VisRange.Start]);

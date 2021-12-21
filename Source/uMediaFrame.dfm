@@ -124,14 +124,6 @@ object MediaFrame: TMediaFrame
       Height = 441
       Align = alClient
       BorderStyle = bsNone
-      Lines.Strings = (
-        
-          'Select data in editor and press "Show" to display it as image/mu' +
-          'ltimedia based on signature.'
-        ''
-        'Currently supported formats:'
-        ''
-        '')
       ParentColor = True
       ReadOnly = True
       TabOrder = 1

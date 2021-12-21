@@ -90,6 +90,8 @@ var
 begin
   inherited;
   MainForm.OnSelectionChanged.Add(EditorSelectionChanged);
+  ErrorMemo.Text := 'Select data in editor and press "Show" to display it as image/multimedia based on signature.' + sLineBreak + sLineBreak +
+                    'Currently supported formats:' + sLineBreak + sLineBreak;
   sl := TStringList.Create();
   try
     GetFormatsList(sl);
