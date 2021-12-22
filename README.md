@@ -1,5 +1,8 @@
 # Hextor
 
+<img title="Disarm_Dark" src="https://user-images.githubusercontent.com/63538674/147139570-2d1b66d4-dd2d-4ee1-aef5-34a6116ce3e2.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="DepthmapInsideJpeg" src="https://user-images.githubusercontent.com/63538674/147140091-45a191f1-cc9f-4d12-b090-b78ed52bbb50.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="TextMode_Search" src="https://user-images.githubusercontent.com/63538674/147140112-b66c0d13-0f37-452a-b1a0-eaaef4777db3.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="DataStruct_and_Copy" src="https://user-images.githubusercontent.com/63538674/147141823-cfe4b62e-1e13-405a-9c8b-f3a7a8c0bb2a.png" height=130 />
+
+
 Download: https://github.com/digitalw0lf/hextor/releases/latest
 
 Hextor is a Hexadecimal editor and binary data analyzing toolkit.
@@ -18,10 +21,12 @@ Main features are:
 - Search and replace in files/directories
 - Advanced binary file comparison with insert/delete detection
 - View data as bitmap
+- "Text editor" mode for huge text files and text sections inside of binary files
 - Hash calculation (MD/SHA/CRC etc.)
 - Disassembler (using Zydis library)
 - Scripting support (via IActiveScript)
 - Plugin support planned (via OleAutomation API)
+- Dark and Light UI themes
 
 As with any other low-level tool, use with caution and always make backups of valuable data!
 
