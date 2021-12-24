@@ -1,6 +1,8 @@
 # Hextor
 
-<img title="Disarm_Dark" src="https://user-images.githubusercontent.com/63538674/147139570-2d1b66d4-dd2d-4ee1-aef5-34a6116ce3e2.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="DepthmapInsideJpeg" src="https://user-images.githubusercontent.com/63538674/147140091-45a191f1-cc9f-4d12-b090-b78ed52bbb50.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="TextMode_Search" src="https://user-images.githubusercontent.com/63538674/147140112-b66c0d13-0f37-452a-b1a0-eaaef4777db3.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="DataStruct_and_Copy" src="https://user-images.githubusercontent.com/63538674/147141823-cfe4b62e-1e13-405a-9c8b-f3a7a8c0bb2a.png" height=130 />
+<img title="Disarm_Dark" src="https://user-images.githubusercontent.com/63538674/147139570-2d1b66d4-dd2d-4ee1-aef5-34a6116ce3e2.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="DepthmapInsideJpeg" src="https://user-images.githubusercontent.com/63538674/147140091-45a191f1-cc9f-4d12-b090-b78ed52bbb50.png" height=130 /> &nbsp; &nbsp; &nbsp; <img title="TextMode_Search" src="https://user-images.githubusercontent.com/63538674/147140112-b66c0d13-0f37-452a-b1a0-eaaef4777db3.png" height=130 />
+
+More [screenshots and use cases >>](https://github.com/digitalw0lf/hextor/wiki/Hextor-Use-cases)
 
 
 Download: https://github.com/digitalw0lf/hextor/releases/latest
@@ -25,7 +27,7 @@ Main features are:
 - Hash calculation (MD/SHA/CRC etc.)
 - Disassembler (using Zydis library)
 - Scripting support (via IActiveScript)
-- Plugin support planned (via OleAutomation API)
+- Planned feature: Plugin support (via OleAutomation API)
 - Dark and Light UI themes
 
 As with any other low-level tool, use with caution and always make backups of valuable data!
