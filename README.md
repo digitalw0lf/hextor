@@ -7,7 +7,7 @@ More [screenshots and use cases >>](https://github.com/digitalw0lf/hextor/wiki/H
 
 Download: https://github.com/digitalw0lf/hextor/releases/latest
 
-Hextor is a Hexadecimal editor and binary data analyzing toolkit.
+Hextor is a Hexadecimal editor and binary data analyzing toolkit for Windows.
 
 It was created to make working with binary file formats as simple and convenient as with plain text. Although it is staffed with a powerful set of data analyzing tools, it starts instantly and rapidly works with files of any size.
 
