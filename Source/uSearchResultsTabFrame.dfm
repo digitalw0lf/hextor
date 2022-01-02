@@ -48,9 +48,9 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     object LblFoundCount: TLabel
       Left = 8
       Top = 8
-      Width = 72
+      Width = 59
       Height = 13
-      Caption = 'LblFoundCount'
+      Caption = 'Searching...'
     end
   end
   object ResultsListPopupMenu: TPopupMenu

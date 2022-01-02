@@ -3,7 +3,7 @@ object FileInfoForm: TFileInfoForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'File information'
-  ClientHeight = 256
+  ClientHeight = 401
   ClientWidth = 441
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -79,7 +79,7 @@ object FileInfoForm: TFileInfoForm
   end
   object BtnClose: TButton
     Left = 184
-    Top = 216
+    Top = 360
     Width = 75
     Height = 25
     Cancel = True
@@ -105,5 +105,101 @@ object FileInfoForm: TFileInfoForm
     ReadOnly = True
     TabOrder = 5
     Text = 'EditFullName'
+  end
+  object GBStreams: TGroupBox
+    Left = 16
+    Top = 208
+    Width = 409
+    Height = 137
+    Caption = 'NTFS Streams'
+    TabOrder = 6
+    object StaticText1: TStaticText
+      AlignWithMargins = True
+      Left = 10
+      Top = 23
+      Width = 389
+      Height = 104
+      Margins.Left = 8
+      Margins.Top = 8
+      Margins.Right = 8
+      Margins.Bottom = 8
+      Align = alClient
+      Caption = 'N/A'
+      TabOrder = 1
+      ExplicitLeft = 176
+      ExplicitTop = 112
+      ExplicitWidth = 22
+      ExplicitHeight = 17
+    end
+    object StreamsPanel: TPanel
+      Left = 2
+      Top = 15
+      Width = 405
+      Height = 120
+      Align = alClient
+      BevelOuter = bvNone
+      TabOrder = 0
+      ExplicitLeft = 3
+      ExplicitTop = 18
+      ExplicitWidth = 409
+      ExplicitHeight = 119
+      object StreamsListView: TListView
+        Left = 3
+        Top = 8
+        Width = 310
+        Height = 104
+        Columns = <
+          item
+            Caption = 'Name'
+            Width = 200
+          end
+          item
+            Caption = 'Size'
+            Width = 80
+          end>
+        HideSelection = False
+        ReadOnly = True
+        RowSelect = True
+        TabOrder = 0
+        ViewStyle = vsReport
+        OnDblClick = BtnStreamEditClick
+      end
+      object BtnStreamAdd: TButton
+        Left = 319
+        Top = 8
+        Width = 75
+        Height = 25
+        Hint = 'Create alternate stream in file'
+        Caption = 'Add'
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 1
+        OnClick = BtnStreamAddClick
+      end
+      object BtnStreamEdit: TButton
+        Left = 319
+        Top = 35
+        Width = 75
+        Height = 25
+        Hint = 'Edit selected stream'
+        Caption = 'Edit'
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 2
+        OnClick = BtnStreamEditClick
+      end
+      object BtnStreamDelete: TButton
+        Left = 319
+        Top = 62
+        Width = 75
+        Height = 25
+        Hint = 'Delete selected stream'
+        Caption = 'Delete'
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 3
+        OnClick = BtnStreamDeleteClick
+      end
+    end
   end
 end

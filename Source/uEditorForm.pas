@@ -210,6 +210,7 @@ type
     [API]
     procedure Save();
     procedure NewFileOpened(ResetCaret: Boolean);
+    function GetHeaderHint(): string;
     function GetEditedData(Addr, Size: TFilePointer): TBytes;
     function GetOrigFileSize(): TFilePointer;
     [API]
@@ -275,7 +276,7 @@ var
 implementation
 
 uses
-  uMainForm, uValueFrame, uDbgToolsForm, uDataStruct;
+  uMainForm, uValueFrame, uDbgToolsForm, uDataStruct, uFileInfoForm;
 
 {$R *.dfm}
 
@@ -1066,6 +1067,20 @@ begin
   Result := Data.GetSize();
 end;
 
+function TEditorForm.GetHeaderHint: string;
+var
+  St: TArray<TFileInfoForm.TNTFSAltStreamInfo>;
+begin
+  Result := DataSource.Path;
+  if DataSource is TFileDataSource then
+  begin
+    St := FileInfoForm.GetNTFSFileStreams(DataSource.Path);
+    if Length(St) > 1 then
+      Result := Result + sLineBreak +
+        Format('File has %d alternate NTFS stream(s). See "File info"', [Length(St) - 1]);
+  end;
+end;
+
 function TEditorForm.GetLineRange(Index: Integer): TFileRange;
 // Addresses in file of specified line on screen
 begin
@@ -1716,7 +1731,7 @@ var
 begin
   if SelLength = 0 then
   begin
-    StatusBar.Panels[0].Text := 'Addr: ' + IntToStr(CaretPos) + '( '+'0x' + IntToHex(CaretPos, 2) + ')';
+    StatusBar.Panels[0].Text := 'Addr: ' + IntToStr(CaretPos) + ' ('+'0x' + IntToHex(CaretPos, 2) + ')';
     AData := GetEditedData(CaretPos, 1);
     if Length(AData)>=1 then
       StatusBar.Panels[1].Text := 'Byte: ' + IntToStr(AData[0])
@@ -1917,6 +1932,7 @@ end;
 procedure TEditorForm.UpdateFormCaption;
 var
   s: string;
+  St: TArray<TFileInfoForm.TNTFSAltStreamInfo>;
 begin
   s := '';
   if DataSource.DisplayName <> '' then
@@ -1925,6 +1941,14 @@ begin
     s := s + '(unnamed)';
   if HasUnsavedChanges then
     s := s + ' *';
+
+  if DataSource is TFileDataSource then
+  begin
+    St := FileInfoForm.GetNTFSFileStreams(DataSource.Path);
+    if Length(St) > 1 then
+      s := s + ' (+' + IntToStr(Length(St) - 1) + ' ADS)';
+  end;
+
   Self.Caption := s;
 
   MainForm.UpdateMDITabs();

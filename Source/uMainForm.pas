@@ -279,6 +279,8 @@ type
     MIThemeDark: TMenuItem;
     MIThemeLight: TMenuItem;
     N8: TMenuItem;
+    Openpath1: TMenuItem;
+    FindADSs1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -357,6 +359,11 @@ type
     procedure Openemulatedsource1Click(Sender: TObject);
     procedure ActionShowPaneAddrExecute(Sender: TObject);
     procedure ActionThemeDarkExecute(Sender: TObject);
+    procedure Openpath1Click(Sender: TObject);
+    procedure MDITabsMouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
+    procedure EditorTabMenuPopup(Sender: TObject);
+    procedure FindADSs1Click(Sender: TObject);
   private const
     AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
@@ -1405,6 +1412,34 @@ begin
   end;
 end;
 
+procedure TMainForm.FindADSs1Click(Sender: TObject);
+var
+  Root: string;
+begin
+  Root := '';
+  if not InputQuery('ADS', 'Search in:', Root) then Exit;
+
+  TDirectory.GetFileSystemEntries(Root, TSearchOption.soAllDirectories,
+    function(const Path: string; const SearchRec: TSearchRec): Boolean
+    var
+      s: string;
+      i: Integer;
+      St: TArray<TFileInfoForm.TNTFSAltStreamInfo>;
+    begin
+      s := TPath.Combine(Path, SearchRec.Name);
+      St := FileInfoForm.GetNTFSFileStreams(s);
+      if Length(St) > IfThen(SearchRec.Attr and faDirectory <> 0, 0, 1) then
+      begin
+        for i := 0 to Length(St) - 1 do
+          s := St[i].Name + ' ' + s;
+        WriteLog('ADS', s);
+      end;
+      Result := True;
+    end
+  );
+
+end;
+
 function TMainForm.FindEditorWithSource(DataSourceType: THextorDataSourceType;
   const APath: string): TEditorForm;
 // If we have requested data source (file) open in some editor, return it
@@ -1654,6 +1689,21 @@ begin
   ImageIndex := GetIconIndex(Editors[TabIndex].DataSource);
 end;
 
+procedure TMainForm.MDITabsMouseMove(Sender: TObject; Shift: TShiftState; X,
+  Y: Integer);
+var
+  n: Integer;
+  s: string;
+begin
+  n := MDITabs.IndexOfTabAt(X, Y);
+  if (n >= 0) and (n < EditorCount) then
+  begin
+    s := Editors[n].GetHeaderHint();
+    FmtHint.Delay := 500;
+    FmtHint.ShowHint(s);
+  end;
+end;
+
 procedure TMainForm.MDITabsMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
@@ -1661,7 +1711,7 @@ var
   Pt: TPoint;
 begin
   n := MDITabs.IndexOfTabAt(X, Y);
-  if n >= 0 then
+  if (n >= 0) and (n < EditorCount) then
   begin
     case Button of
       mbMiddle:
@@ -1758,6 +1808,16 @@ begin
   end
   else
     ActionNewExecute(nil);
+end;
+
+procedure TMainForm.Openpath1Click(Sender: TObject);
+var
+  s: string;
+begin
+  s := '';
+  if not InputQuery('Open', 'Open file:', s) then Exit;
+
+  Open(TFileDataSource, s);
 end;
 
 function TMainForm.ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
@@ -1949,6 +2009,11 @@ begin
   ApplyByteColEdit();
 end;
 
+procedure TMainForm.EditorTabMenuPopup(Sender: TObject);
+begin
+  FmtHint.ShowHint('');
+end;
+
 procedure TMainForm.EndAddEditors;
 var
   AEditor: TEditorForm;
@@ -2054,6 +2119,18 @@ begin
     EditByteCols.Enabled := False;
 end;
 
+function MyExtractFileName(const FileName: string): string;
+// Delphi's ExtractFileName works incorrectly with Alternate stream names like "c:\path\file:stream"
+var
+  I: Integer;
+begin
+  I := FileName.LastDelimiter([PathDelim]);
+  if I >= 0 then
+    Result := Copy(FileName, I + 2)
+  else
+    Result := FileName;
+end;
+
 procedure TMainForm.UpdateMDITabs;
 var
   i, Current: Integer;
@@ -2074,7 +2151,7 @@ begin
 //    s := MinimizeName(Editors[i].Caption, MDITabs.Canvas, MAX_TAB_WIDTH);
     s := Editors[i].Caption;
     if s.Contains(PathDelim) then
-      s := ExtractFileName(s);
+      s := MyExtractFileName(s);
     if s = '' then s := Editors[i].Caption;
     st.Add(s);
     if Editors[i] = ActiveMDIChild then

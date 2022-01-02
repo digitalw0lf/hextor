@@ -229,6 +229,7 @@ object MainForm: TMainForm
     TabOrder = 1
     OnChange = MDITabsChange
     OnGetImageIndex = MDITabsGetImageIndex
+    OnMouseMove = MDITabsMouseMove
     OnMouseUp = MDITabsMouseUp
   end
   object RightPanel: TPanel
@@ -438,6 +439,7 @@ object MainForm: TMainForm
           inherited ScriptEdit: TSynEdit
             Width = 412
             Height = 343
+            ExplicitTop = 26
             ExplicitWidth = 412
             ExplicitHeight = 343
           end
@@ -669,6 +671,8 @@ object MainForm: TMainForm
             inherited ErrorMemo: TMemo
               Width = 406
               Height = 458
+              ExplicitWidth = 406
+              ExplicitHeight = 458
             end
           end
         end
@@ -1049,6 +1053,14 @@ object MainForm: TMainForm
       object Loadplugin1: TMenuItem
         Caption = 'Load plugin'
         OnClick = Loadplugin1Click
+      end
+      object Openpath1: TMenuItem
+        Caption = 'Open path...'
+        OnClick = Openpath1Click
+      end
+      object FindADSs1: TMenuItem
+        Caption = 'Find ADSs'
+        OnClick = FindADSs1Click
       end
     end
     object MIHelp: TMenuItem
@@ -2545,6 +2557,7 @@ object MainForm: TMainForm
   end
   object EditorTabMenu: TPopupMenu
     Images = ImageList16
+    OnPopup = EditorTabMenuPopup
     Left = 144
     Top = 200
     object Fileinfo1: TMenuItem
