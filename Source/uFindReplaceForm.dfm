@@ -88,6 +88,21 @@ object FindReplaceForm: TFindReplaceForm
           'files containing some pattern.<br>It also works with "Replace al' +
           'l" command to replace first occurrence of pattern in each file.'
       end
+      object HintedImageProxy2: THintedImageProxy
+        Left = 498
+        Top = 128
+        Width = 16
+        Height = 16
+        Image = MainForm.HintImage
+        ImageIndex = 0
+        HintFmt = 
+          'Semicolon-separated list of file name masks.<br>You can use "*" ' +
+          'and "?" wildcards.<br>You can specify a list of excluded masks a' +
+          'fter a vertical line "|".<br>Example: "*.md;*.txt|CMakeLists.txt' +
+          '" - all MD and TXT files except CMakeLists.txt.<br>If some mask ' +
+          'contains a path delimiter char, then this mask is matched agains' +
+          't full file path; otherwise, it is matched against file name.'
+      end
       object RBInCurrentEditor: TRadioButton
         Left = 16
         Top = 38
@@ -131,7 +146,7 @@ object FindReplaceForm: TFindReplaceForm
       object EditFileNameMask: TComboBox
         Left = 87
         Top = 125
-        Width = 432
+        Width = 403
         Height = 21
         AutoComplete = False
         Anchors = [akLeft, akTop, akRight]

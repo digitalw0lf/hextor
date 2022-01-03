@@ -76,6 +76,7 @@ type
     BtnEditFindTextOptions: TSpeedButton;
     Pasteescaped1: TMenuItem;
     BtnEditReplaceTextOptions: TSpeedButton;
+    HintedImageProxy2: THintedImageProxy;
     procedure BtnFindNextClick(Sender: TObject);
     procedure BtnFindCountClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -104,7 +105,7 @@ type
     TFindWhere = record
       AType: TFindWhereType;
       Directories: TArray<string>;
-      FileMasks: TArray<string>;
+      FileMasks: TNameFilter;
       SearchMode: TFileSearchMode;
     end;
   private
@@ -140,41 +141,6 @@ var
 implementation
 
 {$R *.dfm}
-
-function SplitPathList(const Text: string): TArray<string>;
-// Split ';'-separated and '"'-quoted list of paths to string array
-var
-  sl: TStringList;
-  i, j: Integer;
-begin
-  sl := TStringList.Create();
-  try
-    sl.Delimiter := PathSep;
-    sl.StrictDelimiter := True;
-    sl.QuoteChar := '"';
-    sl.DelimitedText := Text;
-    Result := sl.ToStringArray();
-    // Trim spaces
-    for i:=Length(Result)-1 downto 0 do
-    begin
-      Result[i] := Trim(Result[i]);
-      if Result[i] = '' then
-        Delete(Result, i, 1);
-    end;
-    // Remove duplicates
-    for i:=Length(Result)-1 downto 1 do
-    begin
-      for j:=i-1 downto 0 do
-        if SameFileName(Result[j], Result[i]) then
-        begin
-          Delete(Result, i, 1);
-          Break;
-        end;
-    end;
-  finally
-    sl.Free;
-  end;
-end;
 
 { TFindReplaceForm }
 
@@ -427,7 +393,7 @@ begin
 
     if AType = fwSelectedDirectories then
     begin
-      FileMasks := SplitPathList(EditFileNameMask.Text);
+      FileMasks := TNameFilter.FromString(EditFileNameMask.Text);
       AddComboBoxHistory(EditFileNameMask);
     end;
 
@@ -888,18 +854,10 @@ begin
       FilesInDir := TDirectory.GetFiles(FindWhere.Directories[i], '*', TSearchOption.soAllDirectories,
         function(const Path: string; const SearchRec: TSearchRec): Boolean
         // Compare with all masks from list
-        var
-          i: Integer;
         begin
-          Progress.Show(0, 'Scanning folders... (' + Path + ')');
+          Progress.Show(-1, 'Scanning folders... (' + Path + ')');
           if (SearchRec.Attr and faDirectory) <> 0 then Exit(True);
-          Result := False;
-          if Length(FindWhere.FileMasks) = 0 then
-            Result := True
-          else
-          for i:=0 to Length(FindWhere.FileMasks)-1 do
-            if MatchesMask(SearchRec.Name, FindWhere.FileMasks[i]) then
-              Result := True;
+          Result := FindWhere.FileMasks.Matches(SearchRec.Name, TPath.Combine(Path, SearchRec.Name));
           if Result then
             TotalSize := TotalSize + SearchRec.Size;
         end);
