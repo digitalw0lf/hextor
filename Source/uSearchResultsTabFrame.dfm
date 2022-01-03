@@ -30,7 +30,7 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
       item
         Position = 1
         Text = 'Hex'
-        Width = 83
+        Width = 87
       end
       item
         Position = 2

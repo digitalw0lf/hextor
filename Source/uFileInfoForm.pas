@@ -13,9 +13,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, System.IOUtils,
-  System.StrUtils,
+  Vcl.ComCtrls, Vcl.ExtCtrls, System.StrUtils,
 
-  uEditorForm, uHextorTypes, uHextorDataSources, Vcl.ComCtrls, Vcl.ExtCtrls;
+  uEditorForm, uHextorTypes, uHextorDataSources, uFindAltStreamsForm;
 
 type
   TFileInfoForm = class(TForm)
@@ -49,15 +49,9 @@ type
     procedure StartEditStream(const Name: string);
   private const
     sDefaultStreamCapt = '<Default stream>';
-  public type
-    TNTFSAltStreamInfo = record
-      Name: string;
-      Size: Int64;
-    end;
   public
     { Public declarations }
     procedure ShowInfo(AEditor: TEditorForm);
-    function GetNTFSFileStreams(const FileName: string): TArray<TNTFSAltStreamInfo>;
   end;
 
 var
@@ -68,21 +62,6 @@ implementation
 {$R *.dfm}
 
 uses uMainForm;
-
-// WinApi headers for NTFS alternate streams
-type
-  WIN32_FIND_STREAM_DATA = packed record
-    StreamSize: LARGE_INTEGER;
-    cStreamName: array [0..MAX_PATH + 35] of WCHAR;
-  end;
-  PWIN32_FIND_STREAM_DATA = ^WIN32_FIND_STREAM_DATA;
-  STREAM_INFO_LEVELS = (FindStreamInfoStandard, FindStreamInfoMaxInfoLevel);
-
-function FindFirstStreamW(lpFileName:  LPCWSTR; InfoLevel:  STREAM_INFO_LEVELS;
-  lpFindStreamData: PWIN32_FIND_STREAM_DATA; dwFlags: DWORD): THandle; stdcall; external kernel32;
-function FindNextStreamW(hFindStream: THandle;
-  lpFindStreamData: PWIN32_FIND_STREAM_DATA): BOOL; stdcall; external kernel32;
-
 
 procedure TFileInfoForm.BtnStreamAddClick(Sender: TObject);
 var
@@ -141,46 +120,13 @@ begin
     Result := Result + ':' + Name;
 end;
 
-function TFileInfoForm.GetNTFSFileStreams(const FileName: string): TArray<TNTFSAltStreamInfo>;
-// Get a list of Alternate NTFS streams of specified file (including default stream)
-var
-  Drive: string;
-  CompLen, Flags: Cardinal;
-  FindData: WIN32_FIND_STREAM_DATA;
-  H: THandle;
-  Info: TNTFSAltStreamInfo;
-begin
-  Result := [];
-  Drive := ExtractFileDrive(FileName);
-  if Drive = '' then Exit;
-  Drive := IncludeTrailingPathDelimiter(Drive);
-  if not GetVolumeInformation(PChar(Drive), nil, 0, nil, CompLen, Flags, nil, 0) then Exit;
-  if (Flags and FILE_NAMED_STREAMS) = 0 then Exit;
-
-  H := FindFirstStreamW(PChar(FileName), FindStreamInfoStandard, @FindData, 0);
-  try
-    if H <> INVALID_HANDLE_VALUE then
-    begin
-      repeat
-        Info.Name := PChar(@FindData.cStreamName[0]);
-        if (Info.Name.StartsWith(':')) and (Info.Name.EndsWith(':$DATA')) then
-          Info.Name := Copy(Info.Name, Low(Info.Name) + 1, Length(Info.Name) - 7);
-        Info.Size := FindData.StreamSize.QuadPart;
-        Result := Result + [Info];
-      until not FindNextStreamW(H, @FindData);
-    end;
-  finally
-    Winapi.Windows.FindClose(H);
-  end;
-end;
-
 { TFileInfoForm }
 
 procedure TFileInfoForm.ShowInfo(AEditor: TEditorForm);
 var
   Size: Int64;
   DateTime: TDateTimeInfoRec;
-  St: TArray<TNTFSAltStreamInfo>;
+  St: TArray<TFindAltStreamsForm.TNTFSAltStreamInfo>;
   i: Integer;
 begin
   FEditor := AEditor;
@@ -208,7 +154,7 @@ begin
   StreamsListView.Items.Clear();
   if (AEditor.DataSource is TFileDataSource) then
   begin
-    St := GetNTFSFileStreams(AEditor.DataSource.Path);
+    St := FindAltStreamsForm.GetNTFSFileStreams(AEditor.DataSource.Path);
     if St <> nil then
     begin
       StreamsPanel.Visible := True;

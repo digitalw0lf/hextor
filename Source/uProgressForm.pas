@@ -23,6 +23,7 @@ type
     ProgressTextLabel: TLabel;
     BtnAbort: TButton;
     Taskbar1: TTaskbar;
+    BusyLabel: TLabel;
     procedure BtnAbortClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -94,7 +95,13 @@ procedure TProgressForm.ProgressDisplay(Sender: TProgressTracker;
 var
   s: string;
 begin
+  ProgressGauge.Visible := (TotalProgress >= 0);
   ProgressGauge.Progress := Round(TotalProgress * 100);
+  BusyLabel.Visible := (TotalProgress < 0);
+  s := StringOfChar('.', 8);
+  s[(GetTickCount() div 250) mod Cardinal(Length(s)) + 1] := '|';
+  BusyLabel.Caption := s;
+
   s := FitTextInWidth(Text, ProgressTextLabel.Canvas, ProgressTextLabel.Width);
   ProgressTextLabel.Caption := s;
 

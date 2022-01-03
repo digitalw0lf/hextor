@@ -48,7 +48,8 @@ uses
   uRegionsFrame in 'uRegionsFrame.pas' {RegionsFrame: TFrame},
   uFileSplitForm in 'uFileSplitForm.pas' {FileSplitForm},
   uFileConcatForm in 'uFileConcatForm.pas' {FileConcatForm},
-  uMediaFrame in 'uMediaFrame.pas' {MediaFrame: TFrame};
+  uMediaFrame in 'uMediaFrame.pas' {MediaFrame: TFrame},
+  uFindAltStreamsForm in 'uFindAltStreamsForm.pas' {FindAltStreamsForm};
 
 {$R *.res}
 
@@ -75,5 +76,6 @@ begin
   Application.CreateForm(TSettingsForm, SettingsForm);
   Application.CreateForm(TFileSplitForm, FileSplitForm);
   Application.CreateForm(TFileConcatForm, FileConcatForm);
+  Application.CreateForm(TFindAltStreamsForm, FindAltStreamsForm);
   Application.Run;
 end.

@@ -933,6 +933,12 @@ object MainForm: TMainForm
       object FindReplaceinfiles1: TMenuItem
         Action = ActionFindInFiles
       end
+      object N9: TMenuItem
+        Caption = '-'
+      end
+      object Findalternatefilestreams1: TMenuItem
+        Action = ActionFindAltStreams
+      end
       object N2: TMenuItem
         Caption = '-'
       end
@@ -1057,10 +1063,6 @@ object MainForm: TMainForm
       object Openpath1: TMenuItem
         Caption = 'Open path...'
         OnClick = Openpath1Click
-      end
-      object FindADSs1: TMenuItem
-        Caption = 'Find ADSs'
-        OnClick = FindADSs1Click
       end
     end
     object MIHelp: TMenuItem
@@ -1459,6 +1461,12 @@ object MainForm: TMainForm
       GroupIndex = 1
       Hint = 'Switch to Dark theme'
       OnExecute = ActionThemeDarkExecute
+    end
+    object ActionFindAltStreams: TAction
+      Category = 'Search'
+      Caption = 'Find alternate file streams'
+      Hint = 'Find alternate NTFS file streams'
+      OnExecute = ActionFindAltStreamsExecute
     end
   end
   object SaveDialog1: TSaveDialog

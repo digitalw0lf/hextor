@@ -14,6 +14,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.ComCtrls,
   System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Clipbrd, Vcl.Menus,
+  System.StrUtils,
 
   uEditorForm, uHextorTypes, uHextorDataSources, uEditedData, uHextorGUI;
 
@@ -73,7 +74,9 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure StartList(AEditor: TEditorForm; const ASearchText: string);
-    function AddListGroup(AEditor: TEditorForm; AData: TEditedData): Pointer;
+    function AddListGroup(AEditor: TEditorForm; AData: TEditedData): Pointer; overload;
+    function AddListGroup(AEditor: TEditorForm; const ADisplayName: string;
+      ADataSourceType: THextorDataSourceType; ADataSourcePath: string): Pointer; overload;
     procedure AddListItem(AGroupNode: Pointer; AData: TEditedData; const ARange: TFileRange; CodePage: Integer);
     procedure DeleteListGroup(AGroupNode: Pointer);
     procedure EndUpdateList();
@@ -96,6 +99,14 @@ function TSearchResultsTabFrame.AddListGroup(AEditor: TEditorForm;
 // Node does not keeps pointer to AData (during find-in-files, AData can be freed right
 // after processing a file). Instead, a path to DataSource is kept to
 // open corresponding file when double-clicking on result item.
+begin
+  Result := AddListGroup(AEditor, AData.DataSource.DisplayName,
+    THextorDataSourceType(AData.DataSource.ClassType), AData.DataSource.Path);
+end;
+
+function TSearchResultsTabFrame.AddListGroup(AEditor: TEditorForm;
+  const ADisplayName: string; ADataSourceType: THextorDataSourceType;
+  ADataSourcePath: string): Pointer;
 var
   Node: PVirtualNode;
   RNode: PResultTreeNode;
@@ -103,9 +114,9 @@ begin
   Node := ResultsList.AddChild(nil);
   RNode := Node.GetData;
 
-  RNode.DisplayFileName := AData.DataSource.DisplayName;
-  RNode.DataSourceType := THextorDataSourceType(AData.DataSource.ClassType);
-  RNode.DataSourcePath := AData.DataSource.Path;
+  RNode.DisplayFileName := ADisplayName;
+  RNode.DataSourceType := ADataSourceType;
+  RNode.DataSourcePath := ADataSourcePath;
 
   LinkNodeToEditor(Node, AEditor);
 
@@ -294,10 +305,13 @@ procedure TSearchResultsTabFrame.EndUpdateList;
 // Called after search is complete
 var
   AEditor: TEditorForm;
+  FilesCount, ItemsCount: Integer;
 begin
   ResultsList.EndUpdate();
-  LblFoundCount.Caption := IntToStr(ResultsList.TotalCount - ResultsList.RootNodeCount) + ' item(s) in ' +
-                           IntToStr(ResultsList.RootNodeCount) + ' file(s)';
+  FilesCount := ResultsList.RootNodeCount;
+  ItemsCount := ResultsList.TotalCount - ResultsList.RootNodeCount;
+  LblFoundCount.Caption := IfThen(ItemsCount > 0, IntToStr(ItemsCount) + ' item(s) in ', '') +
+                           IntToStr(FilesCount) + ' file(s)';
 
   for AEditor in GetLinkedEditors() do
     AEditor.UpdatePanes();
@@ -444,7 +458,9 @@ begin
     begin
       if Column = 0 then
       begin
-        CellText := RNode.DisplayFileName + '  (' + IntToStr(Node.ChildCount) + ')';
+        CellText := RNode.DisplayFileName;
+        if Node.ChildCount > 0 then
+          CellText := CellText + '  (' + IntToStr(Node.ChildCount) + ')';
       end;
     end
     else

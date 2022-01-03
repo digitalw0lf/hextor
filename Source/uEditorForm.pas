@@ -276,7 +276,8 @@ var
 implementation
 
 uses
-  uMainForm, uValueFrame, uDbgToolsForm, uDataStruct, uFileInfoForm;
+  uMainForm, uValueFrame, uDbgToolsForm, uDataStruct, uFileInfoForm,
+  uFindAltStreamsForm;
 
 {$R *.dfm}
 
@@ -1069,12 +1070,12 @@ end;
 
 function TEditorForm.GetHeaderHint: string;
 var
-  St: TArray<TFileInfoForm.TNTFSAltStreamInfo>;
+  St: TArray<TFindAltStreamsForm.TNTFSAltStreamInfo>;
 begin
   Result := DataSource.Path;
   if DataSource is TFileDataSource then
   begin
-    St := FileInfoForm.GetNTFSFileStreams(DataSource.Path);
+    St := FindAltStreamsForm.GetNTFSFileStreams(DataSource.Path);
     if Length(St) > 1 then
       Result := Result + sLineBreak +
         Format('File has %d alternate NTFS stream(s). See "File info"', [Length(St) - 1]);
@@ -1932,7 +1933,7 @@ end;
 procedure TEditorForm.UpdateFormCaption;
 var
   s: string;
-  St: TArray<TFileInfoForm.TNTFSAltStreamInfo>;
+  St: TArray<TFindAltStreamsForm.TNTFSAltStreamInfo>;
 begin
   s := '';
   if DataSource.DisplayName <> '' then
@@ -1944,7 +1945,7 @@ begin
 
   if DataSource is TFileDataSource then
   begin
-    St := FileInfoForm.GetNTFSFileStreams(DataSource.Path);
+    St := FindAltStreamsForm.GetNTFSFileStreams(DataSource.Path);
     if Length(St) > 1 then
       s := s + ' (+' + IntToStr(Length(St) - 1) + ' ADS)';
   end;

@@ -126,10 +126,6 @@ object FileInfoForm: TFileInfoForm
       Align = alClient
       Caption = 'N/A'
       TabOrder = 1
-      ExplicitLeft = 176
-      ExplicitTop = 112
-      ExplicitWidth = 22
-      ExplicitHeight = 17
     end
     object StreamsPanel: TPanel
       Left = 2
@@ -139,10 +135,6 @@ object FileInfoForm: TFileInfoForm
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 0
-      ExplicitLeft = 3
-      ExplicitTop = 18
-      ExplicitWidth = 409
-      ExplicitHeight = 119
       object StreamsListView: TListView
         Left = 3
         Top = 8

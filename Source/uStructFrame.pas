@@ -823,7 +823,7 @@ var
   s: string;
   Field: TDSField;
 begin
-  Progress.Show(0, 'Generating JSON');
+  Progress.Show(-1, 'Generating JSON');
   Result := nil;
   if DS is TDSArray then
   begin

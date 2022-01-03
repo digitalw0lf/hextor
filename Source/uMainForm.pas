@@ -280,7 +280,9 @@ type
     MIThemeLight: TMenuItem;
     N8: TMenuItem;
     Openpath1: TMenuItem;
-    FindADSs1: TMenuItem;
+    ActionFindAltStreams: TAction;
+    Findalternatefilestreams1: TMenuItem;
+    N9: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -363,7 +365,7 @@ type
     procedure MDITabsMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
     procedure EditorTabMenuPopup(Sender: TObject);
-    procedure FindADSs1Click(Sender: TObject);
+    procedure ActionFindAltStreamsExecute(Sender: TObject);
   private const
     AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
@@ -464,7 +466,8 @@ uses
   uFindReplaceForm, uDiskSelectForm, uProcessSelectForm, uBitsEditorForm,
   uDbgToolsForm, uEditedData, uProgressForm, uSetFileSizeForm, uFillBytesForm,
   uPasteAsForm, uAboutForm, uModifyWithExpressionForm, uCopyAsForm,
-  uFileInfoForm, uUpdaterForm, uSettingsForm, uFileSplitForm, uFileConcatForm;
+  uFileInfoForm, uUpdaterForm, uSettingsForm, uFileSplitForm, uFileConcatForm,
+  uFindAltStreamsForm;
 
 { TMainForm }
 
@@ -614,6 +617,11 @@ begin
   FillBytesForm.Range := ActiveEditor.SelectedRange;
   FillBytesForm.FInsertPos := ActiveEditor.CaretPos;
   FillBytesForm.ShowModal();
+end;
+
+procedure TMainForm.ActionFindAltStreamsExecute(Sender: TObject);
+begin
+  FindAltStreamsForm.ShowModal();
 end;
 
 procedure TMainForm.ActionFindExecute(Sender: TObject);
@@ -1194,7 +1202,7 @@ begin
     for i:=0 to ActionList1.ActionCount-1 do
       if (ActionList1.Actions[i].Category = 'Edit') or
 //         (ActionList1.Actions[i].Category = 'View') or
-         ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) or
+         ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles) and (ActionList1.Actions[i] <> ActionFindAltStreams)) or
          ((ActionList1.Actions[i].Category = 'Operations') and (ActionList1.Actions[i] <> ActionDebugMode)) then
         ActionList1.Actions[i].Enabled := False;
 
@@ -1412,34 +1420,6 @@ begin
   end;
 end;
 
-procedure TMainForm.FindADSs1Click(Sender: TObject);
-var
-  Root: string;
-begin
-  Root := '';
-  if not InputQuery('ADS', 'Search in:', Root) then Exit;
-
-  TDirectory.GetFileSystemEntries(Root, TSearchOption.soAllDirectories,
-    function(const Path: string; const SearchRec: TSearchRec): Boolean
-    var
-      s: string;
-      i: Integer;
-      St: TArray<TFileInfoForm.TNTFSAltStreamInfo>;
-    begin
-      s := TPath.Combine(Path, SearchRec.Name);
-      St := FileInfoForm.GetNTFSFileStreams(s);
-      if Length(St) > IfThen(SearchRec.Attr and faDirectory <> 0, 0, 1) then
-      begin
-        for i := 0 to Length(St) - 1 do
-          s := St[i].Name + ' ' + s;
-        WriteLog('ADS', s);
-      end;
-      Result := True;
-    end
-  );
-
-end;
-
 function TMainForm.FindEditorWithSource(DataSourceType: THextorDataSourceType;
   const APath: string): TEditorForm;
 // If we have requested data source (file) open in some editor, return it
@@ -1497,7 +1477,7 @@ begin
   EditorActionShortcuts := TDictionary<TContainedAction, TShortCutSet>.Create();
   for i:=0 to ActionList1.ActionCount-1 do
     if (ActionList1.Actions[i].Category = 'Edit') or
-       ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles)) then
+       ((ActionList1.Actions[i].Category = 'Search') and (ActionList1.Actions[i] <> ActionFindInFiles) and (ActionList1.Actions[i] <> ActionFindAltStreams)) then
       ShortCutsWhenEditorActive([ActionList1.Actions[i]]);
   ShortCutsWhenEditorActive([ActionSave, ActionSaveAs, ActionRevert]);
 

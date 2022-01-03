@@ -41,6 +41,18 @@ object ProgressForm: TProgressForm
     AutoSize = False
     ExplicitWidth = 353
   end
+  object BusyLabel: TLabel
+    Left = 24
+    Top = 43
+    Width = 345
+    Height = 22
+    Alignment = taCenter
+    Anchors = [akLeft, akTop, akRight]
+    AutoSize = False
+    Caption = '.|......'
+    Layout = tlCenter
+    Visible = False
+  end
   object BtnAbort: TButton
     Left = 159
     Top = 84

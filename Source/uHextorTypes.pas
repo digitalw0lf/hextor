@@ -13,7 +13,7 @@ interface
 uses
   Winapi.Windows, Winapi.ShLwApi, SysUtils, System.Classes, Generics.Collections,
   Vcl.Graphics, System.Math, System.SysConst, System.Variants, superobject,
-  System.IOUtils, System.Types,
+  System.IOUtils, System.Types, System.Masks,
 
   uCallbackList;
 
@@ -151,6 +151,15 @@ type
     property TotalProgress: Double read FTotalProgress;
   end;
 
+  // Parsed list of file name filter patterns
+  // E.g. "*.md;*.txt|CMakeLists.txt" - all MD and TXT files except CMakeLists.txt
+  TNameFilter = record
+    Include: TArray<string>;
+    Exclude: TArray<string>;
+    class function FromString(const Text: string): TNameFilter; static;
+    function Matches(const Name: string; const FullPath: string = ''): Boolean;
+  end;
+
 function Data2Hex(Data: PByteArray; Size: Integer; InsertSpaces: Boolean = False): string; overload;
 function Data2Hex(const Data: TBytes; InsertSpaces: Boolean = False): string; overload;
 function Hex2Data(const Text: string): TBytes;
@@ -160,6 +169,7 @@ function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overloa
 function MakeValidFileName(const S: string): string;
 function CanonicalizePath(const Path: string): string;
 function PathIsInside(const InnerPath, OuterPath: string): Boolean;
+function SplitPathList(const Text: string): TArray<string>;
 function FindFile(const FileMask: string; const Paths: array of string): string;
 function GetFileRec(const FileName:string; FullName:boolean=true): TSearchRec;
 function GetFileSizeNoOpen(FileName:string):Int64;
@@ -343,6 +353,41 @@ begin
   Inner := IncludeTrailingPathDelimiter(CanonicalizePath(InnerPath));
   Outer := IncludeTrailingPathDelimiter(CanonicalizePath(OuterPath));
   Result := SameFileName(Outer, Copy(Inner, Low(Inner), Length(Outer)));
+end;
+
+function SplitPathList(const Text: string): TArray<string>;
+// Split ';'-separated and '"'-quoted list of paths to string array
+var
+  sl: TStringList;
+  i, j: Integer;
+begin
+  sl := TStringList.Create();
+  try
+    sl.Delimiter := PathSep;
+    sl.StrictDelimiter := True;
+    sl.QuoteChar := '"';
+    sl.DelimitedText := Text;
+    Result := sl.ToStringArray();
+    // Trim spaces
+    for i:=Length(Result)-1 downto 0 do
+    begin
+      Result[i] := Trim(Result[i]);
+      if Result[i] = '' then
+        Delete(Result, i, 1);
+    end;
+    // Remove duplicates
+    for i:=Length(Result)-1 downto 1 do
+    begin
+      for j:=i-1 downto 0 do
+        if SameFileName(Result[j], Result[i]) then
+        begin
+          Delete(Result, i, 1);
+          Break;
+        end;
+    end;
+  finally
+    sl.Free;
+  end;
 end;
 
 function FindFile(const FileMask: string; const Paths: array of string): string;
@@ -1121,7 +1166,10 @@ begin
   with CurTask do
   begin
     Progress := AProgress;
-    ATotalProgress := TotalWorkFrom + (TotalWorkTo - TotalWorkFrom) * Progress;
+    if Progress >= 0 then
+      ATotalProgress := TotalWorkFrom + (TotalWorkTo - TotalWorkFrom) * Progress
+    else
+      ATotalProgress := Progress;
   end;
   FTotalProgress := ATotalProgress;
 
@@ -1194,6 +1242,53 @@ begin
   TaskStack.Push(Task);
   OnTaskStart.Call(Self, Task);
   Show(0.0);
+end;
+
+{ TNameFilter }
+
+class function TNameFilter.FromString(const Text: string): TNameFilter;
+var
+  i: Integer;
+begin
+  i := Pos('|', Text);
+  if i > 0 then
+  begin
+    Result.Include := SplitPathList(Copy(Text, 1, i - 1));
+    Result.Exclude := SplitPathList(Copy(Text, i + 1, MaxInt));
+  end
+  else
+  begin
+    Result.Include := SplitPathList(Text);
+    Result.Exclude := nil;
+  end;
+end;
+
+function TNameFilter.Matches(const Name: string; const FullPath: string = ''): Boolean;
+// Returns True if given name matches one of Include masks and does not matches
+// any of Exclude masks.
+// If some mask contains a path delimiter char, then this mask is matched against
+// FullPath (if specified).
+
+  function MatchesMask2(const AMask: string): Boolean;
+  begin
+    if (FullPath <> '') and (AMask.IndexOf(PathDelim) >= 0) then
+      Result := MatchesMask(FullPath, AMask)
+    else
+      Result := MatchesMask(Name, AMask);
+  end;
+
+var
+  s: string;
+begin
+  if Exclude <> nil then
+  begin
+    for s in Exclude do
+      if MatchesMask2(s) then Exit(False);
+  end;
+  if Include = nil then Exit(True);
+  for s in Include do
+    if MatchesMask2(s) then Exit(True);
+  Result := False;
 end;
 
 initialization
