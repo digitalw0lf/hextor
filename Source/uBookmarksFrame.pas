@@ -566,9 +566,8 @@ procedure TBookmarksFrame.UpdateList;
 var
   i: Integer;
   Node: PVirtualNode;
-//  Editors: TObjectList<TEditorForm>;
+  Editor: TEditorForm;
 begin
-//  Editors := TObjectList<TEditorForm>.Create(False);
   BookmarksTreeView.BeginUpdate();
   try
     BookmarksTreeView.RootNodeCount := Bookmarks.Count;
@@ -576,26 +575,15 @@ begin
     for Node in BookmarksTreeView.ChildNodes(nil) do
     begin
       PBMTreeNode(BookmarksTreeView.GetNodeData(Node)).Bookmark := Bookmarks[i];
-//      if not Editors.Contains(Bookmarks[i].Editor) then
-//        Editors.Add(Bookmarks[i].Editor);
       Inc(i);
     end;
   finally
     BookmarksTreeView.EndUpdate();
-//    Editors.Free;
   end;
 
   // Update all visible editors - in case bookmarks were moved/deleted
-  try
-    with MainForm.ActiveEditor do
-      if WindowState = wsMaximized then
-        UpdatePanes()
-      else
-        for i:=0 to MainForm.EditorCount-1 do
-          MainForm.Editors[i].UpdatePanes();
-  except
-    on E: EAbort do ;
-  end;
+  for Editor in MainForm.VisibleEditors do
+    Editor.UpdatePanes();
 end;
 
 { TBookmark }

@@ -111,10 +111,10 @@ begin
   // If saving to same file, re-open it for writing
   begin
     try
-      Data.DataSource.Open(fmOpenReadWrite);
+      Data.DataSource.Open(fmOpenReadWrite, fmShareExclusive);
     except
       // If failed to open for write (e.g. used by other app) - re-open for reading
-      Data.DataSource.Open(fmOpenRead);
+      Data.DataSource.Open(fmOpenRead, fmShareDenyNone);
       raise;
     end;
   end
@@ -226,7 +226,7 @@ begin
 
   // Open new saved file for reading again
   if InplaceSaving then
-    Data.DataSource.Open(fmOpenRead);
+    Data.DataSource.Open(fmOpenRead, fmShareDenyNone);
 end;
 
 class procedure TDataSaver.Save(Data: TEditedData;

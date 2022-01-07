@@ -74,6 +74,7 @@ type
     function HasChanges(): Boolean;
     function HasMovements(): Boolean;
     function GetDebugDescr(): string;
+    function CheckSourceSizeChanged(): Boolean;
 
     [API]
     function GetSize(): TFilePointer;
@@ -127,6 +128,28 @@ procedure TEditedData.Change(Addr: TFilePointer; Size: TFilePointer;
   Value: PByteArray);
 begin
   Change(Addr, Size, Size, Value);
+end;
+
+function TEditedData.CheckSourceSizeChanged: Boolean;
+var
+  NewSize, OldSize: TFilePointer;
+begin
+  NewSize := DataSource.GetSize();
+  Result := NewSize <> FOriginalSize;
+  if (Result) and (not HasChanges()) then
+  begin
+    // If we have no user changes, keep internal state in sync with actual file
+    OldSize := FOriginalSize;
+    ResetParts();
+    // Notify subscribers of file change, same way as with our own changes
+    if NewSize > OldSize then
+      OnDataChanged.Call(Self, OldSize, 0, NewSize - OldSize, nil)
+    else
+      OnDataChanged.Call(Self, NewSize, OldSize - NewSize, 0, nil);
+  end;
+  // Unfortunately, if we have some user changes (and especially some undo/redo
+  // items), it's too complicated to sync it with externally resized file.
+  // So just hope we've locked external file writes when we have unsaved changes.
 end;
 
 procedure TEditedData.Clear;

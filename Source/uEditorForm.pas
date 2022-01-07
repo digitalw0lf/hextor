@@ -77,6 +77,7 @@ type
     PMIShowDSField: TMenuItem;
     PMIResyncCompare: TMenuItem;
     HorzScrollBar: TScrollBar64;
+    Timer1: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure PaneHexEnter(Sender: TObject);
@@ -108,6 +109,7 @@ type
     procedure VertScrollBarScroll(Sender: TObject; ScrollCode: TScrollCode;
       var ScrollPos: Int64);
     procedure HorzScrollBarChange(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
   private
     { Private declarations }
     FData: TEditedData;
@@ -919,7 +921,7 @@ begin
       end;
       Buf := GetEditedData(APos, 1);
       // Allow typing beyong end of file
-      if (dspResizable in DataSource.GetProperties()) and
+      if (Data.Resizable) and
          (Length(Buf) = 0) and (APos = Data.GetSize()) then
         Buf := [0];
       if Length(Buf)<>1 then Exit;
@@ -1647,7 +1649,7 @@ end;
 
 procedure TEditorForm.SetInsertMode(Value: Boolean);
 begin
-  if not (dspResizable in DataSource.GetProperties) then Value := False;
+  if not Data.Resizable then Value := False;
   if FInsertMode <> Value then
   begin
     FInsertMode := Value;
@@ -1755,6 +1757,8 @@ begin
 end;
 
 procedure TEditorForm.SomeDataChanged;
+var
+  NewHasChanges: Boolean;
 begin
   if FUpdating>0 then
   begin
@@ -1763,11 +1767,40 @@ begin
   end;
   FNeedCallSomeDataChanged := False;
 
-  HasUnsavedChanges := Data.HasChanges();
+  NewHasChanges := Data.HasChanges();
+  if NewHasChanges <> HasUnsavedChanges then
+  begin
+    HasUnsavedChanges := NewHasChanges;
+    // When editor has unsaved changes, deny file writing from external programs
+    // because we can't properly handle file size changes in this case
+    if dspResizable in DataSource.GetProperties() then
+    begin
+      if HasUnsavedChanges then
+        DataSource.Open(fmOpenRead, fmShareDenyWrite)
+      else
+        DataSource.Open(fmOpenRead, fmShareDenyNone);
+    end;
+  end;
   UpdateScrollBars();
   UpdatePanes();
   if Self = MainForm.ActiveEditor then
     MainForm.CheckEnabledActions();
+end;
+
+procedure TEditorForm.Timer1Timer(Sender: TObject);
+begin
+  if MainForm.EditorVisible(Self) then
+  begin
+    BeginUpdate();
+    try
+      // Refresh externally chenged file
+      if Data.Resizable then
+        Data.CheckSourceSizeChanged();
+      UpdatePanes();
+    finally
+      EndUpdate();
+    end;
+  end;
 end;
 
 procedure TEditorForm.TypingActionChangeTimerTimer(Sender: TObject);
@@ -2243,7 +2276,7 @@ begin
   FreeAndNil(DataSource);
   DS := DataSourceType.Create(APath);
   try
-    DS.Open(fmOpenRead);
+    DS.Open(fmOpenRead, fmShareDenyNone);
   except
     DS.Free;
     raise;

@@ -214,7 +214,7 @@ var
   i, HLInstr: Integer;
   Bg, Fr: TColor;
 begin
-  if not Parent.Visible then Exit;
+  if not MainForm.ToolFrameVisible(Self) then Exit;
 
   if Screen.ActiveControl = SynEdit1 then
     HLInstr := SynEdit1.CaretY - 1
@@ -240,7 +240,7 @@ end;
 
 procedure TAsmFrame.EditorSelectionChanged(Sender: TEditorForm);
 begin
-  if not Parent.Visible then Exit;
+  if not MainForm.ToolFrameVisible(Self) then Exit;
   UpdateInfo();
 end;
 

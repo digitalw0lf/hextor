@@ -66,7 +66,7 @@ type
 
     constructor Create(const APath: string); virtual;
     destructor Destroy(); override;
-    procedure Open(Mode: Word); virtual; abstract;
+    procedure Open(Mode: Word; Share: Word = 0); virtual; abstract;
     function GetProperties(): TDataSourceProperties; virtual;
     function CanBeSaved(): Boolean; virtual;
     function GetSize(): TFilePointer; virtual; abstract;
@@ -83,7 +83,7 @@ type
   protected
     Cache: TDataCache;
   public
-    procedure Open(Mode: Word); override;
+    procedure Open(Mode: Word; Share: Word = 0); override;
     function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
     function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
@@ -99,7 +99,7 @@ type
   public
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
-    procedure Open(Mode: Word); override;
+    procedure Open(Mode: Word; Share: Word = 0); override;
     function GetProperties(): TDataSourceProperties; override;
     function CanBeSaved(): Boolean; override;
     function GetSize(): TFilePointer; override;
@@ -113,7 +113,7 @@ type
     const SectorAlign = 512;
   public
     constructor Create(const APath: string); override;
-    procedure Open(Mode: Word); override;
+    procedure Open(Mode: Word; Share: Word = 0); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
     function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
@@ -131,7 +131,7 @@ type
     hProcess: Cardinal;
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
-    procedure Open(Mode: Word); override;
+    procedure Open(Mode: Word; Share: Word = 0); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
@@ -152,7 +152,7 @@ type
   public
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
-    procedure Open(Mode: Word); override;
+    procedure Open(Mode: Word; Share: Word = 0); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
@@ -265,29 +265,31 @@ function TFileDataSource.InternalGetData(Addr: TFilePointer; Size: Integer;
 begin
   if FileStream = nil then
     Exit(0);
+  if Size <= 0 then
+    Exit(0);
 
 //  StartTimeMeasure();
 
   FileStream.Position := Addr;
-  //Result := FileStream.Read(Data, Size);
-  FileStream.ReadBuffer(Data, Size);
-  Result := Size;
+  Result := FileStream.Read(Data, Size);
+  if Result = 0 then
+    RaiseLastOSError();
+  if Result < Size then
+    FillChar(PByteArray(@Data)[Result], Size - Result, 0);
+//  FileStream.ReadBuffer(Data, Size);
+//  Result := Size;
 
 //  EndTimeMeasure('FileRead:', True);
 end;
 
-procedure TFileDataSource.Open(Mode: Word);
+procedure TFileDataSource.Open(Mode: Word; Share: Word = 0);
 begin
   if ExtractFilePath(Path) <> '' then
   begin
     if Mode = fmCreate then
       ForceDirectories(ExtractFilePath(Path));
     FreeAndNil(FileStream);
-    if Mode = fmOpenRead then
-      Mode := Mode or fmShareDenyNone
-    else
-      Mode := Mode or fmShareExclusive;
-    FileStream := TFileStream.Create(Path, Mode);
+    FileStream := TFileStream.Create(Path, Mode or Share);
   end;
 end;
 
@@ -399,18 +401,14 @@ begin
     Result := 0;
 end;
 
-procedure TDiskDataSource.Open(Mode: Word);
+procedure TDiskDataSource.Open(Mode: Word; Share: Word = 0);
 var
   Ret: Cardinal;
 begin
   FreeAndNil(FileStream);
   if Mode = fmCreate then
     Mode := fmOpenReadWrite;
-  if Mode = fmOpenRead then
-    Mode := Mode or fmShareDenyNone
-  else
-    Mode := Mode or fmShareExclusive;
-  FileStream := TFileStream.Create(Path, Mode);
+  FileStream := TFileStream.Create(Path, Mode or Share);
 
   // Allow access to last sectors of volume
   DeviceIoControl(FileStream.Handle, FSCTL_ALLOW_EXTENDED_DASD_IO,
@@ -565,7 +563,7 @@ begin
   Result := FSize;
 end;
 
-procedure TProcMemDataSource.Open(Mode: Word);
+procedure TProcMemDataSource.Open(Mode: Word; Share: Word = 0);
 var
   ProcID, Access: Cardinal;
   Regions: TSourceRegionArray;
@@ -622,7 +620,7 @@ function TDataCache.GetData(Addr: TFilePointer; Size: Integer;
 const
   ReadAlign = 512;
   MaxReadAhead = 1*MByte;
-  CachingTime = 1000;  // Milliseconds
+  CachingTime = 950;  // Milliseconds
 var
   ReadStart, ReadSize, SuggestedReadSize, SourceSize: TFilePointer;
 //  t: Cardinal;
@@ -646,6 +644,7 @@ begin
     if ReadStart + ReadSize > SourceSize then
       ReadSize := SourceSize - ReadStart;
     // Read from source
+    SetLength(Buffer, 0);  // Discard and zero old content
     SetLength(Buffer, ReadSize);
 //    t := GetTickCount();
     DataSource.InternalGetData(ReadStart, ReadSize, Buffer[0]);
@@ -655,6 +654,12 @@ begin
 //    WriteLogFmt('Cache', 'Read: %d %d (%d ms)', [ReadStart, ReadSize, t]);
   end;
 
+  if Addr + Size > Self.Addr + Length(Buffer) then
+  begin
+    // This may be in case when file size decreased, but caller does not knows this yet
+    FillChar(Data, Size, 0);
+    Size := Max(Self.Addr + Length(Buffer) - Addr, 0);
+  end;
   // Return data from cache
   Move(Buffer[Addr - Self.Addr], Data, Size);
   Result := Size;
@@ -686,7 +691,7 @@ begin
   Result := Cache.GetData(Addr, Size, Data);
 end;
 
-procedure TCachedDataSource.Open(Mode: Word);
+procedure TCachedDataSource.Open(Mode: Word; Share: Word = 0);
 begin
   Cache.Flush();
   inherited;
@@ -804,7 +809,7 @@ begin
   Result := FSize;
 end;
 
-procedure TRandGenDataSource.Open(Mode: Word);
+procedure TRandGenDataSource.Open(Mode: Word; Share: Word = 0);
 begin
 
 end;

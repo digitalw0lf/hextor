@@ -989,4 +989,9 @@ object EditorForm: TEditorForm
     Left = 286
     Top = 160
   end
+  object Timer1: TTimer
+    OnTimer = Timer1Timer
+    Left = 440
+    Top = 72
+  end
 end

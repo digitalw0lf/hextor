@@ -879,7 +879,7 @@ begin
   begin
     DataSource := TFileDataSource.Create(FileNames[i]);
     try
-      DataSource.Open(fmOpenRead);
+      DataSource.Open(fmOpenRead, fmShareDenyNone);
       Progress.TaskStart(Searcher, DataSource.GetSize() / TotalSize);
       Data := TEditedData.Create();
       try

@@ -290,7 +290,7 @@ var
   GroupNode, Node: PVirtualNode;
   RNode: PResultTreeNode;
 begin
-  if (not Parent.Visible) then Exit;
+  if not MainForm.ToolFrameVisible(Self) then Exit;
 
   GroupNode := GetEditorNode(Editor);
   if GroupNode <> nil then

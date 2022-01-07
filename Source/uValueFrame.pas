@@ -118,7 +118,7 @@ end;
 
 procedure TValueFrame.EditorSelectionChanged(Sender: TEditorForm);
 begin
-  if not Parent.Visible then Exit;
+  if not MainForm.ToolFrameVisible(Self) then Exit;
   UpdateInfo();
 end;
 

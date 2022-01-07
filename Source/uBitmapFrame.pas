@@ -286,7 +286,7 @@ var
   p: TFilePointer;
 begin
   if (Sender <> FEditor) or (Sender = nil) then Exit;
-  if not Parent.Visible then Exit;
+  if not MainForm.ToolFrameVisible(Self) then Exit;
   if CLockControls > 0 then Exit;
 
   // When selection in editor moves, scroll bitmap view to new selection
@@ -302,7 +302,7 @@ end;
 procedure TBitmapFrame.EditorVisibleRangeChanged(Sender: TEditorForm);
 begin
   FEditor := MainForm.GetActiveEditorNoEx;
-  if not Parent.Visible then Exit;
+  if not MainForm.ToolFrameVisible(Self) then Exit;
 
   if (Sender <> nil) and (Sender = FEditor) and (Sender.Data.GetSize() <> PrevFileSize) then
     UpdateScrollBars();

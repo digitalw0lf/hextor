@@ -444,7 +444,10 @@ type
     procedure RemoveEditor(AEditor: TEditorForm);
     function GetEditorIndex(AEditor: TEditorForm): Integer;
     function FindEditorWithSource(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;
+    function EditorVisible(Editor: TEditorForm): Boolean;
+    function VisibleEditors(): TArray<TEditorForm>;
     procedure ShowToolFrame(Frame: TFrame);
+    function ToolFrameVisible(Frame: TFrame): Boolean;
     procedure DoAfterEvent(Proc: TProc);
     function ParseFilePointer(Text: string; OldValue: TFilePointer): TFilePointer;
     procedure ShowUpdateAvailable(const Version: string);
@@ -1977,6 +1980,11 @@ begin
   Application.MessageBox(PChar(string(string(u8)+' '+s+' '+v+';'+IntToStr(Length(u8))+' '+IntToStr(Length(UTF8String(v))))), '');
 end;
 
+function TMainForm.ToolFrameVisible(Frame: TFrame): Boolean;
+begin
+  Result := Frame.Parent.Visible;
+end;
+
 procedure TMainForm.EditByteColsKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
@@ -1992,6 +2000,17 @@ end;
 procedure TMainForm.EditorTabMenuPopup(Sender: TObject);
 begin
   FmtHint.ShowHint('');
+end;
+
+function TMainForm.EditorVisible(Editor: TEditorForm): Boolean;
+var
+  AActiveEditor: TEditorForm;
+begin
+  AActiveEditor := ActiveEditor;
+  if AActiveEditor.WindowState = wsMaximized then
+    Result := (Editor = AActiveEditor)
+  else
+    Result := True;  // For simplicity
 end;
 
 procedure TMainForm.EndAddEditors;
@@ -2173,6 +2192,23 @@ begin
       AOut := ADSWrapper.GetWrappedField();
       Handled := True;
     end;
+end;
+
+function TMainForm.VisibleEditors: TArray<TEditorForm>;
+var
+  AActiveEditor: TEditorForm;
+  i: Integer;
+begin
+  AActiveEditor := GetActiveEditorNoEx();
+  if AActiveEditor = nil then Exit(nil);
+  if AActiveEditor.WindowState = wsMaximized then
+    Result := [AActiveEditor]
+  else
+  begin
+    SetLength(Result, EditorCount);
+    for i := 0 to EditorCount - 1 do
+      Result[i] := Editors[i];
+  end;
 end;
 
 procedure TMainForm.VisibleRangeChanged;
