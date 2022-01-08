@@ -32,7 +32,7 @@ uses
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
   uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct,
-  uBookmarksFrame, uRegionsFrame, uMediaFrame;
+  uBookmarksFrame, uRegionsFrame, uMediaFrame, Vcl.AppEvnts;
 
 {$I AppVersion.inc}
 
@@ -283,6 +283,9 @@ type
     ActionFindAltStreams: TAction;
     Findalternatefilestreams1: TMenuItem;
     N9: TMenuItem;
+    N10: TMenuItem;
+    MIAutoRefresh: TMenuItem;
+    ApplicationEvents1: TApplicationEvents;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -366,6 +369,8 @@ type
       Y: Integer);
     procedure EditorTabMenuPopup(Sender: TObject);
     procedure ActionFindAltStreamsExecute(Sender: TObject);
+    procedure MIAutoRefreshClick(Sender: TObject);
+    procedure ApplicationEvents1Hint(Sender: TObject);
   private const
     AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
@@ -1081,6 +1086,24 @@ begin
   MDITabs.Height := H + 5;
 end;
 
+procedure TMainForm.ApplicationEvents1Hint(Sender: TObject);
+var
+  s: string;
+  cp: TPoint;
+begin
+  s := Application.Hint;
+  // Hints starting with ' ' belong to menu items and should be displayed manually
+  if s.StartsWith(' ') then
+  begin
+    GetCursorPos(cp);
+    FmtHint.MouseMoveRect := Rect(cp.X - 50, cp.Y - 30, cp.X + 50, cp.Y + 30);
+    FmtHint.Delay := 300;
+    FmtHint.ShowHint(Copy(s, 2, MaxInt));
+  end
+  else
+    FmtHint.ShowHint('');
+end;
+
 procedure TMainForm.ApplyByteColEdit;
 // Apply byte column count from edit field
 var
@@ -1099,6 +1122,12 @@ begin
   with ActiveEditor do
     ByteColumnsSetting := n;
   DoAfterEvent(UpdateByteColEdit);
+end;
+
+procedure TMainForm.MIAutoRefreshClick(Sender: TObject);
+begin
+  TEditorForm.Settings.AutoRefresh := not TEditorForm.Settings.AutoRefresh;
+  TEditorForm.Settings.Changed();
 end;
 
 var
@@ -1742,6 +1771,7 @@ end;
 procedure TMainForm.MIViewClick(Sender: TObject);
 begin
   MIHighlightMatches.Checked := TEditorForm.Settings.HighlightMatches;
+  MIAutoRefresh.Checked := TEditorForm.Settings.AutoRefresh;
 end;
 
 function TMainForm.Open(DataSourceType: THextorDataSourceType; const APath: string): TEditorForm;

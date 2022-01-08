@@ -876,7 +876,7 @@ begin
 
   ForceDirectories(ExtractFilePath(fn));
   if FileExists(fn) then
-    fs := TFileStream.Create(fn, fmOpenReadWrite)
+    fs := TFileStream.Create(fn, fmOpenReadWrite or fmShareDenyWrite)
   else
     fs := TFileStream.Create(fn, fmCreate);
   try

@@ -982,6 +982,16 @@ object MainForm: TMainForm
         Caption = 'Highlight matches'
         OnClick = MIHighlightMatchesClick
       end
+      object N10: TMenuItem
+        Caption = '-'
+      end
+      object MIAutoRefresh: TMenuItem
+        Caption = 'Auto-refresh'
+        Hint = 
+          ' Refresh view every second to show changes made by other program' +
+          's'
+        OnClick = MIAutoRefreshClick
+      end
       object N7: TMenuItem
         Caption = '-'
       end
@@ -2598,5 +2608,10 @@ object MainForm: TMainForm
     OnDropFiles = DropFileCatcher1DropFiles
     Left = 248
     Top = 200
+  end
+  object ApplicationEvents1: TApplicationEvents
+    OnHint = ApplicationEvents1Hint
+    Left = 144
+    Top = 288
   end
 end

@@ -36,6 +36,7 @@ type
     ScrollWithWheel: Integer;
     ByteColumns: Integer;  // Positive number or one of bc*** constants
     HighlightMatches: Boolean;
+    AutoRefresh: Boolean;
     procedure InitDefault(); override;
   end;
 
@@ -1796,7 +1797,8 @@ begin
       // Refresh externally chenged file
       if Data.Resizable then
         Data.CheckSourceSizeChanged();
-      UpdatePanes();
+      if Settings.AutoRefresh then
+        UpdatePanes();
     finally
       EndUpdate();
     end;
@@ -2320,6 +2322,7 @@ begin
   ScrollWithWheel := 3;
   ByteColumns := bcByWindowWidth;
   HighlightMatches := True;
+  AutoRefresh := True;
 end;
 
 { TLineBreakSearcher }
