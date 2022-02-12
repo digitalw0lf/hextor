@@ -872,7 +872,9 @@ begin
       Items[0].Range.Start := 0;
       Items[0].Range.AEnd := Len;
       Exit(True);
-    end;
+    end
+    else
+      Exit(False);
   end;
 
   Result := MatchElementsFrom(Data, DataSize, 0, Size, Items);
@@ -1186,7 +1188,7 @@ function TExtPatternDataSearcher.Match(const Data: PByte; DataSize: Integer;
 begin
   FoundElements := nil;
   FoundGroupsData := nil;
-  if not ParamsDefined() then Exit(False);
+  if Pattern = nil then Exit(False);
   if DataSize < MinMatchSize then Exit(False);
 
   Result := Pattern.Match(Data, DataSize, Size, FoundElements);
