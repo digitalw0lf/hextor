@@ -1526,8 +1526,6 @@ begin
   APIEnv.ValueToVariantProc := ValueToVariantProc;
   APIEnv.VariantToValueProc := VariantToValueProc;
 
-  ScriptFrame.Init();
-
   TStyleManager.Engine.RegisterStyleHook(TCustomSynEdit, TMemoStyleHook );
   if (Settings.Theme > 0) and (Settings.Theme < Length(AppThemeNames)) then
   begin
@@ -1535,6 +1533,16 @@ begin
     ActionThemeDark.Checked := (Settings.Theme = ActionThemeDark.Tag);
     ActionThemeLight.Checked := (Settings.Theme = ActionThemeLight.Tag);
   end;
+
+  EnumComponents(Self,
+    procedure(Component: TComponent)
+    var
+      AFrame: IHextorToolFrame;
+    begin
+      if Component is TFrame then
+        if Supports(Component, IHextorToolFrame, AFrame) then
+          AFrame.Init();
+    end);
 
 end;
 
@@ -1547,8 +1555,15 @@ procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   RemoveClipboardFormatListener(Handle);
 
-  ScriptFrame.Uninit();
-  StructFrame.Uninit();
+  EnumComponents(Self,
+    procedure(Component: TComponent)
+    var
+      AFrame: IHextorToolFrame;
+    begin
+      if Component is TFrame then
+        if Supports(Component, IHextorToolFrame, AFrame) then
+          AFrame.Uninit();
+    end);
 
   Settings.Free;
   EditorActionShortcuts.Free;

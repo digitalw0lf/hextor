@@ -46,6 +46,8 @@ type
     destructor Destroy(); override;
     procedure UpdateInfo();
     procedure OnShown();
+    procedure Init();
+    procedure Uninit();
   end;
 
 implementation
@@ -81,6 +83,11 @@ procedure TRegionsFrame.EditorClosed(Sender: TEditorForm);
 begin
   FEditor := nil;
   RegionsTreeView.Clear();
+end;
+
+procedure TRegionsFrame.Init;
+begin
+
 end;
 
 procedure TRegionsFrame.OnShown;
@@ -153,6 +160,11 @@ begin
     RegionsTreeView.EndUpdate();
     NodesByRegions.Free;
   end;
+end;
+
+procedure TRegionsFrame.Uninit;
+begin
+
 end;
 
 procedure TRegionsFrame.UpdateInfo;

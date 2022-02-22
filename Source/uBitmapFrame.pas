@@ -108,6 +108,8 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure OnShown();
+    procedure Init();
+    procedure Uninit();
   end;
 
 procedure DrawEditorViewFrame(Canvas: TCanvas; R: TRect);
@@ -431,6 +433,11 @@ begin
   end;
 end;
 
+procedure TBitmapFrame.Init;
+begin
+
+end;
+
 procedure TBitmapFrame.MainPaintBoxMouseDown(Sender: TObject;
   Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 var
@@ -494,6 +501,11 @@ procedure TBitmapFrame.TrackBarWidthChange(Sender: TObject);
 begin
   if CLockControls > 0 then Exit;
   EditWidth.Value := TrackBarWidth.Position;
+end;
+
+procedure TBitmapFrame.Uninit;
+begin
+
 end;
 
 procedure TBitmapFrame.UpdateScrollBars;

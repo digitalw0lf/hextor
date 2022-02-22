@@ -28,7 +28,7 @@ type
     Text: string;
   end;
 
-  TScriptFrame = class(TFrame)
+  TScriptFrame = class(TFrame, IHextorToolFrame)
     Timer1: TTimer;
     Splitter1: TSplitter;
     OutputPanel: TPanel;
@@ -71,6 +71,7 @@ type
     Settings: TScriptSettings;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
+    procedure OnShown();
     procedure Init();
     procedure Uninit();
     function Eval(const Text: string): Variant;
@@ -241,6 +242,11 @@ begin
   CurScriptFileName := fn;
   // '    ' is added so vertical line, added by toolbar, does not overlaps caption
   LblScriptName.Caption := '    ' + ChangeFileExt(ExtractFileName(CurScriptFileName), '');
+end;
+
+procedure TScriptFrame.OnShown;
+begin
+
 end;
 
 procedure TScriptFrame.PrepareScriptEnv;

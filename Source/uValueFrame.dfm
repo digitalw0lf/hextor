@@ -33,12 +33,12 @@ object ValueFrame: TValueFrame
       item
         Position = 0
         Text = 'Type'
-        Width = 67
+        Width = 86
       end
       item
         Position = 1
         Text = 'Value'
-        Width = 257
+        Width = 238
       end>
   end
   object ValuePopupMenu: TPopupMenu

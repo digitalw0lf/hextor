@@ -51,7 +51,7 @@ type
     type
       TValueNodeData = record
       public
-        TypeName, Value: string;
+        TypeName, DisplayTypeName, Value: string;
         OrigDataSize: Integer;
         Defined: Boolean;
         Hint: string;
@@ -74,6 +74,8 @@ type
     destructor Destroy(); override;
     procedure UpdateInfo();
     procedure OnShown();
+    procedure Init();
+    procedure Uninit();
   end;
 
 implementation
@@ -107,7 +109,6 @@ constructor TValueFrame.Create(AOwner: TComponent);
 begin
   inherited;
   ValuesTreeView.NodeDataSize := SizeOf(TValueNodeData);
-  ShowTypesList();
   MainForm.OnSelectionChanged.Add(EditorSelectionChanged);
 end;
 
@@ -120,6 +121,11 @@ procedure TValueFrame.EditorSelectionChanged(Sender: TEditorForm);
 begin
   if not MainForm.ToolFrameVisible(Self) then Exit;
   UpdateInfo();
+end;
+
+procedure TValueFrame.Init;
+begin
+  ShowTypesList();
 end;
 
 procedure TValueFrame.EditorClosed(Sender: TEditorForm);
@@ -159,17 +165,41 @@ procedure TValueFrame.ShowTypesList;
 // List all available data types
 var
   i: Integer;
+  CodePage: Cardinal;
   Node: PVirtualNode;
   NodeData: PValueNodeData;
+  Encodings: TStringList;
 begin
+  Encodings := TStringList.Create();
   ValuesTreeView.BeginUpdate();
   try
     ValuesTreeView.Clear();
+
     for i:=0 to ValueInterpretors.Count-1 do
     begin
       Node := ValuesTreeView.AddChild(nil);
       NodeData := Node.GetData;
       NodeData.TypeName := ValueInterpretors[i].Name;
+      NodeData.DisplayTypeName := NodeData.TypeName;
+      NodeData.Value := '';
+      NodeData.OrigDataSize := 0;
+      NodeData.Defined := False;
+      NodeData.Hint := '';
+    end;
+
+    GetUsedEncodings(Encodings, False);
+    for i:=0 to Encodings.Count-1 do
+    begin
+      CodePage := Integer(Encodings.Objects[i]);
+      // Don't show encodings already present as interpretors
+      if (CodePage = TEncoding.ANSI.CodePage) or
+         (CodePage = TEncoding.Unicode.CodePage) or
+         (CodePage = TEncoding.UTF8.CodePage) then Continue;
+
+      Node := ValuesTreeView.AddChild(nil);
+      NodeData := Node.GetData;
+      NodeData.TypeName := 'text_cp' + IntToStr(CodePage);
+      NodeData.DisplayTypeName := Encodings[i];
       NodeData.Value := '';
       NodeData.OrigDataSize := 0;
       NodeData.Defined := False;
@@ -177,7 +207,13 @@ begin
     end;
   finally
     ValuesTreeView.EndUpdate();
+    Encodings.Free;
   end;
+end;
+
+procedure TValueFrame.Uninit;
+begin
+
 end;
 
 procedure TValueFrame.UpdateInfo;
@@ -361,7 +397,7 @@ begin
   if Assigned(Data) then
   begin
     case Column of
-      0: CellText := Data.TypeName;
+      0: CellText := Data.DisplayTypeName;
       1: CellText := Data.Value;
     end;
   end

@@ -51,11 +51,13 @@ type
   TValueInterpretors = class (TObjectList<TValueInterpretor>)
   protected
     ByName: TDictionary<string, TValueInterpretor>;
+    TextInterpretorsCache: TObjectDictionary<Cardinal, TValueInterpretor>;
     procedure RegisterBuiltinInterpretors();
   public
     function RegisterInterpretor(const ANames: array of string; AToVariant: TDataToVariantFunc;
       AFromVariant: TVariantToDataFunc; AMinSize: Integer; AMaxSize: Integer = SAME_AS_MIN_SIZE{; AGreedy: Boolean = False}): TValueInterpretor;
     function FindInterpretor(const AName: string): TValueInterpretor;
+    function GetTextInterpretor(CodePage: Cardinal): TValueInterpretor;
     constructor Create();
     destructor Destroy(); override;
   end;
@@ -329,8 +331,9 @@ begin
   for i:=0 to Length(ANames)-1 do
     Names.Add(ANames[i]);
 
-  for i:=0 to Length(ANames)-1 do
-    FOwner.ByName.AddOrSetValue(UpperCase(ANames[i]), Self);
+  if FOwner <> nil then
+    for i:=0 to Length(ANames)-1 do
+      FOwner.ByName.AddOrSetValue(UpperCase(ANames[i]), Self);
 
   Result := Self;
 end;
@@ -410,23 +413,55 @@ begin
   inherited Create(True);
   ByName := TDictionary<string, TValueInterpretor>.Create();
   RegisterBuiltinInterpretors();
+  TextInterpretorsCache := TObjectDictionary<Cardinal, TValueInterpretor>.Create([doOwnsValues]);
+end;
+
+function TValueInterpretors.GetTextInterpretor(
+  CodePage: Cardinal): TValueInterpretor;
+begin
+  if TextInterpretorsCache.TryGetValue(CodePage, Result) then Exit;
+
+  Result := TValueInterpretor.Create(nil);
+  Result.AddNames(['text_cp' + IntToStr(CodePage)]);
+  Result.MinSize := 1;
+  Result.MaxSize := MAX_STR_VALUE_LENGTH;
+  Result.FToVariant := function(const Data; Size: Integer): Variant
+    begin
+      Result := Data2String(MakeBytes(Data, Size), CodePage);
+    end;
+  Result.FFromVariant := procedure(const V: Variant; var Data; Size: Integer)
+    var
+      Buf: TBytes;
+    begin
+      Buf := String2Data(V, CodePage);
+      if Length(Buf) <> Size then
+        raise EInvalidUserInput.Create('Cannot change string length, only content');
+      System.Move(Buf[0], Data, Size);
+    end;
+  Result.FFromVariantAutosize := function(const V: Variant): TBytes
+    begin
+      Result := String2Data(V, CodePage);
+    end;
+
+  TextInterpretorsCache.AddOrSetValue(CodePage, Result);
 end;
 
 destructor TValueInterpretors.Destroy;
 begin
   ByName.Free;
+  TextInterpretorsCache.Free;
   inherited;
 end;
 
 function TValueInterpretors.FindInterpretor(const AName: string): TValueInterpretor;
-//var
-//  i: Integer;
 begin
-//  for i:=0 to Count-1 do
-//    if Items[i].Names.IndexOf(AName) >= 0 then Exit(Items[i]);
-//  Result := nil;
-  if not ByName.TryGetValue(UpperCase(AName), Result) then
-    Result := nil;
+  if AName.StartsWith('text_cp') then
+  begin
+    Result := GetTextInterpretor(StrToInt(Copy(AName, 8, MaxInt)));
+    Exit;
+  end;
+  if ByName.TryGetValue(UpperCase(AName), Result) then Exit;
+  Result := nil;
 end;
 
 procedure TValueInterpretors.RegisterBuiltinInterpretors;

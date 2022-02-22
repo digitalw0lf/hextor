@@ -248,7 +248,7 @@ object MainForm: TMainForm
       Top = 0
       Width = 420
       Height = 551
-      ActivePage = PgMedia
+      ActivePage = PgValue
       Align = alClient
       MultiLine = True
       TabOrder = 0
@@ -273,12 +273,12 @@ object MainForm: TMainForm
               item
                 Position = 0
                 Text = 'Type'
-                Width = 67
+                Width = 86
               end
               item
                 Position = 1
                 Text = 'Value'
-                Width = 345
+                Width = 322
               end>
           end
         end

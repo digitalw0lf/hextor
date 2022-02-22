@@ -38,6 +38,8 @@ type
   public
     { Public declarations }
     procedure OnShown();
+    procedure Init();
+    procedure Uninit();
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
     procedure ShowMedia(const ABuf: TBytes);
@@ -123,6 +125,11 @@ begin
     List[i] := List[i].Replace('*.', '');
 end;
 
+procedure TMediaFrame.Init;
+begin
+
+end;
+
 procedure TMediaFrame.OnShown;
 begin
   if true then ;
@@ -160,6 +167,11 @@ begin
       ErrorMemo.Text := E.Message;
     end;
   end;
+end;
+
+procedure TMediaFrame.Uninit;
+begin
+
 end;
 
 end.

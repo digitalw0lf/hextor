@@ -43,7 +43,7 @@ type
   end;
   PDSTreeNode = ^TDSTreeNode;
 
-  TStructFrame = class(TFrame)
+  TStructFrame = class(TFrame, IHextorToolFrame)
     PnlButtonBar2: TPanel;
     BtnInterpret: TButton;
     SavedDescrsMenu: TPopupMenu;
@@ -178,6 +178,8 @@ type
     DSScriptEnv: TDSScriptEnv;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy(); override;
+    procedure OnShown();
+    procedure Init();
     procedure Uninit();
     [API]
     procedure LoadDescr(FileName: string);
@@ -196,6 +198,11 @@ uses
 {$R *.dfm}
 
 { TStructFrame }
+
+procedure TStructFrame.Init;
+begin
+
+end;
 
 procedure TStructFrame.Interpret(AEditor: TEditorForm; Addr, Size: TFilePointer;
   Struct: string = sDescrFromEditor);
@@ -1111,6 +1118,11 @@ begin
   DS := GetNodeDS(DSTreeView.FocusedNode);
   if DS <> nil then
     FEditor.SelectAndShow(DS.BufAddr, DS.BufAddr + DS.BufSize);
+end;
+
+procedure TStructFrame.OnShown;
+begin
+
 end;
 
 procedure TStructFrame.PnlButtonBar2MouseDown(Sender: TObject;

@@ -104,6 +104,8 @@ type
   IHextorToolFrame = interface
     ['{4AB18488-6B7D-4A9B-9892-EC91DDF81745}']
     procedure OnShown();
+    procedure Init();
+    procedure Uninit();
   end;
 
   // Convert structures<==>json  (helper wrapper)
@@ -163,6 +165,7 @@ type
 function Data2Hex(Data: PByteArray; Size: Integer; InsertSpaces: Boolean = False): string; overload;
 function Data2Hex(const Data: TBytes; InsertSpaces: Boolean = False): string; overload;
 function Hex2Data(const Text: string): TBytes;
+function GetCachedEncoding(CodePage: Integer): TEncoding;
 function Data2String(const Data: TBytes; CodePage: Integer = 0; AnsiIfFail: Boolean = False): string;
 function String2Data(const Text: string; CodePage: Integer = 0): TBytes; overload;
 

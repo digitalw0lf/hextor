@@ -64,6 +64,8 @@ type
     destructor Destroy(); override;
     procedure UpdateInfo();
     procedure OnShown();
+    procedure Init();
+    procedure Uninit();
     function DisasmText(const Data: TBytes; StartAddr: TFilePointer; Architecture: TDisasmArchitecture): string;
   end;
 
@@ -244,6 +246,11 @@ begin
   UpdateInfo();
 end;
 
+procedure TAsmFrame.Init;
+begin
+
+end;
+
 function TAsmFrame.InstructionAtAddress(Addr: TFilePointer): Integer;
 var
   i: Integer;
@@ -288,6 +295,11 @@ procedure TAsmFrame.SynEdit1StatusChange(Sender: TObject;
 begin
   if FEditor <> nil then
     FEditor.UpdatePanes();
+end;
+
+procedure TAsmFrame.Uninit;
+begin
+
 end;
 
 procedure TAsmFrame.UpdateInfo;
