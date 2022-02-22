@@ -109,8 +109,6 @@ type
       SearchMode: TFileSearchMode;
     end;
   private
-    SearchCodePages: array of Integer;
-  private
     { Private declarations }
     FindWhere: TFindWhere;
     Inited: Boolean;
@@ -326,7 +324,7 @@ begin
     Params.Text := EditFindText.Text;
     AddComboBoxHistory(EditFindText);
     Params.bHex := RBFindHex.Checked;
-    Params.FindCodePage := IfThen(RBFindText.Checked, SearchCodePages[CBFindEncoding.ItemIndex], 0);
+    Params.FindCodePage := IfThen(RBFindText.Checked, Integer(CBFindEncoding.Items.Objects[CBFindEncoding.ItemIndex]) {SearchCodePages[CBFindEncoding.ItemIndex]}, 0);
     Params.bExtSyntax := CBExtSyntax.Checked;
     Params.bIgnoreCase := CBIgnoreCase.Checked;
     Params.bFindInSel := aCanFindInSel and CBFindInSelection.Enabled and CBFindInSelection.Checked;
@@ -662,11 +660,6 @@ var
   i: Integer;
   CS: TPair<TControl, TRect>;
 begin
-  SearchCodePages := [0, //TEncoding.ANSI.CodePage,
-                      1, //TEncoding.ASCII.CodePage,
-                      TEncoding.Unicode.CodePage,
-                      TEncoding.UTF8.CodePage];
-
   Searcher := TExtPatternDataSearcher.Create();
 
   Settings := TSearchSettings.Create();
@@ -725,6 +718,8 @@ begin
 end;
 
 procedure TFindReplaceForm.FormShow(Sender: TObject);
+var
+  n: Integer;
 begin
   if not Inited then
   begin
@@ -739,6 +734,11 @@ begin
   end;
 
   CheckEnabledControls();
+
+  n := CBFindEncoding.ItemIndex;
+  GetUsedEncodings(CBFindEncoding.Items, False);
+  if n < 0 then n := 0;
+  CBFindEncoding.ItemIndex := n;
 end;
 
 function TFindReplaceForm.GetCorrespondingEditControl(

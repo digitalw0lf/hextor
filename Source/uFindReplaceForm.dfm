@@ -259,7 +259,7 @@ object FindReplaceForm: TFindReplaceForm
         PopupMenu = EditOptionsMenu
       end
       object ImageProxy1: THintedImageProxy
-        Left = 407
+        Left = 447
         Top = 48
         Width = 16
         Height = 16
@@ -296,7 +296,7 @@ object FindReplaceForm: TFindReplaceForm
         OnKeyDown = EditFindTextKeyDown
       end
       object CBExtSyntax: TCheckBox
-        Left = 302
+        Left = 342
         Top = 48
         Width = 107
         Height = 17
@@ -308,7 +308,7 @@ object FindReplaceForm: TFindReplaceForm
         TabOrder = 1
       end
       object CBIgnoreCase: TCheckBox
-        Left = 212
+        Left = 252
         Top = 48
         Width = 84
         Height = 17
@@ -372,7 +372,7 @@ object FindReplaceForm: TFindReplaceForm
       object CBFindEncoding: TComboBox
         Left = 117
         Top = 46
-        Width = 71
+        Width = 116
         Height = 21
         Style = csDropDownList
         ItemIndex = 0

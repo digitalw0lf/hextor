@@ -192,6 +192,7 @@ procedure StrToClipboardInplace(var S: string);
 procedure StrFromClipboardInplace(var S: string);
 function StrToClipboard(const S: string): string;
 function StrFromClipboard(const S: string): string;
+procedure GetUsedEncodings({out} List: TStrings; OnlySingleByte: Boolean = False);
 
 function TryEvalConst(Expr: string; var Value: Variant): Boolean;
 function EvalConstDef(Expr: string): Variant;
@@ -221,6 +222,7 @@ const
 var
   bDebugMode: Boolean = False;
   Progress: TProgressTracker = nil;  // Grobal progress tracker instance for all operations
+  UsedEncodings: TArray<Integer>;    // Encodings shown in Search dialog etc.
 
 implementation
 
@@ -611,6 +613,21 @@ function StrFromClipboard(const S: string): string;
 begin
   Result := S;
   StrFromClipboardInplace(Result);
+end;
+
+procedure GetUsedEncodings({out} List: TStrings; OnlySingleByte: Boolean = False);
+var
+  i: Integer;
+  Enc: TEncoding;
+begin
+  if not Assigned(UsedEncodings) then Exit;
+  List.Clear();
+  for i := 0 to Length(UsedEncodings) - 1 do
+  begin
+    Enc := GetCachedEncoding(UsedEncodings[i]);
+    if (OnlySingleByte) and (not Enc.IsSingleByte) then Continue;
+    List.AddObject(Enc.EncodingName, Pointer(Enc.CodePage));
+  end;
 end;
 
 function TryEvalConst(Expr: string; var Value: Variant): Boolean;

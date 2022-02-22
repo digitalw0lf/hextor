@@ -15,7 +15,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Clipbrd,
   Vcl.ExtCtrls, System.Math, System.NetEncoding,
 
-  uHextorTypes, uValueInterpretors;
+  uHextorTypes, uValueInterpretors, uHextorGUI;
 
 type
   TPasteAsForm = class(TForm)
@@ -24,13 +24,6 @@ type
     BtnCancel: TButton;
     RBText: TRadioButton;
     RBHex: TRadioButton;
-    Panel1: TPanel;
-    Label1: TLabel;
-    RBElemByte: TRadioButton;
-    RBElemWord: TRadioButton;
-    RBElemDWord: TRadioButton;
-    RBElemFloat: TRadioButton;
-    RBElemDouble: TRadioButton;
     GroupBox1: TGroupBox;
     Label2: TLabel;
     Label3: TLabel;
@@ -40,6 +33,10 @@ type
     CBElemType: TComboBox;
     RBBase64: TRadioButton;
     RBURLEncode: TRadioButton;
+    Label5: TLabel;
+    CBCodePage: TComboBox;
+    ImageProxy1: THintedImageProxy;
+    Label6: TLabel;
     procedure BtnOkClick(Sender: TObject);
     procedure RBTextClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -93,6 +90,12 @@ procedure TPasteAsForm.FormShow(Sender: TObject);
 var
   n, i: Integer;
 begin
+  // Encodings
+  n := CBCodePage.ItemIndex;
+  GetUsedEncodings(CBCodePage.Items, False);
+  if n < 0 then n := 0;
+  CBCodePage.ItemIndex := n;
+
   // Array elements type selector
   n := CBElemType.ItemIndex;
   CBElemType.Items.Clear();
@@ -174,8 +177,7 @@ begin
 
   if RBText.Checked then
   begin
-    // TODO: Choose encodings
-    Result := String2Data(Text, TEncoding.Default.CodePage);
+    Result := String2Data(Text, Integer(CBCodePage.Items.Objects[CBCodePage.ItemIndex]){TEncoding.Default.CodePage});
   end
   else
 

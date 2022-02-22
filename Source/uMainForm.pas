@@ -1492,6 +1492,13 @@ begin
 
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
+  UsedEncodings := [0,  // ANSI default
+                    1,  // ASCII default
+                    TEncoding.Unicode.CodePage,
+                    TEncoding.UTF8.CodePage,
+                    20866,  // Koi8-r
+                    20880]; // EBCDIC Russian
+
   Settings := TMainFormSettings.Create();
 
   // Listen for clipboard changes
@@ -1750,10 +1757,29 @@ procedure TMainForm.MIEncodingMenuClick(Sender: TObject);
 // Show current editor encoding
 var
   AEncoding, i: Integer;
+  Encodings: TStringList;
+  mi: TMenuItem;
 begin
-  AEncoding := ActiveEditor.TextEncoding;
-  for i:=0 to MIEncodingMenu.Count-1 do
-    MIEncodingMenu.Items[i].Checked := (MIEncodingMenu.Items[i].Tag = AEncoding);
+  Encodings := TStringList.Create();
+  try
+    GetUsedEncodings(Encodings, True);
+    while MIEncodingMenu.Count < Encodings.Count do
+      MIEncodingMenu.Add(TMenuItem.Create(Self));
+    while MIEncodingMenu.Count > Encodings.Count do
+      MIEncodingMenu.Items[MIEncodingMenu.Count-1].Free;
+    for i := 0 to Encodings.Count - 1 do
+    begin
+      mi := MIEncodingMenu.Items[i];
+      mi.Caption := Encodings[i];
+      mi.Tag := Integer(Encodings.Objects[i]);
+      mi.OnClick := ANSI1Click;
+    end;
+    AEncoding := ActiveEditor.TextEncoding;
+    for i:=0 to MIEncodingMenu.Count-1 do
+      MIEncodingMenu.Items[i].Checked := (MIEncodingMenu.Items[i].Tag = AEncoding);
+  finally
+    Encodings.Free;
+  end;
 end;
 
 procedure TMainForm.MIHighlightMatchesClick(Sender: TObject);
