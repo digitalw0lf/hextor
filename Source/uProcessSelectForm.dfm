@@ -178,6 +178,7 @@ object ProcessSelectForm: TProcessSelectForm
     ReadOnly = True
     RowSelect = True
     ParentDoubleBuffered = False
+    PopupMenu = PopupMenu1
     SortType = stText
     TabOrder = 0
     ViewStyle = vsReport
@@ -336,7 +337,15 @@ object ProcessSelectForm: TProcessSelectForm
   object Timer1: TTimer
     Interval = 100
     OnTimer = Timer1Timer
-    Left = 144
+    Left = 152
     Top = 160
+  end
+  object PopupMenu1: TPopupMenu
+    Left = 256
+    Top = 160
+    object Copycommandline1: TMenuItem
+      Caption = 'Copy command line'
+      OnClick = Copycommandline1Click
+    end
   end
 end

@@ -16,7 +16,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, TlHelp32, Generics.Collections,
-  StrUtils, Vcl.Buttons
+  StrUtils, Vcl.Buttons, Vcl.Menus, Vcl.Clipbrd
 
   {,uDebugUtils} ;
 
@@ -52,6 +52,8 @@ type
     BtnClearFilter: TSpeedButton;
     BtnRefreshList: TSpeedButton;
     CBOpenRegionsFrame: TCheckBox;
+    PopupMenu1: TPopupMenu;
+    Copycommandline1: TMenuItem;
     procedure PaintBox1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure PaintBox1MouseUp(Sender: TObject; Button: TMouseButton;
@@ -66,6 +68,7 @@ type
     procedure BtnClearFilterClick(Sender: TObject);
     procedure ListView1DblClick(Sender: TObject);
     procedure BtnRefreshListClick(Sender: TObject);
+    procedure Copycommandline1Click(Sender: TObject);
   private
     { Private declarations }
     FrameForm: TSelectionFrameForm;
@@ -103,6 +106,12 @@ procedure TProcessSelectForm.BtnRefreshListClick(Sender: TObject);
 begin
   GetProcessList();
   ShowProcessList();
+end;
+
+procedure TProcessSelectForm.Copycommandline1Click(Sender: TObject);
+begin
+  if ListView1.Selected <> nil then
+    Clipboard.AsText := ListView1.Selected.SubItems[1];
 end;
 
 procedure TProcessSelectForm.EditFilterChange(Sender: TObject);
@@ -363,7 +372,10 @@ begin
     ListView1.Clear();
     for i:=0 to ProcList.Count-1 do
     begin
-      if (FilterText<>'') and (not ContainsText(ProcList[i].Name, FilterText)) then Continue;
+      if (FilterText<>'') and (not
+         (ContainsText(ProcList[i].Name, FilterText) or
+          ContainsText(ProcList[i].CmdLine, FilterText) or
+          (IntToStr(ProcList[i].PID) = FilterText))) then Continue;
       li := ListView1.Items.Add();
       li.Caption := ProcList[i].Name + IfThen(ProcList[i].Is32bit, '  (32bit)', '');
       li.SubItems.Add(IntToStr(ProcList[i].PID));
