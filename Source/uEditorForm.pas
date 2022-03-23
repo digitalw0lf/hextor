@@ -702,6 +702,7 @@ begin
   ByteColumnsSetting := Settings.ByteColumns;
   CalculateByteColumns();
   OnGetTaggedRegions.Add(EditorGetTaggedRegions);
+  FTextEncoding := GetCachedEncoding(0).CodePage;
 
   MainForm.AddEditor(Self);
 end;

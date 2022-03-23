@@ -301,7 +301,11 @@ begin
   if EncodingsCache = nil then
     EncodingsCache := TObjectDictionary<Integer, TEncoding>.Create([doOwnsValues]);
   if EncodingsCache.TryGetValue(CodePage, Result) then Exit;
-  Result := TEncoding.GetEncoding(CodePage);
+  try
+    Result := TEncoding.GetEncoding(CodePage);
+  except
+    Exit(nil);
+  end;
   EncodingsCache.AddOrSetValue(CodePage, Result);
 end;
 
@@ -628,6 +632,7 @@ begin
   for i := 0 to Length(UsedEncodings) - 1 do
   begin
     Enc := GetCachedEncoding(UsedEncodings[i]);
+    if Enc = nil then Continue;
     if (OnlySingleByte) and (not Enc.IsSingleByte) then Continue;
     List.AddObject(Enc.EncodingName, Pointer(Enc.CodePage));
   end;

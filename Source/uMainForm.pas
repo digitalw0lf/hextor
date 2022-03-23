@@ -63,6 +63,7 @@ type
     RightPanelWidth: Integer;
     RecentFiles: array of TRecentFileRec;
     Theme: Integer;
+    AdditionalCodePages: TArray<Integer>;
   end;
 
   [API]
@@ -420,6 +421,7 @@ type
     TempPath: string;
     APIEnv: TAPIEnvironment;
     Utils: THextorUtils;
+    StandardCodePages: TArray<Integer>;
     OnActiveEditorChanged: TCallbackListP1<TEditorForm>;
     OnVisibleRangeChanged: TCallbackListP1<TEditorForm>;
     OnSelectionChanged: TCallbackListP1<TEditorForm>;  // Called when either selection moves or data in selected range changes
@@ -1492,14 +1494,15 @@ begin
 
   TempPath:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetTempPath())+ChangeFileExt(ExtractFileName(Application.ExeName),''));
 
-  UsedEncodings := [0,  // ANSI default
-                    1,  // ASCII default
-                    TEncoding.Unicode.CodePage,
-                    TEncoding.UTF8.CodePage,
-                    20866,  // Koi8-r
-                    20880]; // EBCDIC Russian
-
   Settings := TMainFormSettings.Create();
+
+  StandardCodePages := [0,  // ANSI default
+                        1,  // ASCII default
+                        TEncoding.Unicode.CodePage,
+                        TEncoding.UTF8.CodePage,
+                        20866,  // Koi8-r
+                        20880]; // EBCDIC Russian
+  UsedEncodings :=  StandardCodePages + Settings.AdditionalCodePages;
 
   // Listen for clipboard changes
   AddClipboardFormatListener(Handle);
@@ -1789,7 +1792,10 @@ begin
       mi.Tag := Integer(Encodings.Objects[i]);
       mi.OnClick := ANSI1Click;
     end;
-    AEncoding := ActiveEditor.TextEncoding;
+    if GetActiveEditorNoEx() <> nil then
+      AEncoding := ActiveEditor.TextEncoding
+    else
+      AEncoding := -1;
     for i:=0 to MIEncodingMenu.Count-1 do
       MIEncodingMenu.Items[i].Checked := (MIEncodingMenu.Items[i].Tag = AEncoding);
   finally

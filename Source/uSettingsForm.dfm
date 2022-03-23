@@ -3,7 +3,7 @@ object SettingsForm: TSettingsForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Settings'
-  ClientHeight = 167
+  ClientHeight = 229
   ClientWidth = 371
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -24,7 +24,7 @@ object SettingsForm: TSettingsForm
   end
   object LblOpenSettingsFolder: TLabel
     Left = 16
-    Top = 64
+    Top = 120
     Width = 98
     Height = 13
     Cursor = crHandPoint
@@ -37,8 +37,24 @@ object SettingsForm: TSettingsForm
     ParentFont = False
     OnClick = LblOpenSettingsFolderClick
   end
+  object Label2: TLabel
+    Left = 16
+    Top = 67
+    Width = 109
+    Height = 13
+    Caption = 'Additional code pages:'
+  end
+  object ImageProxy1: THintedImageProxy
+    Left = 287
+    Top = 67
+    Width = 16
+    Height = 16
+    Image = MainForm.HintImage
+    ImageIndex = 0
+    HintFmt = 'CodePage numbers, separated by space'
+  end
   object CBUpdateCheckInterval: TComboBox
-    Left = 128
+    Left = 136
     Top = 24
     Width = 145
     Height = 21
@@ -51,7 +67,7 @@ object SettingsForm: TSettingsForm
   end
   object BtnOK: TButton
     Left = 168
-    Top = 121
+    Top = 177
     Width = 75
     Height = 25
     Caption = 'OK'
@@ -61,12 +77,19 @@ object SettingsForm: TSettingsForm
   end
   object BtnCancel: TButton
     Left = 265
-    Top = 121
+    Top = 177
     Width = 75
     Height = 25
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 2
+  end
+  object CBCodePages: TComboBox
+    Left = 136
+    Top = 64
+    Width = 145
+    Height = 21
+    TabOrder = 3
   end
 end

@@ -15,7 +15,7 @@ uses
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Winapi.ShellAPI,
 
-  uModuleSettings;
+  uModuleSettings, Vcl.ExtCtrls, uHextorGUI;
 
 type
   TSettingsForm = class(TForm)
@@ -24,6 +24,9 @@ type
     BtnOK: TButton;
     BtnCancel: TButton;
     LblOpenSettingsFolder: TLabel;
+    Label2: TLabel;
+    CBCodePages: TComboBox;
+    ImageProxy1: THintedImageProxy;
     procedure BtnOKClick(Sender: TObject);
     procedure LblOpenSettingsFolderClick(Sender: TObject);
   private
@@ -40,14 +43,26 @@ var
 implementation
 
 uses
-  uMainForm, uUpdaterForm;
+  uMainForm, uUpdaterForm, uHextorTypes;
 
 {$R *.dfm}
 
 { TSettingsForm }
 
 procedure TSettingsForm.ApplySettings;
+var
+  a: TArray<string>;
+  cp: TArray<Integer>;
+  i: Integer;
 begin
+  a := string(CBCodePages.Text).Split([' ', ',', ';'], TStringSplitOptions.ExcludeEmpty);
+  SetLength(cp, Length(a));
+  for i := 0 to Length(a) - 1 do
+    cp[i] := StrToInt(a[i]);
+  MainForm.Settings.AdditionalCodePages := cp;
+  MainForm.Settings.Changed(True);
+  UsedEncodings := MainForm.StandardCodePages + MainForm.Settings.AdditionalCodePages;
+
   case CBUpdateCheckInterval.ItemIndex of
     0: UpdaterForm.Settings.CheckInterval := 7;
     1: UpdaterForm.Settings.CheckInterval := 30;
@@ -69,6 +84,9 @@ begin
 end;
 
 procedure TSettingsForm.ShowSettings;
+var
+  s: string;
+  i: Integer;
 begin
   if UpdaterForm.Settings.CheckInterval = 0 then
     CBUpdateCheckInterval.ItemIndex := 2
@@ -77,6 +95,11 @@ begin
     CBUpdateCheckInterval.ItemIndex := 0
   else
     CBUpdateCheckInterval.ItemIndex := 1;
+
+  s := '';
+  for i := 0 to Length(MainForm.Settings.AdditionalCodePages) - 1 do
+    s := s + IntToStr(MainForm.Settings.AdditionalCodePages[i]) + ' ';
+  CBCodePages.Text := s;
 end;
 
 end.

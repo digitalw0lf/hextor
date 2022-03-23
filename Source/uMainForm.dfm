@@ -342,13 +342,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblStructName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
           inherited SavedDescrsMenu: TPopupMenu
             Images = nil
@@ -454,13 +447,6 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSave: TToolButton
-              ExplicitWidth = 26
-            end
-            inherited LblScriptName: TLabel
-              Height = 13
-              ExplicitHeight = 13
-            end
           end
           inherited SavedScriptsMenu: TPopupMenu
             Images = nil
@@ -551,6 +537,10 @@ object MainForm: TMainForm
             Height = 181
             ExplicitWidth = 412
             ExplicitHeight = 181
+            inherited StaticText1: TStaticText
+              Width = 406
+              ExplicitWidth = 406
+            end
             inherited ResultListView: TListView
               Width = 412
               Height = 158
@@ -612,10 +602,6 @@ object MainForm: TMainForm
       object PgRegions: TTabSheet
         Caption = 'Regions'
         ImageIndex = 9
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         inline RegionsFrame: TRegionsFrame
           Left = 0
           Top = 0
