@@ -69,6 +69,7 @@ type
     BufSize: TFilePointer;
     DescrLineNum: Integer;   // Line number in structure description text
     DisplayFormat: TValueDisplayNotation;
+    HintTemplate: string;
     constructor Create(); virtual;
     destructor Destroy(); override;
     procedure Assign(Source: TDSField); virtual;
@@ -82,6 +83,7 @@ type
     procedure DoChanged(Changer: TObject);
     function GetFixedSize(): TFilePointer; virtual;
     property ErrorText: string read FErrorText write SetErrorText;    // Parsing error (e.g. "End of buffer" or "Value out of range")
+    function Hint(): string;
     function EnumerateFields(const Range: TFileRange; Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
     function EnumerateTypeFields(Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
   end;
@@ -540,8 +542,6 @@ begin
   Result := TDSDirective.Create();
   Result.FName := S;
   Result.DescrLineNum := CurLineNum;
-
-  ReadExpectedLexem([';']);
 end;
 
 function TDSParser.ReadChar: Char;
@@ -558,6 +558,7 @@ var
   DirName, Value: string;
   i, ALineNum: Integer;
   Notation: TValueDisplayNotation;
+  Field: TDSField;
 begin
   Result := nil;
   DirName := ReadLexem();
@@ -605,6 +606,37 @@ begin
       raise EDSParserError.Create('"#format" directive should be right after affected fields');
     for i:=0 to Length(LastStatementFields)-1 do
       LastStatementFields[i].DisplayFormat := Notation;
+    Exit;
+  end;
+
+  if SameName(DirName, 'hint') then
+  begin
+    Value := Trim(ReadLine());
+    if LastStatementFields = nil then
+      raise EDSParserError.Create('"#hint" directive should be right after affected fields');
+    for i:=0 to Length(LastStatementFields)-1 do
+      LastStatementFields[i].HintTemplate := Value;
+    Exit;
+  end;
+
+  if SameName(DirName, 'itemhint') then
+  begin
+    Value := Trim(ReadLine());
+    if LastStatementFields = nil then
+      raise EDSParserError.Create('"#itemhint" directive should be right after affected fields');
+    for i:=0 to Length(LastStatementFields)-1 do
+    begin
+      if LastStatementFields[i] is TDSArray then
+        TDSArray(LastStatementFields[i]).ElementType.HintTemplate := Value
+      else
+      if LastStatementFields[i] is TDSCompoundField then
+      begin
+        for Field in TDSCompoundField(LastStatementFields[i]).NamedFields do
+          Field.HintTemplate := Value;
+      end
+      else
+        raise EDSParserError.Create('"#itemhint" directive not applicable to this field');
+    end;
     Exit;
   end;
 
@@ -744,7 +776,6 @@ begin
       end;
       if S = ';' then  // End of statement
       begin
-        ReadLexem();
         Break;
       end;
       if SameName(S, 'else') then  // End of statement
@@ -892,72 +923,78 @@ begin
 
   S := PeekLexem();
 
-  if S = ';' then
-  // Empty statement
-  begin
-    ReadLexem();
-    Exit;
-  end;
+  try
 
-  while S = '#' do
-  // Parser directive
-  begin
-    ReadLexem();
-    AInstance := ReadDirective();
-    // Some directives are turned into fields and are treated as full-fledged statemants
-    if AInstance <> nil then
+    if S = ';' then
+    // Empty statement
     begin
-      Result := [AInstance];
       Exit;
     end;
-    S := PeekLexem();
-  end;
 
-  if SameName(S, 'if') then
-  // if (Value) Statement
-  begin
-    ReadLexem();
-    Result := [ReadIfStatement()];
-    Exit;
-  end;
+    while S = '#' do
+    // Parser directive
+    begin
+      ReadLexem();
+      AInstance := ReadDirective();
+      // Some directives are turned into fields and are treated as full-fledged statemants
+      if AInstance <> nil then
+      begin
+        Result := [AInstance];
+        Exit;
+      end;
+      S := PeekLexem();
+    end;
 
-  if SameName(S, 'switch') then
-  // switch (Expr) { case Value1: Statement1; ... }
-  begin
-    ReadLexem();
-    Result := [ReadSwitchStatement()];
-    Exit;
-  end;
+    if SameName(S, 'if') then
+    // if (Value) Statement
+    begin
+      ReadLexem();
+      Result := [ReadIfStatement()];
+      Exit;
+    end;
 
-  if SameName(S, 'break') or SameName(S, 'continue') then
-  begin
-    Result := [ReadBreakStatement()];
-    Exit;
-  end;
+    if SameName(S, 'switch') then
+    // switch (Expr) { case Value1: Statement1; ... }
+    begin
+      ReadLexem();
+      Result := [ReadSwitchStatement()];
+      Exit;
+    end;
 
-  if SameName(S, 'var') then
-  // var name = expression;
-  begin
-    ReadLexem();
-    Result := [ReadHelperVar()];
-    Exit;
-  end;
+    if SameName(S, 'break') or SameName(S, 'continue') then
+    begin
+      Result := [ReadBreakStatement()];
+      Exit;
+    end;
 
-  if S = '}' then
-  // End of strict
-  begin
-    Exit;
-  end;
+    if SameName(S, 'var') then
+    // var name = expression;
+    begin
+      ReadLexem();
+      Result := [ReadHelperVar()];
+      Exit;
+    end;
 
-  if (S = '{') or (IsTypeName(S)) then
-  // Type name + Field list
-  begin
-    Result := ReadFieldsDeclaration();
-    Exit;
-  end;
+    if S = '}' then
+    // End of strict
+    begin
+      Exit;
+    end;
 
-  // Everything else is treated as scripts
-  Result := [ReadScriptBlock()];
+    if (S = '{') or (IsTypeName(S)) then
+    // Type name + Field list
+    begin
+      Result := ReadFieldsDeclaration();
+      Exit;
+    end;
+
+    // Everything else is treated as scripts
+    Result := [ReadScriptBlock()];
+
+  finally
+    if PeekLexem() = ';' then
+      ReadLexem();
+  end;
 end;
 
 function TDSParser.ReadStruct: TDSStruct;
@@ -1587,6 +1624,7 @@ begin
   DisplayFormat := Source.DisplayFormat;
   FEventSet := Source.FEventSet;
   ErrorText := Source.ErrorText;
+  HintTemplate := Source.HintTemplate;
 end;
 
 constructor TDSField.Create;
@@ -1672,6 +1710,12 @@ begin
       Result := IntToStr(FIndex)
     else
       Result := '';
+end;
+
+function TDSField.Hint: string;
+begin
+  if HintTemplate = '' then Result := ''
+  else Result := TDSExprEvaluator.Eval(HintTemplate, Self, nil);
 end;
 
 procedure TDSField.SetErrorText(const Value: string);
@@ -2601,7 +2645,8 @@ begin
   // Additional functions provided by environment
   if CurField <> nil then
     CurField.EventSet.OnPrepareScriptEnv.Call(CurField.EventSet.DataContext, CurField, ScriptEngine);
-  ScriptEngine.AddObject('interpretor', DSInterpretor.APIEnv.GetAPIWrapper(DSInterpretor), True);
+  if DSInterpretor <> nil then
+    ScriptEngine.AddObject('interpretor', DSInterpretor.APIEnv.GetAPIWrapper(DSInterpretor), True);
   DS := CurField;
   while DS <> nil do
   begin

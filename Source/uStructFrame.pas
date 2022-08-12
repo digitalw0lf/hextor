@@ -39,7 +39,7 @@ type
   end;
 
   TDSTreeNode = record
-    Caption: string;
+    Caption, Hint: string;
     DSField: TDSField;
   end;
   PDSTreeNode = ^TDSTreeNode;
@@ -662,8 +662,25 @@ var
   Sz: Integer;
   pc, bc: TColor;
   bs: TBrushStyle;
+  S: string;
+  ts: TSize;
 begin
   DS := GetNodeDS(Node);
+  // Show hint after main text
+  S := DS.Hint;
+  if S <> '' then
+  begin
+    ts := TargetCanvas.TextExtent(Text);
+    R := CellRect;
+    Inc(R.Left, ts.cx + 8);
+    pc := TargetCanvas.Font.Color;
+    try
+      TargetCanvas.Font.Color := clGrayText;
+      TargetCanvas.TextOut(R.Left, R.Top + (R.Height - ts.cy) div 2, S);
+    finally
+      TargetCanvas.Font.Color := pc;
+    end;
+  end;
   // Red mark for compound fields with erroneous childs
   if (DS is TDSCompoundField) and
      ((DS as TDSCompoundField).ChildsWithErrors > 0) then
@@ -710,12 +727,24 @@ procedure TStructFrame.DSTreeViewGetHint(Sender: TBaseVirtualTree;
   var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string);
 var
   DS: TDSField;
+  S: string;
 begin
+  HintText := '';
   DS := GetNodeDS(Node);
+  if DS <> nil then
+  begin
+    S := DS.Hint;
+    if S <> '' then
+      HintText := HintText + S + sLineBreak;
+  end;
   if (DS <> nil) and (DS is TDSSimpleField) then
-     HintText := (DS as TDSSimpleField).ErrorText
-  else
-    HintText := '';
+  begin
+    S := (DS as TDSSimpleField).ErrorText;
+    if S <> '' then
+      HintText := HintText + S + sLineBreak;
+  end;
+  if HintText <> '' then
+    HintText := Trim(HintText);
 end;
 
 procedure TStructFrame.DSTreeViewGetText(Sender: TBaseVirtualTree;
