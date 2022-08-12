@@ -19,7 +19,8 @@ uses
   Vcl.ToolWin, Winapi.ShellAPI, System.UITypes,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
-  uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper;
+  uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper,
+  uActiveScript;
 
 const
   Color_DSFieldBg = $FFF0F0;
@@ -246,6 +247,10 @@ begin
     EventSet.DataContext := FEditor.Data;
     EventSet.DataGetProc := DSDataGet;
     EventSet.DataChangeProc := DSDataChange;
+    EventSet.OnPrepareScriptEnv.Add(procedure (DataContext: Pointer; DS: TDSField; ScriptEngine: TActiveScript)
+      begin
+        ScriptEngine.AddObject('utils', MainForm.APIEnv.GetAPIWrapper(MainForm.Utils), True);
+      end);
     FShownDS.EventSet := EventSet;
 
     // Populate structure fields

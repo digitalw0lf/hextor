@@ -34,6 +34,7 @@ type
   TDSChangedCallback = TCallbackListP3<{DataContext:}Pointer, {DS:}TDSField, {Changer:}TObject>;
   TDSInterpretedCallback = TCallbackListP2<{DataContext:}Pointer, {DS:}TDSField>;
   TDSDestroyCallback = TCallbackListP2<{DataContext:}Pointer, {DS:}TDSField>;
+  TDSPrepareScriptEnvCallback = TCallbackListP3<{DataContext:}Pointer, {DS:}TDSField, {ScriptEngine:}TActiveScript>;
 
   // Callbacks which link DataStruct with underlying EditedData and GUI
   TDSEventSet = class
@@ -44,6 +45,7 @@ type
     OnChanged: TDSChangedCallback;          // General-purpose callback, called after DS changed
     OnInterpreted: TDSInterpretedCallback;  // Called on every DS field interpreted from data
     OnDestroy: TDSDestroyCallback;          // Called on DS field destruction
+    OnPrepareScriptEnv: TDSPrepareScriptEnvCallback;  // Called before every script expression evaluation
   end;
 
   // Base class for all elements
@@ -223,6 +225,13 @@ type
   public
   end;
 
+  TDSScriptBlock = class (TDSDirective)
+  // Script executed during structure parsing
+  // (e.g. function call or assignment to helper variable).
+  // Script text is stored in Self.Value
+  public
+  end;
+
   IDSComWrapper = interface
     ['{A3BF1107-670C-47EF-90D6-F0F7EF927A27}']
     function GetWrappedField(): TDSField;
@@ -259,6 +268,7 @@ type
     LastStatementFields: TArrayOfDSField;  // e.g. for #valid
     function CharValidInName(C: Char): Boolean;
     function IsReservedWord(const S: string): Boolean;
+    function IsTypeName(const S: string): Boolean;
     procedure CheckValidName(const S: string);
     function ReadChar(): Char;
     procedure PutBack();
@@ -268,6 +278,7 @@ type
     function ReadExpressionStr(StopAtChars: TSysCharSet = [';']): string;
     function ReadLine(): string;
     function ReadType(): TDSField;
+    function ReadFieldsDeclaration(): TArrayOfDSField;
     function ReadStatement(): TArrayOfDSField;
     function ReadStruct(): TDSStruct;
     function ReadIfStatement(): TDSConditional;
@@ -275,6 +286,7 @@ type
     function ReadBreakStatement(): TDSDirective;
     function ReadHelperVar(): TDSHelperVariable;
     function ReadDirective(): TDSDirective;
+    function ReadScriptBlock(): TDSScriptBlock;
     function MakeArray(AType: TDSField; const ACount: string): TDSArray;
     procedure EraseComments(var Buf: string);
     procedure CheckNestingValidity(DS: TDSField);
@@ -303,6 +315,7 @@ type
     procedure InterpretConditional(DS: TDSConditional);
     procedure ProcessHelperVar(DS: TDSHelperVariable);
     procedure ProcessDirective(DS: TDSDirective);
+    procedure ProcessScriptBlock(DS: TDSScriptBlock);
     procedure InternalInterpret(DS: TDSField);
     procedure ValidateField(DS: TDSSimpleField);
   public
@@ -347,15 +360,17 @@ type
     ScriptEngine: TActiveScript;
     class procedure ForceEvaluator();
     procedure PrepareScriptEnv(CurField: TDSField; DSInterpretor: TDSInterpretor);
-    function Evaluate(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
+    function Evaluate(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor;
+      RequireResult: Boolean = True): Variant;
   public
-    class function Eval(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
+    class function Eval(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor;
+      RequireResult: Boolean = True): Variant;
     constructor Create();
     destructor Destroy(); override;
   end;
 
 var
-  FDSExprEvaluator: TDSExprEvaluator = nil;  // Not thread-safe
+  FDSExprEvaluator: TDSExprEvaluator = nil;         // Not thread-safe
 
 { TDSParser }
 
@@ -442,7 +457,13 @@ begin
             SameName(S, 'else') or
             SameName(S, 'switch') or
             SameName(S, 'case') or
-            SameName(S, 'default');
+            SameName(S, 'default') or
+            SameName(S, 'var');
+end;
+
+function TDSParser.IsTypeName(const S: string): Boolean;
+begin
+  Result := (ValueInterpretors.FindInterpretor(S) <> nil);
 end;
 
 function TDSParser.MakeArray(AType: TDSField; const ACount: string): TDSArray;
@@ -667,6 +688,80 @@ begin
   if C <> #0 then PutBack();
 end;
 
+function TDSParser.ReadFieldsDeclaration(): TArrayOfDSField;
+// Read data type followed by field names
+var
+  S, AName, ACount: string;
+  AType, AInstance: TDSField;
+begin
+  Result := nil;
+  // Read type description
+  AType := ReadType();
+
+  // Read field names
+  try
+    AType.DescrLineNum := CurLineNum;
+
+    repeat
+      S := PeekLexem();
+      if (S = ';') or (S = '') or (S = '}') or (SameName(S, 'else')) then
+        AName := ''
+      else
+      begin
+        AName := ReadLexem();
+        CheckValidName(AName);
+      end;
+
+      S := PeekLexem();
+      if S = '[' then  // It is array
+      begin
+        ReadLexem();
+        // Read array size
+        ACount := ReadExpressionStr();
+        ReadExpectedLexem([']']);
+        // Create array of Count elements of given type
+        AInstance := MakeArray(AType, ACount);
+        AInstance.DescrLineNum := CurLineNum;
+
+        S := PeekLexem();  // "," or ";"
+      end
+      else
+      begin
+        AInstance := AType.Duplicate();
+      end;
+
+      AInstance.FName := AName;
+      //AInstance.Parent := Result;
+      //Result.Fields.Add(AInstance);
+      Result := Result + [AInstance];
+
+  //      WriteLogF('Struct', AnsiString(AInstance.ClassName+' '+AInstance.Name));
+
+      if S = ',' then  // Next name
+      begin
+        ReadLexem();
+        Continue;
+      end;
+      if S = ';' then  // End of statement
+      begin
+        ReadLexem();
+        Break;
+      end;
+      if SameName(S, 'else') then  // End of statement
+      begin
+        Break;
+      end;
+      if (S = '') or (S = '}') then Exit;       // End of description
+
+      raise EDSParserError.Create('";" or "," expected');
+    until False;
+
+  finally
+    AType.Free;
+    LastStatementFields := Result;
+  end;
+end;
+
 function TDSParser.ReadHelperVar: TDSHelperVariable;
 // var name = expression;
 var
@@ -772,12 +867,26 @@ begin
   until False;
 end;
 
+function TDSParser.ReadScriptBlock: TDSScriptBlock;
+// Some script inside of structure definition
+begin
+  Result := TDSScriptBlock.Create();
+  try
+    Result.DescrLineNum := CurLineNum;
+    // Script text
+    Result.Value := ReadExpressionStr();
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
 function TDSParser.ReadStatement: TArrayOfDSField;
 // Statement is Type + list of names until ;
 // It also may be conditional block like "if"
 var
-  AType, AInstance: TDSField;
-  AName, S, ACount: string;
+  AInstance: TDSField;
+  S: string;
 begin
   Result := nil;
 
@@ -827,6 +936,7 @@ begin
   end;
 
   if SameName(S, 'var') then
+  // var name = expression;
   begin
     ReadLexem();
     Result := [ReadHelperVar()];
@@ -839,71 +949,15 @@ begin
     Exit;
   end;
 
-  // Read type description
-  AType := ReadType();
-
-  if AType = nil then Exit;
-
-  try
-    AType.DescrLineNum := CurLineNum;
-    // Read field names
-    repeat
-      S := PeekLexem();
-      if (S = ';') or (S = '') or (S = '}') or (SameName(S, 'else')) then
-        AName := ''
-      else
-      begin
-        AName := ReadLexem();
-        CheckValidName(AName);
-      end;
-
-      S := PeekLexem();
-      if S = '[' then  // It is array
-      begin
-        ReadLexem();
-        // Read array size
-        ACount := ReadExpressionStr();
-        ReadExpectedLexem([']']);
-        // Create array of Count elements of given type
-        AInstance := MakeArray(AType, ACount);
-        AInstance.DescrLineNum := CurLineNum;
-
-        S := PeekLexem();  // "," or ";"
-      end
-      else
-      begin
-        AInstance := AType.Duplicate();
-      end;
-
-      AInstance.FName := AName;
-      //AInstance.Parent := Result;
-      //Result.Fields.Add(AInstance);
-      Result := Result + [AInstance];
-
-//      WriteLogF('Struct', AnsiString(AInstance.ClassName+' '+AInstance.Name));
-
-      if S = ',' then  // Next name
-      begin
-        ReadLexem();
-        Continue;
-      end;
-      if S = ';' then  // End of statement
-      begin
-        ReadLexem();
-        Break;
-      end;
-      if SameName(S, 'else') then  // End of statement
-      begin
-        Break;
-      end;
-      if (S = '') or (S = '}') then Exit;       // End of description
-
-      raise EDSParserError.Create('";" or "," expected');
-    until False;
-  finally
-    AType.Free;
-    LastStatementFields := Result;
+  if (S = '{') or (IsTypeName(S)) then
+  // Type name + Field list
+  begin
+    Result := ReadFieldsDeclaration();
+    Exit;
   end;
+
+  // Everything else is treated as scripts
+  Result := [ReadScriptBlock()];
 end;
 
 function TDSParser.ReadStruct: TDSStruct;
@@ -997,9 +1051,7 @@ function TDSParser.ReadType: TDSField;
 var
   S: string;
 begin
-  Result := nil;
   S := ReadLexem;
-  if (S = '') or (S = ';') then Exit;
   if S = '{' then
   begin
     Result := ReadStruct();
@@ -1917,6 +1969,9 @@ begin
       if DS is TDSHelperVariable then
         ProcessHelperVar(TDSHelperVariable(DS))
       else
+      if DS is TDSScriptBlock then
+        ProcessScriptBlock(TDSScriptBlock(DS))
+      else
       if DS is TDSDirective then
         ProcessDirective(TDSDirective(DS))
       else
@@ -2138,6 +2193,11 @@ var
 begin
   Value := TDSExprEvaluator.Eval(DS.Value, DS, Self);
   DS.Parent.SetHelperVar(DS.Name, Value);
+end;
+
+procedure TDSInterpretor.ProcessScriptBlock(DS: TDSScriptBlock);
+begin
+  TDSExprEvaluator.Eval(DS.Value, DS, Self, False);
 end;
 
 procedure TDSInterpretor.Seek(Addr: TFilePointer);
@@ -2495,7 +2555,8 @@ begin
   inherited;
 end;
 
-function TDSExprEvaluator.Evaluate(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
+function TDSExprEvaluator.Evaluate(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor;
+  RequireResult: Boolean = True): Variant;
 begin
 //  WriteLogF('Struct_Intepret', 'Expression: ' + Expr);
   try
@@ -2507,7 +2568,7 @@ begin
     PrepareScriptEnv(CurField, DSInterpretor);
     Result := ScriptEngine.Eval(Expr);
 
-    if VarIsEmpty(Result) then
+    if (RequireResult) and (VarIsEmpty(Result)) then
       raise EDSParserError.Create('Cannot calculate expression: "'+Expr+'"');
 
   finally
@@ -2515,11 +2576,12 @@ begin
   end;
 end;
 
-class function TDSExprEvaluator.Eval(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor): Variant;
+class function TDSExprEvaluator.Eval(Expr: string; CurField: TDSField; DSInterpretor: TDSInterpretor;
+  RequireResult: Boolean = True): Variant;
 begin
   // Make sure evaluator instance created and use it to calculate expression
   ForceEvaluator();
-  Result := FDSExprEvaluator.Evaluate(Expr, CurField, DSInterpretor);
+  Result := FDSExprEvaluator.Evaluate(Expr, CurField, DSInterpretor, RequireResult);
 end;
 
 class procedure TDSExprEvaluator.ForceEvaluator;
@@ -2536,12 +2598,15 @@ var
   DS: TDSField;
 begin
   ScriptEngine.Reset();
+  // Additional functions provided by environment
+  if CurField <> nil then
+    CurField.EventSet.OnPrepareScriptEnv.Call(CurField.EventSet.DataContext, CurField, ScriptEngine);
   ScriptEngine.AddObject('interpretor', DSInterpretor.APIEnv.GetAPIWrapper(DSInterpretor), True);
   DS := CurField;
   while DS <> nil do
   begin
     if DS is TDSCompoundField then
-      ScriptEngine.AddObject({DS.Name}'f' + IntToStr(Random(1000000)), (DS as TDSCompoundField).GetComWrapper(), True);
+      ScriptEngine.AddObject({DS.Name}'f' + IntToHex(UIntPtr(DS)), (DS as TDSCompoundField).GetComWrapper(), True);
     DS := DS.Parent;
   end;
 end;
