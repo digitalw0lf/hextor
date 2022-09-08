@@ -48,7 +48,7 @@ type
   public
     { Public declarations }
     ResultData: TBytes;
-    function DataPreviewStr(const Data: PByteArray; DataSize: Integer; MaxLen: Integer): string;
+    function DataPreviewStr(Data: string; MaxLen: Integer): string;
   end;
 
 var
@@ -64,21 +64,21 @@ begin
   ModalResult := mrOk;
 end;
 
-function TPasteAsForm.DataPreviewStr(const Data: PByteArray; DataSize: Integer; MaxLen: Integer): string;
+function TPasteAsForm.DataPreviewStr(Data: string; MaxLen: Integer): string;
 // Returns readable view of passed data (unprintable characters replaced with \xDD)
 var
   i: Integer;
 begin
   Result := '';
-  for i:=0 to DataSize-1 do
+  for i:=1 to Length(Data) do
   begin
-    if Data[i] >= Ord(AnsiChar(' ')) then
+    if Ord(Data[i]) >= Ord(' ') then
     begin
-      Result := Result + string(AnsiChar(Data[i]));
+      Result := Result + Data[i];
     end
     else
-      Result := Result + '\x' + IntToHex(Data[i],2);
-    if (Length(Result) >= MaxLen) and (i < DataSize-1) then
+      Result := Result + '\x' + IntToHex(Ord(Data[i]), 2);
+    if (Length(Result) >= MaxLen) and (i < Length(Data)) then
     begin
       Result := Result + '...';
       Break;
@@ -209,14 +209,14 @@ procedure TPasteAsForm.UpdatePreview;
 // Show input/output preview with current settings
 var
   ASample: string;
-  AIn: AnsiString;
+  AIn: string;
   AOut: TBytes;
 begin
   ASample := Copy(CachedClipbrd, Low(CachedClipbrd), 1000);
 
   try
-    AIn := AnsiString(ASample);
-    LblInputPreview.Caption := DataPreviewStr(@AIn[Low(AIn)], Length(AIn), 50);
+    AIn := ASample;
+    LblInputPreview.Caption := DataPreviewStr(AIn, 50);
   except
     on E: Exception do
       LblInputPreview.Caption := E.Message;
@@ -224,7 +224,7 @@ begin
 
   try
     AOut := TextToData(ASample);
-    LblOutputPreview.Caption := DataPreviewStr(@AOut[0], Length(AOut), 50);
+    LblOutputPreview.Caption := DataPreviewStr(Data2String(AOut, TEncoding.Default.CodePage), 50);
   except
     on E: Exception do
       LblOutputPreview.Caption := E.Message;
