@@ -75,8 +75,7 @@
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
-        <DCC_UnitSearchPath>D:\DWF\Delphi\Lib\Jcl\jcl\source\windows-;..\PluginSrc\PluginTest;..\Lib\HashLib!;d:\Work\Trunk\Units;d:\Work\Trunk\Units\Components;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_Define>USE_DWF_UTILS;$(DCC_Define)</DCC_Define>
+        <DCC_UnitSearchPath>..\PluginSrc\PluginTest;d:\Work\Trunk\Units;d:\Work\Trunk\Units\Components;..\..\DWFUnits;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <Custom_Styles>Carbon|VCLSTYLE|$(BDSCOMMONDIR)\Styles\Carbon.vsf</Custom_Styles>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">

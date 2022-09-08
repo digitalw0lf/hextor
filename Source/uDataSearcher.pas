@@ -14,7 +14,8 @@ uses
   System.SysUtils, System.Math, Generics.Collections, Winapi.Windows,
   Winapi.ActiveX,
 
-  uHextorTypes, uEditedData, uCallbackList, uValueInterpretors, uActiveScript;
+  uHextorTypes, uEditedData, uCallbackList, uValueInterpretors,
+  uActiveScript;  // https://github.com/digitalw0lf/dwfunits.git
 
 type
   EMatchPatternException = class (Exception);
