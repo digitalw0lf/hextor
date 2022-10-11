@@ -234,6 +234,17 @@ type
   public
   end;
 
+// I can use this class to make typedef's bound to specific visibility scope
+//  TDSTypedef = class (TDSField)
+//  // User type definition
+//  public
+//    ATypes: TObjectList<TDSField>;
+//    procedure Assign(Source: TDSField); override;
+//    function GetFixedSize(): TFilePointer; override;
+//    constructor Create();
+//    destructor Destroy(); override;
+//  end;
+
   IDSComWrapper = interface
     ['{A3BF1107-670C-47EF-90D6-F0F7EF927A27}']
     function GetWrappedField(): TDSField;
@@ -268,6 +279,7 @@ type
     CurLineNum: Integer;
     CurBigEndian: Boolean;  // Currently in big-endian mode
     LastStatementFields: TArrayOfDSField;  // e.g. for #valid
+    Typedefs: TObjectDictionary<string, TDSField>;  // User-defined types
     function CharValidInName(C: Char): Boolean;
     function IsReservedWord(const S: string): Boolean;
     function IsTypeName(const S: string): Boolean;
@@ -279,7 +291,7 @@ type
     function ReadExpectedLexem(const Expected: array of string): string;
     function ReadExpressionStr(StopAtChars: TSysCharSet = [';']): string;
     function ReadLine(): string;
-    function ReadType(): TDSField;
+    function ReadType(var ShouldFree: Boolean): TDSField;
     function ReadFieldsDeclaration(): TArrayOfDSField;
     function ReadStatement(): TArrayOfDSField;
     function ReadStruct(): TDSStruct;
@@ -289,11 +301,14 @@ type
     function ReadHelperVar(): TDSHelperVariable;
     function ReadDirective(): TDSDirective;
     function ReadScriptBlock(): TDSScriptBlock;
+    procedure ReadTypedef();
     function MakeArray(AType: TDSField; const ACount: string): TDSArray;
     procedure EraseComments(var Buf: string);
     procedure CheckNestingValidity(DS: TDSField);
   public
     function ParseStruct(const Descr: string): TDSStruct;
+    constructor Create();
+    destructor Destroy(); override;
   end;
 
   TOnDSInterpretorGetData = reference to procedure (Addr, Size: TFilePointer; var Data: TBytes{; var AEndOfData: Boolean});
@@ -412,6 +427,18 @@ begin
   end;
 end;
 
+constructor TDSParser.Create;
+begin
+  inherited;
+  Typedefs := TObjectDictionary<string, TDSField>.Create([doOwnsValues]);
+end;
+
+destructor TDSParser.Destroy;
+begin
+  Typedefs.Free;
+  inherited;
+end;
+
 procedure TDSParser.EraseComments(var Buf: string);
 // Replace comments with spaces.
 // Supports  //...  and  /*...*/
@@ -460,12 +487,15 @@ begin
             SameName(S, 'switch') or
             SameName(S, 'case') or
             SameName(S, 'default') or
-            SameName(S, 'var');
+            SameName(S, 'break') or
+            SameName(S, 'continue') or
+            SameName(S, 'var') or
+            SameName(S, 'typedef');
 end;
 
 function TDSParser.IsTypeName(const S: string): Boolean;
 begin
-  Result := (ValueInterpretors.FindInterpretor(S) <> nil);
+  Result := (ValueInterpretors.FindInterpretor(S) <> nil) or (Typedefs.ContainsKey(S));
 end;
 
 function TDSParser.MakeArray(AType: TDSField; const ACount: string): TDSArray;
@@ -481,6 +511,8 @@ function TDSParser.ParseStruct(const Descr: string): TDSStruct;
 var
   Buffer: string;
 begin
+  Typedefs.Clear();
+
   if Descr = '' then
     raise EDSParserError.Create('Empty struct description');
 
@@ -725,10 +757,11 @@ function TDSParser.ReadFieldsDeclaration(): TArrayOfDSField;
 var
   S, AName, ACount: string;
   AType, AInstance: TDSField;
+  ShouldFreeType: Boolean;
 begin
   Result := nil;
   // Read type description
-  AType := ReadType();
+  AType := ReadType(ShouldFreeType);
 
   // Read field names
   try
@@ -763,8 +796,6 @@ begin
       end;
 
       AInstance.FName := AName;
-      //AInstance.Parent := Result;
-      //Result.Fields.Add(AInstance);
       Result := Result + [AInstance];
 
   //      WriteLogF('Struct', AnsiString(AInstance.ClassName+' '+AInstance.Name));
@@ -788,9 +819,31 @@ begin
     until False;
 
   finally
-    AType.Free;
+    if ShouldFreeType then
+      AType.Free;
     LastStatementFields := Result;
   end;
+end;
+
+procedure TDSParser.ReadTypedef;
+// typedef type_definition names_list;
+var
+  Items: TArrayOfDSField;
+  Item: TDSField;
+begin
+//  Result := TDSTypedef.Create();
+//  try
+//    Items := ReadFieldsDeclaration();
+//    Result.ATypes.AddRange(Items);
+//  except
+//    Result.Free;
+//    raise;
+//  end;
+
+  Items := ReadFieldsDeclaration();
+  // typedef's currently have global scope
+  for Item in Items do
+    Typedefs.AddOrSetValue(Item.Name, Item);
 end;
 
 function TDSParser.ReadHelperVar: TDSHelperVariable;
@@ -975,6 +1028,15 @@ begin
       Exit;
     end;
 
+    if SameName(S, 'typedef') then
+    // typedef type_definition name;
+    begin
+      ReadLexem();
+      //Result := [ReadTypedef()];
+      ReadTypedef();
+      Exit;
+    end;
+
     if S = '}' then
     // End of strict
     begin
@@ -1084,7 +1146,7 @@ begin
   end;
 end;
 
-function TDSParser.ReadType: TDSField;
+function TDSParser.ReadType(var ShouldFree: Boolean): TDSField;
 var
   S: string;
 begin
@@ -1093,6 +1155,12 @@ begin
   begin
     Result := ReadStruct();
     ReadExpectedLexem(['}']);
+    ShouldFree := True;
+  end
+  else
+  if Typedefs.TryGetValue(S, Result) then
+  begin
+    ShouldFree := False;
   end
   else
   begin
@@ -1100,6 +1168,7 @@ begin
     Result := TDSSimpleField.Create();
     TDSSimpleField(Result).DataType := S;
     TDSSimpleField(Result).BigEndian := CurBigEndian;
+    ShouldFree := True;
   end;
 end;
 
@@ -2655,6 +2724,41 @@ begin
     DS := DS.Parent;
   end;
 end;
+
+//{ TDSTypedef }
+//
+//procedure TDSTypedef.Assign(Source: TDSField);
+//var
+//  i: Integer;
+//begin
+//  inherited;
+//  if Source is TDSTypedef then
+//  begin
+//    ATypes.Clear();
+//    for i := 0 to TDSTypedef(Source).ATypes.Count - 1 do
+//    begin
+//      ATypes.Add( TDSTypedef(Source).ATypes[i].Duplicate() );
+//    end;
+//  end;
+//end;
+//
+//constructor TDSTypedef.Create;
+//begin
+//  inherited;
+//  ATypes := TObjectList<TDSField>.Create(True);
+//end;
+//
+//destructor TDSTypedef.Destroy;
+//begin
+//  ATypes.Free;
+//  inherited;
+//end;
+//
+//function TDSTypedef.GetFixedSize: TFilePointer;
+//begin
+//  // Typedef statement itself does not corresponds to bytes in file
+//  Result := 0;
+//end;
 
 initialization
 

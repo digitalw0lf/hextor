@@ -1,0 +1,28 @@
+// Variable-length quantity (unsigned)
+typedef {
+  var value = 0;
+  {
+    byte c;
+    value = (value << 7) + (c & 0x7F);
+    if ((c & 0x80) == 0) break;
+  } b[];
+} VLQ; #hint value
+
+// Little Endian Base 128 (unsigned)
+typedef {
+  var value = 0;
+  var shift = 0;
+  {
+    byte c;
+    value += (c & 0x7F) << shift;
+    if ((c & 0x80) == 0) break;
+    shift += 7;
+  } b[];
+} LEB128; #hint value
+
+
+// VLQ Example: A6 8E 65 => 624485
+//VLQ a;
+
+// LEB128 Example: E5 8E 26 => 624485
+//LEB128 b;
