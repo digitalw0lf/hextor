@@ -234,17 +234,6 @@ type
   public
   end;
 
-// I can use this class to make typedef's bound to specific visibility scope
-//  TDSTypedef = class (TDSField)
-//  // User type definition
-//  public
-//    ATypes: TObjectList<TDSField>;
-//    procedure Assign(Source: TDSField); override;
-//    function GetFixedSize(): TFilePointer; override;
-//    constructor Create();
-//    destructor Destroy(); override;
-//  end;
-
   IDSComWrapper = interface
     ['{A3BF1107-670C-47EF-90D6-F0F7EF927A27}']
     function GetWrappedField(): TDSField;
@@ -831,15 +820,6 @@ var
   Items: TArrayOfDSField;
   Item: TDSField;
 begin
-//  Result := TDSTypedef.Create();
-//  try
-//    Items := ReadFieldsDeclaration();
-//    Result.ATypes.AddRange(Items);
-//  except
-//    Result.Free;
-//    raise;
-//  end;
-
   Items := ReadFieldsDeclaration();
   // typedef's currently have global scope
   for Item in Items do
@@ -2724,41 +2704,6 @@ begin
     DS := DS.Parent;
   end;
 end;
-
-//{ TDSTypedef }
-//
-//procedure TDSTypedef.Assign(Source: TDSField);
-//var
-//  i: Integer;
-//begin
-//  inherited;
-//  if Source is TDSTypedef then
-//  begin
-//    ATypes.Clear();
-//    for i := 0 to TDSTypedef(Source).ATypes.Count - 1 do
-//    begin
-//      ATypes.Add( TDSTypedef(Source).ATypes[i].Duplicate() );
-//    end;
-//  end;
-//end;
-//
-//constructor TDSTypedef.Create;
-//begin
-//  inherited;
-//  ATypes := TObjectList<TDSField>.Create(True);
-//end;
-//
-//destructor TDSTypedef.Destroy;
-//begin
-//  ATypes.Free;
-//  inherited;
-//end;
-//
-//function TDSTypedef.GetFixedSize: TFilePointer;
-//begin
-//  // Typedef statement itself does not corresponds to bytes in file
-//  Result := 0;
-//end;
 
 initialization
 
