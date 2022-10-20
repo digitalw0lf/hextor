@@ -177,6 +177,7 @@ type
     procedure AllocateFieldsList(ACount: Integer = -1);
   public
     ACount: string;  // Count as it is written in description. Interpreted during population of structures
+    AExpectedSize: string;
     ElementType: TDSField;
     constructor Create(); override;
     destructor Destroy(); override;
@@ -685,6 +686,19 @@ begin
     Exit;
   end;
 
+  if SameName(DirName, 'size') then
+  begin
+    Value := Trim(ReadLine());
+    if (LastStatementFields = nil) or
+       (Length(LastStatementFields) <> 1) or
+       (not (LastStatementFields[0] is TDSArray)) then
+      raise EDSParserError.Create('"#size" directive should be right after the array definition');
+    if (TDSArray(LastStatementFields[0]).ACount <> '') then
+      raise EDSParserError.Create('Cannot specify both elements count and total array size');
+    TDSArray(LastStatementFields[0]).AExpectedSize := Value;
+    Exit;
+  end;
+
   raise EDSParserError.Create('Unknown parser directive: ' + DirName);
 end;
 
@@ -774,7 +788,7 @@ begin
         ACount := ReadExpressionStr();
         ReadExpectedLexem([']']);
         // Create array of Count elements of given type
-        AInstance := MakeArray(AType, ACount);
+        AInstance := MakeArray(AType, Trim(ACount));
         AInstance.DescrLineNum := CurLineNum;
 
         S := PeekLexem();  // "," or ";"
@@ -1482,8 +1496,8 @@ begin
     ElementType := TDSArray(Source).ElementType.Duplicate();
     ElementType.Parent := Self;
     ACount := TDSArray(Source).ACount;
+    AExpectedSize := TDSArray(Source).AExpectedSize;
   end;
-
 end;
 
 constructor TDSArray.Create;
@@ -2116,12 +2130,20 @@ var
   ElementSize: TFilePointer;
   BufferLeft: TFilePointer;
   NeedsValidation: Boolean;
+  ExpectedSize: TFilePointer;
 begin
   ElementSize := DS.ElementType.GetFixedSize();
+  if DS.AExpectedSize <> '' then
+    ExpectedSize := TDSExprEvaluator.Eval(DS.AExpectedSize, DS, Self)
+  else
+    ExpectedSize := -1;
   // Calculate element count
-  if Trim(DS.ACount) = '' then  // Till end of buffer
+  if DS.ACount = '' then  // Till end of buffer
   begin
-    BufferLeft := (FStartAddr + FMaxSize - FCurAddr);
+    if ExpectedSize >= 0 then
+      BufferLeft := ExpectedSize
+    else
+      BufferLeft := (FStartAddr + FMaxSize - FCurAddr);
     if ElementSize < 0 then  // Cannot pre-calculate array size with variable-sized elements
       Count := -1
     else
@@ -2169,6 +2191,12 @@ begin
       begin
         // If empty count specified "[]", parse this array until end of buffer
         if EndOfData then Break;
+        if (ExpectedSize >= 0) and (FCurAddr >= DS.BufAddr + ExpectedSize) then
+        begin
+          if (FCurAddr > DS.BufAddr + ExpectedSize) then
+            raise EDSParserError.Create('Array element is not aligned with expected array data size');
+          Break;
+        end;
       end;
       Element := DS.ElementType.Duplicate();
       DS.FCurParsedItem := DS.AddField(Element);
