@@ -56,6 +56,7 @@ type
     function Intersects2(BStart, BEnd: TFilePointer): Boolean; overload; inline;
     class operator Equal(const A, B: TFileRange): Boolean; inline;
     class operator NotEqual(const A, B: TFileRange): Boolean; inline;
+    class operator Add(const A, B: TFileRange): TFileRange; inline;
     constructor Create(BStart, BEnd: TFilePointer);
   end;
 
@@ -952,6 +953,15 @@ begin
 end;
 
 { TFileRange }
+
+class operator TFileRange.Add(const A, B: TFileRange): TFileRange;
+begin
+  if (A = NoRange) then Exit(B);
+  if (B = NoRange) then Exit(A);
+  if (A = EntireFile) or (B = EntireFile) then Exit(EntireFile);
+  Result.Start := Min(A.Start, B.Start);
+  Result.AEnd := Max(A.AEnd, B.AEnd);
+end;
 
 constructor TFileRange.Create(BStart, BEnd: TFilePointer);
 begin

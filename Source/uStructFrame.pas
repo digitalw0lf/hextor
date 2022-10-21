@@ -1148,10 +1148,28 @@ end;
 procedure TStructFrame.MISelectInEditorClick(Sender: TObject);
 var
   DS: TDSField;
+  Node: PVirtualNode;
+  Range: TFileRange;
 begin
-  DS := GetNodeDS(DSTreeView.FocusedNode);
-  if DS <> nil then
-    FEditor.SelectAndShow(DS.BufAddr, DS.BufAddr + DS.BufSize);
+  Range := NoRange;
+  if DSTreeView.SelectedCount = 1 then
+  begin
+    DS := GetNodeDS(DSTreeView.FocusedNode);
+    if DS <> nil then
+      Range := DS.AddrRange;
+  end
+  else if DSTreeView.SelectedCount > 1 then
+  begin
+    for Node in DSTreeView.SelectedNodes() do
+    begin
+      DS := GetNodeDS(Node);
+      if DS <> nil then
+        Range := Range + DS.AddrRange;
+    end;
+  end;
+
+  if Range <> NoRange then
+    FEditor.SelectAndShow(Range.Start, Range.AEnd);
 end;
 
 procedure TStructFrame.OnShown;
