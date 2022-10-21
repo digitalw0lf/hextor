@@ -64,6 +64,7 @@ type
     procedure SetParent(const Value: TDSCompoundField);
     function GetEventSet(): TDSEventSet;
     procedure SetErrorText(const Value: string);
+    function GetAddrRange(): TFileRange;
   public
     BufAddr: TFilePointer;   // Address and size in original data buffer
     BufSize: TFilePointer;
@@ -86,6 +87,7 @@ type
     function Hint(): string;
     function EnumerateFields(const Range: TFileRange; Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
     function EnumerateTypeFields(Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
+    property AddrRange: TFileRange read GetAddrRange;
   end;
   TDSFieldClass = class of TDSField;
   TArrayOfDSField = array of TDSField;
@@ -245,6 +247,7 @@ type
   private const
     DISPID_INDEX  = -1;  // "index" pseudo-field of arrays
     DISPID_LENGTH = -2;  // "length" pseudo-field of arrays
+    DISPID_SIZE   = -3;  // "size" pseudo-field of arrays
     DISPID_HELPERVARS_FIRST = $7F000000;
   private
     DSField: TDSField;
@@ -1749,6 +1752,11 @@ begin
   Result := -1;
 end;
 
+function TDSField.GetAddrRange: TFileRange;
+begin
+  Result := TFileRange.Create(BufAddr, BufAddr + BufSize);
+end;
+
 function TDSField.GetEventSet: TDSEventSet;
 // Get Event set. It may be inherited from parent structure.
 var
@@ -2054,6 +2062,8 @@ begin
 end;
 
 procedure TDSInterpretor.InternalInterpret(DS: TDSField);
+var
+  Parent: TDSField;
 begin
   DS.BufAddr := FCurAddr;
 
@@ -2095,6 +2105,13 @@ begin
     end;
   finally
     DS.BufSize := FCurAddr - DS.BufAddr;
+    // Update parent structures size during parsing
+    Parent := DS.Parent;
+    while Parent <> nil do
+    begin
+      Parent.BufSize := Max(Parent.BufSize, FCurAddr - Parent.BufAddr);  // This will later be overwritten
+      Parent := Parent.Parent;
+    end;
     Inc(FieldsProcessed);
   end;
 
@@ -2401,6 +2418,12 @@ begin
       PInteger(DispIDs)^ := DISPID_LENGTH;
       Exit(S_OK);
     end;
+    if SameText('size', AName) then
+    // ArrayName.size = data size occupied by array
+    begin
+      PInteger(DispIDs)^ := DISPID_SIZE;
+      Exit(S_OK);
+    end;
     if (TryStrToInt(AName, i)) and (i >= 0) and (i < (DSField as TDSArray).FieldsCount) then
     begin
       PInteger(DispIDs)^ := i;
@@ -2494,6 +2517,17 @@ begin
         (DSField as TDSArray).SetLength(Variant(TDispParams(Params).rgvarg[0]))
       else
         POleVariant(VarResult)^ := (DSField as TDSArray).FieldsCount;
+      Exit(S_OK);
+    end;
+    // "size" pseudo-field = data size occupied by array
+    if DispID = DISPID_SIZE then
+    begin
+      if not (DSField is TDSArray) then
+        Exit(DISP_E_MEMBERNOTFOUND);
+      LoggedName := 'size';
+      if Put then
+        Exit(DISP_E_BADVARTYPE);
+      POleVariant(VarResult)^ :=  DSField.BufSize;
       Exit(S_OK);
     end;
 
