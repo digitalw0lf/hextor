@@ -1954,8 +1954,11 @@ end;
 
 procedure TMainForm.RightPanelResize(Sender: TObject);
 begin
-  Settings.RightPanelWidth := RightPanel.Width;
-  Settings.Changed();
+  if Assigned(Settings) then
+  begin
+    Settings.RightPanelWidth := RightPanel.Width;
+    Settings.Changed();
+  end;
 end;
 
 procedure TMainForm.SaveAll;
