@@ -116,6 +116,7 @@ type
     function GetTargetEditor: TEditorForm;
     function GetTargetEditorNoEx: TEditorForm;
     procedure AutosizeForm();
+    procedure EnsureControlsNotClipped();
     procedure CheckEnabledControls();
     function GetCorrespondingEditControl(Sender: TComponent): TComboBox;
     procedure FindInData(AEditor: TEditorForm; AData: TEditedData; Action: TSearchAction; OldCount: Integer; var NewCount: Integer; ResultsFrame: TSearchResultsTabFrame);
@@ -265,6 +266,7 @@ end;
 
 procedure TFindReplaceForm.CPFindExpand(Sender: TObject);
 begin
+  EnsureControlsNotClipped();
   AutosizeForm();
 end;
 
@@ -308,6 +310,29 @@ begin
         CB.ItemIndex := i;
       StoreToSettings();
     end;
+  end;
+end;
+
+procedure TFindReplaceForm.EnsureControlsNotClipped();
+// Workaround for incorrect panel height on non-primary monitor with different DPI
+var
+  i, j, MaxExtent: Integer;
+  Pnl: TCustomCategoryPanel;
+  Sfc: TCategoryPanelSurface;
+begin
+  for i:=0 to CategoryPanelGroup1.Panels.Count-1 do
+  if not TCustomCategoryPanel(CategoryPanelGroup1.Panels[i]).Collapsed then
+  begin
+    MaxExtent := 0;
+    Pnl := TCustomCategoryPanel(CategoryPanelGroup1.Panels[i]);
+    Sfc := TCategoryPanelSurface(Pnl.Controls[0]);
+    for j := 0 to Sfc.ControlCount - 1 do
+    begin
+      MaxExtent := Max(MaxExtent, Sfc.Controls[j].Top + Sfc.Controls[j].Height);
+    end;
+    Inc(MaxExtent, 10);
+    if MaxExtent > Pnl.ClientHeight then
+      Pnl.ClientHeight := MaxExtent;
   end;
 end;
 
@@ -679,6 +704,7 @@ begin
     CS.Key.BoundsRect := CS.Value;
   Sizes.Free;
 
+  EnsureControlsNotClipped();
   AutosizeForm();
 
   // We will catch drag'n'dropped directories and add them to "Search in:" edit field
@@ -739,6 +765,8 @@ begin
   GetUsedEncodings(CBFindEncoding.Items, False);
   if n < 0 then n := 0;
   CBFindEncoding.ItemIndex := n;
+
+  EnsureControlsNotClipped();
 end;
 
 function TFindReplaceForm.GetCorrespondingEditControl(
