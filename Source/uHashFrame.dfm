@@ -46,7 +46,8 @@ object HashFrame: THashFrame
       Height = 25
       Caption = 'Calculate'
       ImageIndex = 8
-      Images = MainForm.ImageList16
+      ImageName = 'GoArrow'
+      Images = MainForm.VirtualImageList1
       TabOrder = 1
       OnClick = BtnCalculateClick
     end
@@ -74,7 +75,7 @@ object HashFrame: THashFrame
       AlignWithMargins = True
       Left = 3
       Top = 3
-      Width = 7
+      Width = 408
       Height = 17
       Align = alTop
       Caption = ' '

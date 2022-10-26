@@ -32,7 +32,8 @@ uses
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
   uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct,
-  uBookmarksFrame, uRegionsFrame, uMediaFrame, Vcl.AppEvnts;
+  uBookmarksFrame, uRegionsFrame, uMediaFrame, Vcl.AppEvnts,
+  Vcl.BaseImageCollection, Vcl.ImageCollection, Vcl.VirtualImageList;
 
 {$I AppVersion.inc}
 
@@ -287,6 +288,8 @@ type
     N10: TMenuItem;
     MIAutoRefresh: TMenuItem;
     ApplicationEvents1: TApplicationEvents;
+    ImageCollection1: TImageCollection;
+    VirtualImageList1: TVirtualImageList;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);

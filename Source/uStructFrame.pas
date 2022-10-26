@@ -29,7 +29,7 @@ const
   Color_SelDSFieldBg = $FFD0D0;
   Color_SelDSFieldFr = $E0A0A0;
 
-  ImageIndex_Folder = 23;  // Index in  MainForm.ImageList16
+  ImageIndex_Folder = 23;  // Index in  MainForm.VirtualImageList1
 
 type
   TStructInterpretRange = (irFile, irSelection);

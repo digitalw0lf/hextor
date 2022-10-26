@@ -97,7 +97,6 @@ object ScriptFrame: TScriptFrame
     TabWidth = 2
     WantTabs = True
     FontSmoothing = fsmNone
-    ExplicitTop = 24
   end
   object ToolBar1: TToolBar
     Left = 0
@@ -108,7 +107,7 @@ object ScriptFrame: TScriptFrame
     ButtonHeight = 26
     ButtonWidth = 26
     Caption = 'ToolBar1'
-    Images = MainForm.ImageList16
+    Images = MainForm.VirtualImageList1
     TabOrder = 2
     object BtnNew: TToolButton
       Left = 0
@@ -116,6 +115,7 @@ object ScriptFrame: TScriptFrame
       Hint = 'New script'
       Caption = 'BtnNew'
       ImageIndex = 0
+      ImageName = 'EmptyFile'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnNewClick
@@ -126,6 +126,7 @@ object ScriptFrame: TScriptFrame
       Hint = 'Open script'
       Caption = 'BtnLoad'
       ImageIndex = 1
+      ImageName = 'Open'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnLoadClick
@@ -137,6 +138,7 @@ object ScriptFrame: TScriptFrame
       Caption = 'BtnSave'
       DropdownMenu = SaveAsMenu
       ImageIndex = 2
+      ImageName = 'Save'
       ParentShowHint = False
       ShowHint = True
       Style = tbsDropDown
@@ -148,6 +150,7 @@ object ScriptFrame: TScriptFrame
       Hint = 'Run'
       Caption = 'BtnRun'
       ImageIndex = 8
+      ImageName = 'GoArrow'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnRunClick
@@ -175,12 +178,13 @@ object ScriptFrame: TScriptFrame
   end
   object SavedScriptsMenu: TPopupMenu
     AutoHotkeys = maManual
-    Images = MainForm.ImageList16
+    Images = MainForm.VirtualImageList1
     Left = 40
     Top = 104
     object MIBuiltinItemsMenu: TMenuItem
       Caption = 'Built-in'
       ImageIndex = 23
+      ImageName = 'Folder'
     end
     object MIAfterFileItems: TMenuItem
       Caption = '-'

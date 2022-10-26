@@ -21,7 +21,7 @@ uses
   uHextorTypes, uHextorGUI, uModuleSettings, uActiveScript;
 
 const
-  ImageIndex_Folder = 23;  // Index in  MainForm.ImageList16
+  ImageIndex_Folder = 23;  // Index in  MainForm.VirtualImageList1
 
 type
   TScriptSettings = class (TModuleSettings)

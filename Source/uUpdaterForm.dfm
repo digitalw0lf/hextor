@@ -27,10 +27,8 @@ object UpdaterForm: TUpdaterForm
     Align = alClient
     Style = tsButtons
     TabOrder = 0
-    ExplicitHeight = 245
     object PgProgress: TTabSheet
       Caption = 'PgProgress'
-      ExplicitHeight = 214
       object Panel1: TPanel
         Left = 0
         Top = 222
@@ -39,7 +37,6 @@ object UpdaterForm: TUpdaterForm
         Align = alBottom
         BevelOuter = bvNone
         TabOrder = 0
-        ExplicitTop = 173
         DesignSize = (
           462
           41)
@@ -76,13 +73,11 @@ object UpdaterForm: TUpdaterForm
           'Checking for available update...')
         ReadOnly = True
         TabOrder = 1
-        ExplicitHeight = 173
       end
     end
     object PgInfo: TTabSheet
       Caption = 'PgInfo'
       ImageIndex = 1
-      ExplicitHeight = 214
       object Panel2: TPanel
         Left = 0
         Top = 222
@@ -91,7 +86,6 @@ object UpdaterForm: TUpdaterForm
         Align = alBottom
         BevelOuter = bvNone
         TabOrder = 0
-        ExplicitTop = 173
         DesignSize = (
           462
           41)
@@ -122,8 +116,9 @@ object UpdaterForm: TUpdaterForm
           Caption = 'Update'
           Default = True
           ImageIndex = 8
+          ImageName = 'GoArrow'
           ImageMargins.Left = 10
-          Images = MainForm.ImageList16
+          Images = MainForm.VirtualImageList1
           TabOrder = 1
           OnClick = BtnUpdateClick
         end
@@ -140,7 +135,7 @@ object UpdaterForm: TUpdaterForm
           Left = 16
           Top = 16
           Width = 89
-          Height = 13
+          Height = 14
           Caption = 'LblNewVersion'
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
@@ -158,10 +153,6 @@ object UpdaterForm: TUpdaterForm
         Align = alClient
         BevelOuter = bvLowered
         TabOrder = 2
-        ExplicitLeft = 136
-        ExplicitTop = 112
-        ExplicitWidth = 185
-        ExplicitHeight = 41
         object WebBrowser1: TWebBrowser
           Left = 1
           Top = 1

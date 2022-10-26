@@ -1233,7 +1233,7 @@ begin
     UndoStack.Clear();
     InvalidateLineRanges();
 
-    MainForm.ImageList16.GetIcon(MainForm.GetIconIndex(DataSource), Icon);
+    MainForm.VirtualImageList1.GetIcon(MainForm.GetIconIndex(DataSource), Icon);
     UpdateFormCaption();
     UpdateScrollBars();
     if ResetCaret then

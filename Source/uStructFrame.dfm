@@ -29,7 +29,8 @@ object StructFrame: TStructFrame
       Caption = 'Interpret'
       DropDownMenu = InterpretRangeMenu
       ImageIndex = 8
-      Images = MainForm.ImageList16
+      ImageName = 'GoArrow'
+      Images = MainForm.VirtualImageList1
       Style = bsSplitButton
       TabOrder = 0
       OnClick = BtnInterpretClick
@@ -42,7 +43,8 @@ object StructFrame: TStructFrame
       Caption = 'Copy JSON'
       Enabled = False
       ImageIndex = 10
-      Images = MainForm.ImageList16
+      ImageName = 'Copy'
+      Images = MainForm.VirtualImageList1
       TabOrder = 1
       OnClick = BtnCopyValueClick
     end
@@ -63,7 +65,8 @@ object StructFrame: TStructFrame
         HelpKeyword = 'Structure-analyzer'
         ImageAlignment = iaCenter
         ImageIndex = 20
-        Images = MainForm.ImageList16
+        ImageName = 'Help'
+        Images = MainForm.VirtualImageList1
         TabOrder = 0
         OnClick = BtnHelpClick
       end
@@ -155,7 +158,7 @@ object StructFrame: TStructFrame
     ButtonHeight = 26
     ButtonWidth = 26
     Caption = 'ToolBar1'
-    Images = MainForm.ImageList16
+    Images = MainForm.VirtualImageList1
     TabOrder = 4
     object BtnNewDescr: TToolButton
       Left = 0
@@ -163,6 +166,7 @@ object StructFrame: TStructFrame
       Hint = 'New structure description'
       Caption = 'BtnNewDescr'
       ImageIndex = 0
+      ImageName = 'EmptyFile'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnNewDescrClick
@@ -173,6 +177,7 @@ object StructFrame: TStructFrame
       Hint = 'Open structure description'
       Caption = 'BtnLoadDescr'
       ImageIndex = 1
+      ImageName = 'Open'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnLoadDescrClick
@@ -184,6 +189,7 @@ object StructFrame: TStructFrame
       Caption = 'BtnSaveDescr'
       DropdownMenu = SaveAsMenu
       ImageIndex = 2
+      ImageName = 'Save'
       ParentShowHint = False
       ShowHint = True
       Style = tbsDropDown
@@ -201,12 +207,13 @@ object StructFrame: TStructFrame
   end
   object SavedDescrsMenu: TPopupMenu
     AutoHotkeys = maManual
-    Images = MainForm.ImageList16
+    Images = MainForm.VirtualImageList1
     Left = 40
     Top = 104
     object MIBuiltinDSMenu: TMenuItem
       Caption = 'Built-in'
       ImageIndex = 23
+      ImageName = 'Folder'
     end
     object MIAfterDSItems: TMenuItem
       Caption = '-'

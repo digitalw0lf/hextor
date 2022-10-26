@@ -13,7 +13,7 @@ object BookmarksFrame: TBookmarksFrame
     ButtonHeight = 26
     ButtonWidth = 26
     Caption = 'ToolBar1'
-    Images = MainForm.ImageList16
+    Images = MainForm.VirtualImageList1
     TabOrder = 0
     object BtnAddFolder: TToolButton
       Left = 0
@@ -21,6 +21,7 @@ object BookmarksFrame: TBookmarksFrame
       Hint = 'Add folder'
       Caption = 'BtnAddFolder'
       ImageIndex = 23
+      ImageName = 'Folder'
       ParentShowHint = False
       ShowHint = True
       Visible = False
@@ -31,6 +32,7 @@ object BookmarksFrame: TBookmarksFrame
       Hint = 'Add bookmark'
       Caption = 'BtnAddBookmark'
       ImageIndex = 24
+      ImageName = 'Plus'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnAddBookmarkClick
@@ -41,6 +43,7 @@ object BookmarksFrame: TBookmarksFrame
       Hint = 'Delete selected bookmarks and folders'
       Caption = 'BtnDelete'
       ImageIndex = 25
+      ImageName = 'Delete'
       ParentShowHint = False
       ShowHint = True
       OnClick = BtnDeleteClick

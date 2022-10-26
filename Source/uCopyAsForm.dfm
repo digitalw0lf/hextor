@@ -127,8 +127,9 @@ object CopyAsForm: TCopyAsForm
     Caption = 'Copy'
     Default = True
     ImageIndex = 10
+    ImageName = 'Copy'
     ImageMargins.Left = 8
-    Images = MainForm.ImageList16
+    Images = MainForm.VirtualImageList1
     TabOrder = 2
     OnClick = BtnCopyClick
   end
