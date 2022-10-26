@@ -110,7 +110,6 @@ type
     MISelectAll: TMenuItem;
     ActionGoToStart: TAction;
     ActionGoToEnd: TAction;
-    ImageList16: TImageList;
     ActionRevert: TAction;
     Revert1: TMenuItem;
     ActionFind: TAction;
@@ -1650,7 +1649,7 @@ begin
 end;
 
 function TMainForm.GetIconIndex(DataSource: THextorDataSource): Integer;
-// Index in ImageList16 for given DataSource
+// Index in VirtualImageList1 for given DataSource
 var
   DSType: THextorDataSourceType;
 begin
