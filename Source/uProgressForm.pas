@@ -22,7 +22,6 @@ type
     ProgressGauge: TGauge;
     ProgressTextLabel: TLabel;
     BtnAbort: TButton;
-    Taskbar1: TTaskbar;
     BusyLabel: TLabel;
     procedure BtnAbortClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -34,6 +33,7 @@ type
     ActiveWindow: HWnd;
     FocusState: TFocusState;
     WindowList: TTaskWindowList;
+    Taskbar1: TTaskbar;
   public
     { Public declarations }
     FOperationAborted: Boolean;
@@ -61,7 +61,11 @@ begin
 
   if Visible then
   begin
-    Taskbar1.ProgressState := TTaskBarProgressState.None;
+    if Assigned(Taskbar1) then
+    try
+      Taskbar1.ProgressState := TTaskBarProgressState.None;
+    except
+    end;
     EnableTaskWindows(WindowList);
     if Screen.SaveFocusedList.Count > 0 then
     begin
@@ -87,6 +91,12 @@ begin
   Constraints.MinHeight := Height;
   Constraints.MaxHeight := Height;
   Constraints.MinWidth := Width;
+
+  // 'Could not register tab' error when trying to use taskbar progress in Wine
+  if not bRunningUnderWine then
+  begin
+    Taskbar1 := TTaskbar.Create(Self);
+  end;
 end;
 
 procedure TProgressForm.ProgressDisplay(Sender: TProgressTracker;
@@ -105,9 +115,13 @@ begin
   s := FitTextInWidth(Text, ProgressTextLabel.Canvas, ProgressTextLabel.Width);
   ProgressTextLabel.Caption := s;
 
-  Taskbar1.ProgressState := TTaskBarProgressState.Normal;
-  Taskbar1.ProgressMaxValue := 1000;
-  Taskbar1.ProgressValue := Round(TotalProgress * 1000);
+  if Assigned(Taskbar1) then
+  try
+    Taskbar1.ProgressState := TTaskBarProgressState.Normal;
+    Taskbar1.ProgressMaxValue := 1000;
+    Taskbar1.ProgressValue := Round(TotalProgress * 1000);
+  except
+  end;
 
   if not Visible then
     ShowLikeModal();

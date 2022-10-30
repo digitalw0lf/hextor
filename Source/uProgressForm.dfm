@@ -63,10 +63,4 @@ object ProgressForm: TProgressForm
     TabOrder = 0
     OnClick = BtnAbortClick
   end
-  object Taskbar1: TTaskbar
-    TaskBarButtons = <>
-    TabProperties = []
-    Left = 48
-    Top = 72
-  end
 end

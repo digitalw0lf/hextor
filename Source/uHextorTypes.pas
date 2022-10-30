@@ -225,8 +225,9 @@ const
 
 var
   bDebugMode: Boolean = False;
-  Progress: TProgressTracker = nil;  // Grobal progress tracker instance for all operations
-  UsedEncodings: TArray<Integer>;    // Encodings shown in Search dialog etc.
+  Progress: TProgressTracker = nil;   // Grobal progress tracker instance for all operations
+  UsedEncodings: TArray<Integer>;     // Encodings shown in Search dialog etc.
+  bRunningUnderWine: Boolean = False; // True if we are now running in Linux under Wine
 
 implementation
 
@@ -1326,8 +1327,22 @@ begin
   Result := False;
 end;
 
+procedure CheckForWine();
+// Check if we are running under Wine
+var
+  hntdll: HMODULE;
+begin
+  hntdll := GetModuleHandle('ntdll.dll');
+  if hntdll <> 0 then
+  begin
+    if GetProcAddress(hntdll, 'wine_get_version') <> nil then
+      bRunningUnderWine := True;
+  end;
+end;
+
 initialization
   Progress := TProgressTracker.Create();
+  CheckForWine();
 finalization
   FreeAndNil(Progress);
   FreeAndNil(EncodingsCache);
