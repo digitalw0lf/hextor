@@ -18,7 +18,7 @@ Main features are:
 - View/edit logical volumes, physical disks, process memory
 - Unlimited Undo/Redo
 - Bookmarks
-- ANSI/ASCII encoding (other SBCS and MBCS planned)
+- Configurable text encoding (ANSI, ASCII etc.)
 - Flexible text/hex/unicode search and replace with [wildcards and value search](https://github.com/digitalw0lf/hextor/wiki/Search-and-replace)
 - Search and replace in files/directories
 - Advanced binary file comparison with insert/delete detection
@@ -32,7 +32,7 @@ Main features are:
 
 As with any other low-level tool, use with caution and always make backups of valuable data!
 
-Copyright (C) 2019-2021  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>
+Copyright (C) 2019-2022  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>
 
 Hextor is a Freeware Source-Available software. See LICENSE.txt for details
 
