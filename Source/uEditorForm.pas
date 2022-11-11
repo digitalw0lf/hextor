@@ -1488,6 +1488,7 @@ begin
   try
     ScrollToShow(AStart, -1, -1);
     SetSelection(AStart, AEnd, MoveCaret);
+    SelDragStart := CaretPos;
   finally
     EndUpdate();
   end;
