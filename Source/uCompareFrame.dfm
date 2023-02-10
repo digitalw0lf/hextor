@@ -234,7 +234,7 @@ object CompareFrame: TCompareFrame
     Left = 12
     Top = 272
     Width = 457
-    Height = 305
+    Height = 321
     BevelOuter = bvNone
     TabOrder = 0
     Visible = False
@@ -263,9 +263,18 @@ object CompareFrame: TCompareFrame
         'When comparing different data, detect similarities if they are a' +
         't least this size'
     end
+    object HintedImageProxy1: THintedImageProxy
+      Left = 231
+      Top = 236
+      Width = 16
+      Height = 16
+      Image = MainForm.HintImage
+      ImageIndex = 0
+      HintFmt = 'If unchecked, simple compare bytes one-by-one'
+    end
     object BtnCompare: TButton
       Left = 136
-      Top = 256
+      Top = 280
       Width = 75
       Height = 25
       Caption = 'Compare'
@@ -275,7 +284,7 @@ object CompareFrame: TCompareFrame
     end
     object BtnCancel: TButton
       Left = 248
-      Top = 256
+      Top = 280
       Width = 75
       Height = 25
       Cancel = True
@@ -438,6 +447,20 @@ object CompareFrame: TCompareFrame
         TabOrder = 3
         Text = '0'
       end
+    end
+    object CBDetectInsertions: TCheckBox
+      Left = 16
+      Top = 236
+      Width = 195
+      Height = 17
+      Hint = 'Range is pre-filled with current selection'
+      Caption = 'Detect block insertion/deletion'
+      Checked = True
+      ParentShowHint = False
+      ShowHint = True
+      State = cbChecked
+      TabOrder = 5
+      OnClick = CBRange2Click
     end
   end
   object Timer1: TTimer

@@ -49,6 +49,7 @@ type
     MaxWorkTime: Cardinal;   // Milliseconds
     SyncBlockSize: Integer;  // Detect common sequence if it is at least this size. Must be a power of 2
     MaxReadAhead: Integer;   // Search ahead for sequence resync up to this distance
+    DetectInsertions: Boolean; // If set to False, simple compare byte-to-byte
     // Data
     Data: array[0..1] of TEditedData;
     CompareRange: array[0..1] of TFileRange;
@@ -105,6 +106,8 @@ type
     EditRange2End: TEdit;
     MemoDiffStats: TMemo;
     BtnSyncCaret: TSpeedButton;
+    CBDetectInsertions: TCheckBox;
+    HintedImageProxy1: THintedImageProxy;
     procedure DiffBarPaint(Sender: TObject);
     procedure DiffBarMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
@@ -664,11 +667,13 @@ procedure TCompareFrame.StartCompare(Editor0, Editor1: TEditorForm);
 var
   Range0, Range1: TFileRange;
   SyncBlockSize: Integer;
+  DetectInsertions: Boolean;
   i: Integer;
   MDIRect: TRect;
 begin
   // Read settings from dialog
   SyncBlockSize := StrToInt(CBSyncBlockSize.Text);
+  DetectInsertions := CBDetectInsertions.Checked;
 
   if CBRange1.Checked then
     Range0 := TFileRange.Create(MainForm.ParseFilePointer(EditRange1Start.Text, 0),
@@ -712,6 +717,7 @@ begin
   end;
 
   Comparer.SyncBlockSize := SyncBlockSize;
+  Comparer.DetectInsertions := DetectInsertions;
   Comparer.StartCompare(Editors[0].Data, Editors[1].Data, Range0, Range1);
 
   CompareStarting();
@@ -884,6 +890,7 @@ begin
   MaxWorkTime := 100;
   SyncBlockSize := 16;
   MaxReadAhead := 10*MByte;
+  DetectInsertions := True;
   Ranges := TList<TComparedRange>.Create();
 end;
 
@@ -939,7 +946,7 @@ function TDataComparer.FindNextCommonSeq(var SyncPtrs: TFilePointerPair): Boolea
 // Returns a beginning of common sequence; entire sequence may be larger
 // than returned CommonSeqSize.
 var
-  n, i: Integer;
+  n, i, EqlCount: Integer;
   AEnd: TFilePointerPair;
   p: array[0..1] of TFilePointer;  // Current window: [p-SyncBlockSize .. p)
   CS: array[0..1] of TRollingChecksum;  // Checksum of current window
@@ -957,68 +964,99 @@ begin
   end;
 
   try
-    while True do
+    if DetectInsertions then
     begin
-      // Reached the end of both files?
-      if (p[0] = AEnd[0]) and (p[1] = AEnd[1]) then
+      while True do
       begin
-        SyncPtrs[0] := p[0];
-        SyncPtrs[1] := p[1];
-        Exit(False);
-      end;
-
-      // Advance window by 1 byte in both streams
-      for n := 0 to 1 do
-        if p[n] < AEnd[n] then
+        // Reached the end of range in both files?
+        if (p[0] = AEnd[0]) and (p[1] = AEnd[1]) then
         begin
-          // Update rolling checksum
-          if p[n] - SyncBlockSize >= Ptr[n] then
-            SubFromChecksum(CS[n], GetByte(n, p[n] - SyncBlockSize), SyncBlockSize);
-          AddToChecksum(CS[n], GetByte(n, p[n]));
-          Inc(p[n]);
-          // Add checksum and position to dictionary
-          if p[n] - Ptr[n] >= SyncBlockSize then
-            // When in large changed block, only add to dictionary once in SyncBlockSize bytes
-            if (p[n] - Ptr[n] <= 256) or   // Add every address at the beginning of changed range
-               (p[n] mod SyncBlockSize = 0) then
-            begin
-              if not CSPos[n].TryGetValue(CS[n], Ptrs) then
-                Ptrs := nil;
-              Ptrs := Ptrs + [p[n] - SyncBlockSize];
-              CSPos[n].AddOrSetValue(CS[n], Ptrs);
-            end;
+          SyncPtrs[0] := p[0];
+          SyncPtrs[1] := p[1];
+          Exit(False);
         end;
 
-      SyncPtrs[0] := -1;
-      // Compare (by checksum) current window in one stream with all accumulated
-      // windows from another stream
-      for n := 0 to 1 do
-      begin
-        if p[n] - Ptr[n] >= SyncBlockSize then
-        begin
-          if CSPos[1-n].TryGetValue(CS[n], Ptrs) then
+        // Advance window by 1 byte in both streams
+        for n := 0 to 1 do
+          if p[n] < AEnd[n] then
           begin
-            // Found checksum match, compare actual data of all possible matches
-            for i := 0 to Length(Ptrs) - 1 do
-              if CompareBytes(GetBytes(n, p[n] - SyncBlockSize, SyncBlockSize),
-                              GetBytes(1-n, Ptrs[i], SyncBlockSize)) then
+            // Update rolling checksum
+            if p[n] - SyncBlockSize >= Ptr[n] then
+              SubFromChecksum(CS[n], GetByte(n, p[n] - SyncBlockSize), SyncBlockSize);
+            AddToChecksum(CS[n], GetByte(n, p[n]));
+            Inc(p[n]);
+            // Add checksum and position to dictionary
+            if p[n] - Ptr[n] >= SyncBlockSize then
+              // When in large changed block, only add to dictionary once in SyncBlockSize bytes
+              if (p[n] - Ptr[n] <= 256) or   // Add every address at the beginning of changed range
+                 (p[n] mod SyncBlockSize = 0) then
               begin
-                // Found matching block
-                FoundMatch[n] := p[n] - SyncBlockSize;
-                FoundMatch[1-n] := Ptrs[i];
-                // If at this point we found cross-matches in both directions
-                // (e.g. "abcd0" and "xy000"), select one with lower addresses
-                if (SyncPtrs[0] < 0) or (FoundMatch[0] + FoundMatch[1] < SyncPtrs[0] + SyncPtrs[1]) then
-                begin
-                  SyncPtrs := FoundMatch;
-                end;
-                Break;
+                if not CSPos[n].TryGetValue(CS[n], Ptrs) then
+                  Ptrs := nil;
+                Ptrs := Ptrs + [p[n] - SyncBlockSize];
+                CSPos[n].AddOrSetValue(CS[n], Ptrs);
               end;
           end;
+
+        SyncPtrs[0] := -1;
+        // Compare (by checksum) current window in one stream with all accumulated
+        // windows from another stream
+        for n := 0 to 1 do
+        begin
+          if p[n] - Ptr[n] >= SyncBlockSize then
+          begin
+            if CSPos[1-n].TryGetValue(CS[n], Ptrs) then
+            begin
+              // Found checksum match, compare actual data of all possible matches
+              for i := 0 to Length(Ptrs) - 1 do
+                if CompareBytes(GetBytes(n, p[n] - SyncBlockSize, SyncBlockSize),
+                                GetBytes(1-n, Ptrs[i], SyncBlockSize)) then
+                begin
+                  // Found matching block
+                  FoundMatch[n] := p[n] - SyncBlockSize;
+                  FoundMatch[1-n] := Ptrs[i];
+                  // If at this point we found cross-matches in both directions
+                  // (e.g. "abcd0" and "xy000"), select one with lower addresses
+                  if (SyncPtrs[0] < 0) or (FoundMatch[0] + FoundMatch[1] < SyncPtrs[0] + SyncPtrs[1]) then
+                  begin
+                    SyncPtrs := FoundMatch;
+                  end;
+                  Break;
+                end;
+            end;
+          end;
         end;
+        if SyncPtrs[0] >= 0 then
+          Exit(True);
       end;
-      if SyncPtrs[0] >= 0 then
-        Exit(True);
+    end
+    else
+    // Simple compare bytes one-by-one
+    begin
+      EqlCount := 0;
+      while True do
+      begin
+        // Reached the end of range?
+        if (p[0] = AEnd[0]) or (p[1] = AEnd[1]) then
+        begin
+          SyncPtrs[0] := p[0];
+          SyncPtrs[1] := p[1];
+          Exit(False);
+        end;
+        if GetByte(0, p[0]) = GetByte(1, p[1]) then
+          Inc(EqlCount)
+        else
+          EqlCount := 0;
+        // We found SyncBlockSize equal bytes
+        if EqlCount >= SyncBlockSize then
+        begin
+          SyncPtrs[0] := p[0] - SyncBlockSize + 1;
+          SyncPtrs[1] := p[1] - SyncBlockSize + 1;
+          Exit(True);
+        end;
+        Inc(p[0]);
+        Inc(p[1]);
+      end;
     end;
   finally
     for n := 0 to 1 do
@@ -1031,6 +1069,8 @@ begin
       Dec(SyncPtrs[1]);
     end;
   end;
+
+
 end;
 
 procedure TDataComparer.ForceCache(DataIndex: Integer; Start, AEnd: TFilePointer);
