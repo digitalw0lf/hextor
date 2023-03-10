@@ -44,6 +44,7 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
     //
     USHORT  Magic;  #format hex
                     #valid 0x10b, 0x20b  // PE32 or PE32+ (64-bit)
+                    #hint (Magic == 0x10b ? "32-bit" : "64-bit")
     UCHAR   MajorLinkerVersion;
     UCHAR   MinorLinkerVersion;
     ULONG   SizeOfCode;
@@ -106,10 +107,10 @@ char MsDosStub[image_dos_header.e_lfanew - 64];
 // IMAGE_SECTION_HEADER
 {
     ansi   Name[8/*IMAGE_SIZEOF_SHORT_NAME*/];
-//    union {
+    union {
             ULONG   PhysicalAddress;  #format hex
-//            ULONG   VirtualSize;
-//    } Misc;
+            ULONG   VirtualSize;
+    } Misc;
     ULONG   VirtualAddress;  #format hex
     ULONG   SizeOfRawData;
     ULONG   PointerToRawData;  #format hex

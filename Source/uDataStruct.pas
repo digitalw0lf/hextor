@@ -89,7 +89,9 @@ type
     function EnumerateTypeFields(Proc: TFieldEnumProc; Order: TFieldEnumOrder = eoFromRoot): Integer;
     property AddrRange: TFileRange read GetAddrRange;
   end;
+
   TDSFieldClass = class of TDSField;
+  TDSCompoundFieldClass = class of TDSCompoundField;
   TArrayOfDSField = array of TDSField;
 
   // Simple data types - integers, floats
@@ -192,7 +194,11 @@ type
 
   TDSStruct = class (TDSCompoundField)
   public
-    constructor Create(); override;
+    function GetFixedSize(): TFilePointer; override;
+  end;
+
+  TDSUnion = class (TDSCompoundField)
+  public
     function GetFixedSize(): TFilePointer; override;
   end;
 
@@ -287,7 +293,7 @@ type
     function ReadType(var ShouldFree: Boolean): TDSField;
     function ReadFieldsDeclaration(): TArrayOfDSField;
     function ReadStatement(): TArrayOfDSField;
-    function ReadStruct(): TDSStruct;
+    function ReadStruct(const ClassType: TDSCompoundFieldClass): TDSCompoundField;
     function ReadIfStatement(): TDSConditional;
     function ReadSwitchStatement(): TDSConditional;
     function ReadBreakStatement(): TDSDirective;
@@ -321,6 +327,7 @@ type
     function GetFieldSize(DS: TDSSimpleField): Integer;
     procedure InterpretSimple(DS: TDSSimpleField);
     procedure InterpretStruct(DS: TDSStruct);
+    procedure InterpretUnion(DS: TDSUnion);
     procedure InterpretArray(DS: TDSArray);
     procedure InterpretConditional(DS: TDSConditional);
     procedure ProcessHelperVar(DS: TDSHelperVariable);
@@ -483,7 +490,8 @@ begin
             SameName(S, 'break') or
             SameName(S, 'continue') or
             SameName(S, 'var') or
-            SameName(S, 'typedef');
+            SameName(S, 'typedef') or
+            SameName(S, 'union');
 end;
 
 function TDSParser.IsTypeName(const S: string): Boolean;
@@ -519,7 +527,7 @@ begin
   CurBigEndian := False;
 
   try
-    Result := ReadStruct();
+    Result := TDSStruct(ReadStruct(TDSStruct));
 
     CheckNestingValidity(Result);
   except
@@ -1040,7 +1048,7 @@ begin
       Exit;
     end;
 
-    if (S = '{') or (IsTypeName(S)) then
+    if (S = '{') or (SameName(S, 'union')) or (IsTypeName(S)) then
     // Type name + Field list
     begin
       Result := ReadFieldsDeclaration();
@@ -1056,14 +1064,14 @@ begin
   end;
 end;
 
-function TDSParser.ReadStruct: TDSStruct;
+function TDSParser.ReadStruct(const ClassType: TDSCompoundFieldClass): TDSCompoundField;
 // Read structure fields
 var
   i: Integer;
   Fields: TArrayOfDSField;
   PrevCurStruct: TDSCompoundField;
 begin
-  Result := TDSStruct.Create();
+  Result := ClassType.Create();
   PrevCurStruct := CurStruct;
   CurStruct := Result;
   try
@@ -1150,9 +1158,19 @@ begin
   S := ReadLexem;
   if S = '{' then
   begin
-    Result := ReadStruct();
+    Result := ReadStruct(TDSStruct);
     ReadExpectedLexem(['}']);
     ShouldFree := True;
+  end
+  else
+  if SameName(S, 'union') then
+  begin
+    ReadExpectedLexem(['{']);
+    Result := ReadStruct(TDSUnion);
+    ReadExpectedLexem(['}']);
+    ShouldFree := True;
+    if Result.GetFixedSize() < 0 then
+      raise EDSParserError.Create('Union cannot contain variable-sized fields');
   end
   else
   if Typedefs.TryGetValue(S, Result) then
@@ -1658,12 +1676,6 @@ end;
 
 { TDSStruct }
 
-constructor TDSStruct.Create;
-begin
-  inherited;
-
-end;
-
 function TDSStruct.GetFixedSize: TFilePointer;
 // Structure size is defined if all child fields are fixed size
 var
@@ -1676,6 +1688,23 @@ begin
     Sz := Fields[i].GetFixedSize();
     if Sz < 0 then Exit(-1);
     Result := Result + Sz;
+  end;
+end;
+
+{ TDSUnion }
+
+function TDSUnion.GetFixedSize: TFilePointer;
+// Union size is a Max of its fields' sizes, and it is defined only if all child fields are fixed sized
+var
+  i: Integer;
+  Sz: TFilePointer;
+begin
+  Result := 0;
+  for i:=0 to FieldsCount-1 do
+  begin
+    Sz := Fields[i].GetFixedSize();
+    if Sz < 0 then Exit(-1);
+    Result := Max(Result, Sz);
   end;
 end;
 
@@ -2077,6 +2106,9 @@ begin
       if DS is TDSStruct then
         InterpretStruct(TDSStruct(DS))
       else
+      if DS is TDSUnion then
+        InterpretUnion(TDSUnion(DS))
+      else
       if DS is TDSArray then
         InterpretArray(TDSArray(DS))
       else
@@ -2274,6 +2306,24 @@ begin
     // On "break"/"continue" statement, skip the rest of structure
     if ActiveBreakStatement <> bsNone then Break;
   end;
+end;
+
+procedure TDSInterpretor.InterpretUnion(DS: TDSUnion);
+// Interpret all fields of a union from the same address
+var
+  i: Integer;
+  StartAddr, EndAddr: TFilePointer;
+begin
+  StartAddr := FCurAddr;
+  EndAddr := StartAddr;
+  for i:=0 to DS.FieldsCount-1 do
+  begin
+    Seek(StartAddr);
+    DS.FCurParsedItem := i;
+    InternalInterpret(DS.Fields[i]);
+    EndAddr := Max(EndAddr, FCurAddr);
+  end;
+  Seek(EndAddr);
 end;
 
 procedure TDSInterpretor.ProcessDirective(DS: TDSDirective);
@@ -2758,6 +2808,7 @@ begin
     CurField.EventSet.OnPrepareScriptEnv.Call(CurField.EventSet.DataContext, CurField, ScriptEngine);
   if DSInterpretor <> nil then
     ScriptEngine.AddObject('interpretor', DSInterpretor.APIEnv.GetAPIWrapper(DSInterpretor), True);
+  // Existing fields
   DS := CurField;
   while DS <> nil do
   begin
