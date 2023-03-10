@@ -255,7 +255,7 @@ object AboutForm: TAboutForm
     Height = 330
     Lines.Strings = (
       '   Hextor - Hexadecimal editor and binary data analyzing toolkit'
-      '     Copyright (C) 2019-2022  Grigoriy Mylnikov (DigitalWolF)'
+      '     Copyright (C) 2019-2023  Grigoriy Mylnikov (DigitalWolF)'
       ''
       'Hextor is a Freeware Source-Available software.'
       ''
