@@ -57,7 +57,7 @@ procedure TFillBytesForm.BtnOKClick(Sender: TObject);
 var
   Insert: Boolean;
   Addr: TFilePointer;
-  Size: Integer;
+  Size, PatLen: Integer;
   AData, Pattern: TBytes;
   Rnd1, Rnd2: Integer;
   i: Integer;
@@ -75,20 +75,27 @@ begin
       Addr := Range.Start;
       Size := Range.Size;
     end;
+    if Size <= 0 then
+      raise EInvalidUserInput.Create('Invalid length');
 
   //    StartTimeMeasure();
     if RBPattern.Checked then
     // Pattern
     begin
       Pattern := Hex2Data(EditPattern.Text);
-      SetLength(AData, Size);
-      if Length(Pattern) = 0 then
+      PatLen := Length(Pattern);
+      if PatLen = 0 then
         raise EInvalidUserInput.Create('Specify hex pattern');
-      if Length(Pattern) = 1 then
+      SetLength(AData, Size);
+      if PatLen = 1 then
         FillChar(AData[0], Size, Pattern[0])
       else
         for i:=0 to Size-1 do
-          AData[i] := Pattern[i mod Length(Pattern)];
+        begin
+          AData[i] := Pattern[i mod PatLen];
+          if (i mod (1024 * 1024) = 0) then
+            Progress.Show(i, Size);
+        end;
     end
     else
     if RBRandomBytes.Checked then
@@ -98,7 +105,11 @@ begin
       Rnd1 := EditRandomMin.Value;
       Rnd2 := EditRandomMax.Value;
       for i:=0 to Size-1 do
+      begin
         AData[i] := Rnd1 + Random(Rnd2 - Rnd1 + 1);
+        if (i mod (1024 * 1024) = 0) then
+          Progress.Show(i, Size);
+      end;
     end
     else Exit;
   //    EndTimeMeasure('Fill', True);

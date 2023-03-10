@@ -18,9 +18,14 @@ uses
 type
   // Used to save TEditedData to TDataSource
   TDataSaver = class
-  public
+  const
+    WriteBlockSize = 10 * MByte;
+  protected
     class procedure CopyDataRegion(Source, Dest: THextorDataSource;
       SourceAddr, DestAddr, Size: TFilePointer; ShowProgress: Boolean = False);
+    class procedure WriteDataRegion(Source: PByteArray; Dest: THextorDataSource;
+      DestAddr, Size: TFilePointer; ShowProgress: Boolean = False);
+  public
     class procedure Save(Data: TEditedData;
       NewDataSourceType: THextorDataSourceType; NewPath: string); overload;
     class procedure Save(Data: TEditedData; Dest: THextorDataSource); overload;
@@ -37,8 +42,6 @@ class procedure TDataSaver.CopyDataRegion(Source, Dest: THextorDataSource;
   SourceAddr, DestAddr, Size: TFilePointer; ShowProgress: Boolean = False);
 // Copy range of data between data sources.
 // If range is large, copy by blocks and report progress.
-const
-  BlockSize = 10 * MByte;
 var
   Buf: TBytes;
   Pos, PortionStart: TFilePointer;
@@ -49,7 +52,7 @@ begin
   if Size = 0 then Exit;
   if (Source = Dest) and (SourceAddr = DestAddr) then Exit;
 
-  SetLength(Buf, Min(BlockSize, Size));
+  SetLength(Buf, Min(WriteBlockSize, Size));
   BytesDone := 0;
   // If shifting data in same file towards higher addresses, we may have to process blocks
   // in revese order to not overwrite data before it have been copied
@@ -62,7 +65,7 @@ begin
 
   while BytesDone < Size do
   begin
-    PortionSize := Min(BlockSize, Size - BytesDone);
+    PortionSize := Min(WriteBlockSize, Size - BytesDone);
     if Direction = 1 then PortionStart := Pos
                      else PortionStart := Pos - PortionSize;
     Source.GetData(SourceAddr + PortionStart, PortionSize, Buf[0]);
@@ -71,6 +74,27 @@ begin
     BytesDone := BytesDone + PortionSize;
     if (ShowProgress) and (BytesDone < Size) then
       Progress.Show(BytesDone, Size);
+  end;
+end;
+
+class procedure TDataSaver.WriteDataRegion(Source: PByteArray;
+  Dest: THextorDataSource; DestAddr, Size: TFilePointer; ShowProgress: Boolean);
+// Write data buffer to stream.
+// If range is large, write by blocks and report progress.
+var
+  Pos: TFilePointer;
+  PortionSize: Integer;
+begin
+  if Size = 0 then Exit;
+  Pos := 0;
+
+  while Pos < Size do
+  begin
+    PortionSize := Min(WriteBlockSize, Size - Pos);
+    Dest.ChangeData(DestAddr + Pos, PortionSize, Source[Pos]);
+    Pos := Pos + PortionSize;
+    if (ShowProgress) and (Pos < Size) then
+      Progress.Show(Pos, Size);
   end;
 end;
 
@@ -86,19 +110,16 @@ var
 
   procedure WritePart(Part: TEditedData.TDataPart);
   begin
-    case Part.PartType of
-      ptSource:
-        begin
-          Progress.TaskStart(Data, Part.Size / BytesToWrite);
-          try
-            CopyDataRegion(Data.DataSource, Dest, Part.SourceAddr, Part.Addr,
-              Part.Size, True);
-          finally
-            Progress.TaskEnd();
-          end;
-        end;
-      ptBuffer:
-        Dest.ChangeData(Part.Addr, Part.Size, Part.Data[0]);
+    Progress.TaskStart(Data, Part.Size / BytesToWrite);
+    try
+      case Part.PartType of
+        ptSource:
+          CopyDataRegion(Data.DataSource, Dest, Part.SourceAddr, Part.Addr, Part.Size, True);
+        ptBuffer:
+          WriteDataRegion(@Part.Data[0], Dest, Part.Addr, Part.Size, True);
+      end;
+    finally
+      Progress.TaskEnd();
     end;
 
     BytesDone := BytesDone + Part.Size;
