@@ -136,6 +136,8 @@ object StructFrame: TStructFrame
     OnInitChildren = DSTreeViewInitChildren
     OnInitNode = DSTreeViewInitNode
     OnNodeDblClick = DSTreeViewNodeDblClick
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <>
   end
   object EditFieldValue: TEdit
@@ -198,7 +200,7 @@ object StructFrame: TStructFrame
     object LblStructName: TLabel
       Left = 93
       Top = 0
-      Width = 57
+      Width = 64
       Height = 26
       Caption = '    Unnamed'
       Transparent = True

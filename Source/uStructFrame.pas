@@ -15,8 +15,9 @@ uses
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Generics.Collections,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
   Vcl.Buttons, Vcl.Menus, System.Types, Math, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, System.IOUtils,
-  Vcl.ToolWin, Winapi.ShellAPI, System.UITypes,
+  SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, VirtualTrees.Types, 
+  System.IOUtils, Vcl.ToolWin, Winapi.ShellAPI, System.UITypes, 
+  VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree, VirtualTrees.AncestorVCL,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
   uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper,

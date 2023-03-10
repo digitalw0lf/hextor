@@ -14,8 +14,10 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Math,
   Generics.Collections, Vcl.StdCtrls, Clipbrd, System.Types, Vcl.Menus,
+  VirtualTrees, VirtualTrees.Types,
+  VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree, VirtualTrees.AncestorVCL,
 
-  uHextorTypes, uEditorForm, uValueInterpretors, VirtualTrees;
+  uHextorTypes, uEditorForm, uValueInterpretors;
 
 const
   SUndefinedValue = 'N/A';

@@ -26,6 +26,8 @@ object RegionsFrame: TRegionsFrame
     OnFreeNode = RegionsTreeViewFreeNode
     OnGetText = RegionsTreeViewGetText
     OnNodeDblClick = RegionsTreeViewNodeDblClick
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
         Position = 0

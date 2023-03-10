@@ -21,6 +21,8 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     OnFreeNode = ResultsListFreeNode
     OnGetText = ResultsListGetText
     OnNodeDblClick = ResultsListNodeDblClick
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
         Position = 0
@@ -48,8 +50,8 @@ object SearchResultsTabFrame: TSearchResultsTabFrame
     object LblFoundCount: TLabel
       Left = 8
       Top = 8
-      Width = 59
-      Height = 13
+      Width = 61
+      Height = 15
       Caption = 'Searching...'
     end
   end

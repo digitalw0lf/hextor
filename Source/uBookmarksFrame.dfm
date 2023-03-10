@@ -68,6 +68,8 @@ object BookmarksFrame: TBookmarksFrame
     OnPaintText = BookmarksTreeViewPaintText
     OnNewText = BookmarksTreeViewNewText
     OnNodeDblClick = BookmarksTreeViewNodeDblClick
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
         Position = 0

@@ -26,6 +26,7 @@ uses
   Vcl.FileCtrl, Vcl.Buttons, Vcl.Samples.Gauges,
   System.StrUtils, System.IOUtils, Vcl.HtmlHelpViewer,
   Vcl.StdActns, System.NetEncoding, Vcl.Themes, SynEdit,
+  System.ZLib,
 
   uEditorPane, {uLogFile,} superobject, uModuleSettings,
   uHextorTypes, uHextorDataSources, uEditorForm,
@@ -43,7 +44,7 @@ const
   Color_LineBreakTx = clGray;  // \r\n bytes in text editor mode
   Color_ChangedByte = $B0F0FF;
   Color_SelectionBg = $F5DDBF; //clHighlight;
-  Color_SelectionTx = clNone; //clHighlightText;
+  Color_SelectionTx = Vcl.Graphics.clNone; //clHighlightText;
   Color_SelectionFr = $D77800;
   Color_ValueHighlightBg = $FFD0A0;
   Color_DiffBg = $05CBEF;
@@ -289,6 +290,7 @@ type
     ApplicationEvents1: TApplicationEvents;
     ImageCollection1: TImageCollection;
     VirtualImageList1: TVirtualImageList;
+    ZLibdecompress1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -374,6 +376,7 @@ type
     procedure ActionFindAltStreamsExecute(Sender: TObject);
     procedure MIAutoRefreshClick(Sender: TObject);
     procedure ApplicationEvents1Hint(Sender: TObject);
+    procedure ZLibdecompress1Click(Sender: TObject);
   private const
     AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
@@ -1317,7 +1320,7 @@ begin
           Edit.Font.Color := WindowTextClr;
           Edit.Gutter.Color := BtnFaceClr;
           Edit.Gutter.Font.Color := WindowTextClr;
-          if Edit.ActiveLineColor <> clNone then
+          if Edit.ActiveLineColor <> Vcl.Graphics.clNone then
             Edit.ActiveLineColor := InfoBkClr;
         end;
       end);
@@ -2303,6 +2306,28 @@ begin
   CheckEnabledActions();
 end;
 
+
+procedure TMainForm.ZLibdecompress1Click(Sender: TObject);
+var
+  Buf: TBytes;
+  ms_in, ms_out: TMemoryStream;
+  LUnZip: TZDecompressionStream;
+  sz: TFilePointer;
+begin
+  Buf := ActiveEditor.GetSelectedOrAfterCaret(0, MaxInt, sz, False);
+  ms_in := TMemoryStream.Create();
+  ms_in.Write(Buf, Length(Buf));
+  ms_in.Position := 0;
+  LUnZip := TZDecompressionStream.Create(ms_in);
+  ms_out := TMemoryStream.Create();
+  ms_out.CopyFrom(LUnZip);
+  Buf := MakeBytes(ms_out.Memory^, ms_out.Size);
+  LUnZip.Free;
+  ms_in.Free;
+  ms_out.Free;
+  ActiveEditor.ReplaceSelected(Length(Buf), @Buf[0]);
+
+end;
 
 { THextorUtils }
 

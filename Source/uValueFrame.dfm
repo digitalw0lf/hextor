@@ -29,6 +29,8 @@ object ValueFrame: TValueFrame
     OnGetHint = ValuesTreeViewGetHint
     OnGetPopupMenu = ValuesTreeViewGetPopupMenu
     OnNewText = ValuesTreeViewNewText
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
         Position = 0
@@ -38,7 +40,7 @@ object ValueFrame: TValueFrame
       item
         Position = 1
         Text = 'Value'
-        Width = 238
+        Width = 242
       end>
   end
   object ValuePopupMenu: TPopupMenu

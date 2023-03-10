@@ -347,6 +347,13 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSaveDescr: TToolButton
+              ExplicitWidth = 26
+            end
+            inherited LblStructName: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
           end
           inherited SavedDescrsMenu: TPopupMenu
             Images = nil
@@ -360,35 +367,18 @@ object MainForm: TMainForm
         inline CompareFrame: TCompareFrame
           Left = 0
           Top = 0
-          Width = 412
-          Height = 505
-          Align = alClient
+          Width = 497
+          Height = 607
           DoubleBuffered = True
           ParentBackground = False
           ParentDoubleBuffered = False
           TabOrder = 0
-          ExplicitWidth = 412
-          ExplicitHeight = 505
           inherited PageControl1: TPageControl
-            Width = 412
-            Height = 505
-            ExplicitWidth = 412
-            ExplicitHeight = 505
-            inherited InitialTab: TTabSheet
+            inherited ComparisonTab: TTabSheet
               ExplicitLeft = 4
               ExplicitTop = 24
               ExplicitWidth = 489
               ExplicitHeight = 579
-            end
-            inherited ComparisonTab: TTabSheet
-              ExplicitLeft = 4
-              ExplicitTop = 24
-              ExplicitWidth = 404
-              ExplicitHeight = 477
-              inherited DiffBar: TPaintBox
-                Height = 477
-                ExplicitHeight = 491
-              end
               inherited BtnRecompare: TButton
                 Images = nil
               end
@@ -398,9 +388,8 @@ object MainForm: TMainForm
             inherited ImageProxy1: THintedImageProxy
               Image = nil
             end
-            inherited CBSyncBlockSize: TComboBox
-              ItemIndex = -1
-              Text = ''
+            inherited HintedImageProxy1: THintedImageProxy
+              Image = nil
             end
           end
         end
@@ -451,6 +440,13 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSave: TToolButton
+              ExplicitWidth = 26
+            end
+            inherited LblScriptName: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
           end
           inherited SavedScriptsMenu: TPopupMenu
             Images = nil
@@ -541,10 +537,6 @@ object MainForm: TMainForm
             Height = 181
             ExplicitWidth = 412
             ExplicitHeight = 181
-            inherited StaticText1: TStaticText
-              Width = 406
-              ExplicitWidth = 406
-            end
             inherited ResultListView: TListView
               Width = 412
               Height = 158
@@ -606,6 +598,10 @@ object MainForm: TMainForm
       object PgRegions: TTabSheet
         Caption = 'Regions'
         ImageIndex = 9
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         inline RegionsFrame: TRegionsFrame
           Left = 0
           Top = 0
@@ -1077,6 +1073,10 @@ object MainForm: TMainForm
       object Openpath1: TMenuItem
         Caption = 'Open path...'
         OnClick = Openpath1Click
+      end
+      object ZLibdecompress1: TMenuItem
+        Caption = 'ZLib decompress'
+        OnClick = ZLibdecompress1Click
       end
     end
     object MIHelp: TMenuItem

@@ -14,9 +14,10 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.ToolWin,
   Vcl.ComCtrls, System.Generics.Collections, System.Math, Vcl.AppEvnts,
-  System.Types,
+  System.Types, Vcl.Menus, VirtualTrees.Types,
+  VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree, VirtualTrees.AncestorVCL,
 
-  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, uEditorPane, Vcl.Menus;
+  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, uEditorPane;
 
 const
 //  Color_BookmarkBg = $E7BFC8;

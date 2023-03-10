@@ -12,9 +12,9 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.ComCtrls,
+  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, VirtualTrees.Types, Vcl.ComCtrls,
   System.Math, System.UITypes, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Clipbrd, Vcl.Menus,
-  System.StrUtils,
+  System.StrUtils, VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree, VirtualTrees.AncestorVCL,
 
   uEditorForm, uHextorTypes, uHextorDataSources, uEditedData, uHextorGUI;
 
