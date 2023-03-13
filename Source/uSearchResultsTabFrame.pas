@@ -54,6 +54,8 @@ type
       DataSourcePath: string;                 //
       Range: TFileRange;
       DisplayHex, DisplayText: TDisplayedNeedle;
+      Data: TBytes;
+      CodePage: Integer;
     end;
     PResultTreeNode = ^TResultTreeNode;
   private
@@ -143,6 +145,8 @@ begin
   RNode.DataSourceType := RGroupNode.DataSourceType;
   RNode.DataSourcePath := RGroupNode.DataSourcePath;
   RNode.Range := ARange;
+  RNode.Data := AData.Get(ARange.Start, ARange.Size);
+  RNode.CodePage := CodePage;
   // Display some data before/after found item
   DispRange.Start := Max(ARange.Start - ContextBytes, 0);
   DispRange.AEnd := Min(ARange.AEnd + ContextBytes, AData.GetSize());
@@ -165,9 +169,9 @@ begin
   if RNode <> nil then
   begin
     if Sender = AsHex1 then
-      s := RNode.DisplayHex[1]
+      s := Data2Hex(RNode.Data)
     else
-      s := RNode.DisplayText[1];
+      s := Data2String(RNode.Data, RNode.CodePage, True);
     sb.Append(s + sLineBreak);
   end;
 end;
