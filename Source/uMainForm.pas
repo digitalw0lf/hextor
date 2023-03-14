@@ -291,6 +291,7 @@ type
     ImageCollection1: TImageCollection;
     VirtualImageList1: TVirtualImageList;
     ZLibdecompress1: TMenuItem;
+    Createsparsefile1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -377,6 +378,7 @@ type
     procedure MIAutoRefreshClick(Sender: TObject);
     procedure ApplicationEvents1Hint(Sender: TObject);
     procedure ZLibdecompress1Click(Sender: TObject);
+    procedure Createsparsefile1Click(Sender: TObject);
   private const
     AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
@@ -1362,6 +1364,61 @@ begin
     end);
   // Call ActiveEditorChanged when this editor has DataSource etc.
   DoAfterEvent(CheckActiveEditorChanged);
+end;
+
+type
+  FILE_ZERO_DATA_INFORMATION = record
+    FileOffset: LARGE_INTEGER;
+    BeyondFinalZero: LARGE_INTEGER;
+  end;
+
+function SetSparseRange(hSparseFile: THandle; AStart, AEnd: TFilePointer): Boolean;
+begin
+    // Specify the starting and the ending address (not the size) of the
+    // sparse zero block
+    var fzdi: FILE_ZERO_DATA_INFORMATION;
+    fzdi.FileOffset.QuadPart := AStart;
+    fzdi.BeyondFinalZero.QuadPart := AEnd;
+    // Mark the range as sparse zero block
+    var dwTemp: DWORD;
+//    SetLastError(0);
+    var bStatus: Boolean := DeviceIoControl(hSparseFile,
+        FSCTL_SET_ZERO_DATA,
+        @fzdi,
+        sizeof(fzdi),
+        nil,
+        0,
+        dwTemp,
+        nil);
+    if (bStatus) then Exit(True) //return 0; //Sucess
+    else begin
+        //DWORD e = GetLastError();
+        //return(e); //return the error value
+        Exit(False);
+    end;
+end;
+
+procedure TMainForm.Createsparsefile1Click(Sender: TObject);
+var
+  fs: TFileStream;
+  s:AnsiString;
+  dwTemp: Cardinal;
+begin
+  s := 'hello';
+  fs := TFileStream.Create(ExtractFilePath(Application.ExeName) + 'Sparse.dat', fmCreate);
+  DeviceIoControl(fs.Handle,
+      FSCTL_SET_SPARSE,
+      nil,
+      0,
+      nil,
+      0,
+      &dwTemp,
+      nil);
+  fs.Write(s[1], Length(s));
+  fs.Seek(200000, soFromCurrent);
+  SetSparseRange(fs.Handle, 5, 5 + 200000);
+  fs.Write(s[1], Length(s));
+  fs.Free;
 end;
 
 function TMainForm.CreateFile: TEditorForm;

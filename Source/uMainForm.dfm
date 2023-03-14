@@ -14,14 +14,12 @@ object MainForm: TMainForm
   FormStyle = fsMDIForm
   KeyPreview = True
   Menu = MainMenu1
-  OldCreateOrder = False
   WindowState = wsMaximized
   OnClose = FormClose
   OnCreate = FormCreate
   OnDblClick = FormDblClick
   OnDestroy = FormDestroy
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 604
@@ -84,6 +82,7 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 0
+    ExplicitWidth = 1024
     object ToolButton1: TToolButton
       Left = 0
       Top = 0
@@ -236,6 +235,7 @@ object MainForm: TMainForm
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseMove = MDITabsMouseMove
     OnMouseUp = MDITabsMouseUp
+    ExplicitWidth = 1024
   end
   object RightPanel: TPanel
     Left = 608
@@ -272,6 +272,23 @@ object MainForm: TMainForm
           inherited ValuesTreeView: TVirtualStringTree
             Width = 412
             Height = 505
+            Colors.BorderColor = 15987699
+            Colors.DisabledColor = clGray
+            Colors.DropMarkColor = 15385233
+            Colors.DropTargetColor = 15385233
+            Colors.DropTargetBorderColor = 15385233
+            Colors.FocusedSelectionColor = 15385233
+            Colors.FocusedSelectionBorderColor = 15385233
+            Colors.GridLineColor = 15987699
+            Colors.HeaderHotColor = clBlack
+            Colors.HotColor = clBlack
+            Colors.SelectionRectangleBlendColor = 15385233
+            Colors.SelectionRectangleBorderColor = 15385233
+            Colors.SelectionTextColor = clBlack
+            Colors.TreeLineColor = 9471874
+            Colors.UnfocusedColor = clGray
+            Colors.UnfocusedSelectionColor = clWhite
+            Colors.UnfocusedSelectionBorderColor = clWhite
             ExplicitWidth = 412
             ExplicitHeight = 505
             Columns = <
@@ -335,6 +352,23 @@ object MainForm: TMainForm
             Top = 283
             Width = 412
             Height = 222
+            Colors.BorderColor = 15987699
+            Colors.DisabledColor = clGray
+            Colors.DropMarkColor = 15385233
+            Colors.DropTargetColor = 15385233
+            Colors.DropTargetBorderColor = 15385233
+            Colors.FocusedSelectionColor = 15385233
+            Colors.FocusedSelectionBorderColor = 15385233
+            Colors.GridLineColor = 15987699
+            Colors.HeaderHotColor = clBlack
+            Colors.HotColor = clBlack
+            Colors.SelectionRectangleBlendColor = 15385233
+            Colors.SelectionRectangleBorderColor = 15385233
+            Colors.SelectionTextColor = clBlack
+            Colors.TreeLineColor = 9471874
+            Colors.UnfocusedColor = clGray
+            Colors.UnfocusedSelectionColor = clWhite
+            Colors.UnfocusedSelectionBorderColor = clWhite
             TabOrder = 2
             ExplicitTop = 283
             ExplicitWidth = 412
@@ -347,12 +381,9 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
-            end
             inherited LblStructName: TLabel
-              Height = 13
-              ExplicitHeight = 13
+              Width = 57
+              ExplicitWidth = 57
             end
           end
           inherited SavedDescrsMenu: TPopupMenu
@@ -374,10 +405,12 @@ object MainForm: TMainForm
           ParentDoubleBuffered = False
           TabOrder = 0
           inherited PageControl1: TPageControl
-            inherited ComparisonTab: TTabSheet
-              ExplicitLeft = 4
+            inherited InitialTab: TTabSheet
               ExplicitTop = 24
-              ExplicitWidth = 489
+              ExplicitHeight = 579
+            end
+            inherited ComparisonTab: TTabSheet
+              ExplicitTop = 24
               ExplicitHeight = 579
               inherited BtnRecompare: TButton
                 Images = nil
@@ -385,11 +418,58 @@ object MainForm: TMainForm
             end
           end
           inherited CompareSelectFormPanel: TPanel
+            inherited Label3: TLabel
+              Width = 75
+              Height = 13
+              ExplicitWidth = 75
+              ExplicitHeight = 13
+            end
+            inherited Label4: TLabel
+              Width = 27
+              Height = 13
+              ExplicitWidth = 27
+              ExplicitHeight = 13
+            end
             inherited ImageProxy1: THintedImageProxy
               Image = nil
             end
             inherited HintedImageProxy1: THintedImageProxy
               Image = nil
+            end
+            inherited CBSyncBlockSize: TComboBox
+              Height = 21
+            end
+            inherited GBFile1: TGroupBox
+              inherited LblRange1Start: TLabel
+                Height = 13
+                ExplicitHeight = 13
+              end
+              inherited LblRange1End: TLabel
+                Width = 18
+                Height = 13
+                ExplicitWidth = 18
+                ExplicitHeight = 13
+              end
+              inherited CBCmpEditor1: TComboBox
+                Height = 21
+                ExplicitHeight = 21
+              end
+            end
+            inherited GBFile2: TGroupBox
+              inherited LblRange2Start: TLabel
+                Height = 13
+                ExplicitHeight = 13
+              end
+              inherited LblRange2End: TLabel
+                Width = 18
+                Height = 13
+                ExplicitWidth = 18
+                ExplicitHeight = 13
+              end
+              inherited CBCmpEditor2: TComboBox
+                Height = 21
+                ExplicitHeight = 21
+              end
             end
           end
         end
@@ -440,12 +520,9 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSave: TToolButton
-              ExplicitWidth = 26
-            end
             inherited LblScriptName: TLabel
-              Height = 13
-              ExplicitHeight = 13
+              Width = 57
+              ExplicitWidth = 57
             end
           end
           inherited SavedScriptsMenu: TPopupMenu
@@ -476,10 +553,62 @@ object MainForm: TMainForm
           inherited LeftPanel: TPanel
             Height = 456
             ExplicitHeight = 456
+            inherited Label3: TLabel
+              Width = 29
+              Height = 13
+              ExplicitWidth = 29
+              ExplicitHeight = 13
+            end
+            inherited Label4: TLabel
+              Width = 49
+              Height = 13
+              ExplicitWidth = 49
+              ExplicitHeight = 13
+            end
+            inherited Label5: TLabel
+              Width = 38
+              Height = 13
+              ExplicitWidth = 38
+              ExplicitHeight = 13
+            end
+            inherited Label6: TLabel
+              Width = 50
+              Height = 13
+              ExplicitWidth = 50
+              ExplicitHeight = 13
+            end
+            inherited Label7: TLabel
+              Width = 32
+              Height = 13
+              ExplicitWidth = 32
+              ExplicitHeight = 13
+            end
+            inherited LblScaleValue: TLabel
+              Height = 13
+              ExplicitHeight = 13
+            end
+            inherited EditBPP: TComboBox
+              Height = 21
+            end
+            inherited EditPalette: TComboBox
+              Height = 21
+            end
           end
           inherited TopPanel: TPanel
             Width = 412
             ExplicitWidth = 412
+            inherited Label1: TLabel
+              Width = 28
+              Height = 13
+              ExplicitWidth = 28
+              ExplicitHeight = 13
+            end
+            inherited Label2: TLabel
+              Width = 25
+              Height = 13
+              ExplicitWidth = 25
+              ExplicitHeight = 13
+            end
           end
           inherited VertScrollBar: TScrollBar64
             Left = 395
@@ -531,12 +660,21 @@ object MainForm: TMainForm
             inherited BtnCalculate: TButton
               Images = nil
             end
+            inherited AlgorithmsListBox: TListBox
+              ItemHeight = 13
+            end
           end
           inherited Panel2: TPanel
             Width = 412
             Height = 181
             ExplicitWidth = 412
             ExplicitHeight = 181
+            inherited StaticText1: TStaticText
+              Width = 406
+              Height = 17
+              ExplicitWidth = 406
+              ExplicitHeight = 17
+            end
             inherited ResultListView: TListView
               Width = 412
               Height = 158
@@ -561,6 +699,9 @@ object MainForm: TMainForm
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
+            inherited CBArchitecture: TComboBox
+              Height = 21
+            end
           end
           inherited SynEdit1: TSynEdit
             Width = 412
@@ -590,6 +731,23 @@ object MainForm: TMainForm
           inherited BookmarksTreeView: TVirtualStringTree
             Width = 412
             Height = 479
+            Colors.BorderColor = 15987699
+            Colors.DisabledColor = clGray
+            Colors.DropMarkColor = 15385233
+            Colors.DropTargetColor = 15385233
+            Colors.DropTargetBorderColor = 15385233
+            Colors.FocusedSelectionColor = 15385233
+            Colors.FocusedSelectionBorderColor = 15385233
+            Colors.GridLineColor = 15987699
+            Colors.HeaderHotColor = clBlack
+            Colors.HotColor = clBlack
+            Colors.SelectionRectangleBlendColor = 15385233
+            Colors.SelectionRectangleBorderColor = 15385233
+            Colors.SelectionTextColor = clBlack
+            Colors.TreeLineColor = 9471874
+            Colors.UnfocusedColor = clGray
+            Colors.UnfocusedSelectionColor = clWhite
+            Colors.UnfocusedSelectionBorderColor = clWhite
             ExplicitWidth = 412
             ExplicitHeight = 479
           end
@@ -598,10 +756,6 @@ object MainForm: TMainForm
       object PgRegions: TTabSheet
         Caption = 'Regions'
         ImageIndex = 9
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         inline RegionsFrame: TRegionsFrame
           Left = 0
           Top = 0
@@ -618,6 +772,23 @@ object MainForm: TMainForm
           inherited RegionsTreeView: TVirtualStringTree
             Width = 412
             Height = 464
+            Colors.BorderColor = 15987699
+            Colors.DisabledColor = clGray
+            Colors.DropMarkColor = 15385233
+            Colors.DropTargetColor = 15385233
+            Colors.DropTargetBorderColor = 15385233
+            Colors.FocusedSelectionColor = 15385233
+            Colors.FocusedSelectionBorderColor = 15385233
+            Colors.GridLineColor = 15987699
+            Colors.HeaderHotColor = clBlack
+            Colors.HotColor = clBlack
+            Colors.SelectionRectangleBlendColor = 15385233
+            Colors.SelectionRectangleBorderColor = 15385233
+            Colors.SelectionTextColor = clBlack
+            Colors.TreeLineColor = 9471874
+            Colors.UnfocusedColor = clGray
+            Colors.UnfocusedSelectionColor = clWhite
+            Colors.UnfocusedSelectionBorderColor = clWhite
             ExplicitWidth = 412
             ExplicitHeight = 464
           end
@@ -638,6 +809,12 @@ object MainForm: TMainForm
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
+            inherited LblDetectedType: TLabel
+              Width = 81
+              Height = 13
+              ExplicitWidth = 81
+              ExplicitHeight = 13
+            end
           end
           inherited ContentPanel: TPanel
             Width = 412
@@ -689,6 +866,7 @@ object MainForm: TMainForm
       ParentBackground = False
       TabOrder = 1
       Visible = False
+      ExplicitTop = 550
       object Image1: TImage
         Left = 0
         Top = 0
@@ -1057,6 +1235,10 @@ object MainForm: TMainForm
       object CreateTestFile1: TMenuItem
         Caption = 'Create Test File'
         OnClick = CreateTestFile1Click
+      end
+      object Createsparsefile1: TMenuItem
+        Caption = 'Create sparse file'
+        OnClick = Createsparsefile1Click
       end
       object Openemulatedsource1: TMenuItem
         Caption = 'Open emulated source'
@@ -2237,181 +2419,150 @@ object MainForm: TMainForm
   end
   object VirtualImageList1: TVirtualImageList
     AutoFill = True
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 0
         CollectionName = 'EmptyFile'
-        Disabled = False
         Name = 'EmptyFile'
       end
       item
         CollectionIndex = 1
         CollectionName = 'Open'
-        Disabled = False
         Name = 'Open'
       end
       item
         CollectionIndex = 2
         CollectionName = 'Save'
-        Disabled = False
         Name = 'Save'
       end
       item
         CollectionIndex = 3
         CollectionName = 'Search'
-        Disabled = False
         Name = 'Search'
       end
       item
         CollectionIndex = 4
         CollectionName = 'Drive'
-        Disabled = False
         Name = 'Drive'
       end
       item
         CollectionIndex = 5
         CollectionName = 'IconProcess'
-        Disabled = False
         Name = 'IconProcess'
       end
       item
         CollectionIndex = 6
         CollectionName = 'Exit'
-        Disabled = False
         Name = 'Exit'
       end
       item
         CollectionIndex = 7
         CollectionName = 'TextFile'
-        Disabled = False
         Name = 'TextFile'
       end
       item
         CollectionIndex = 8
         CollectionName = 'GoArrow'
-        Disabled = False
         Name = 'GoArrow'
       end
       item
         CollectionIndex = 9
         CollectionName = 'Cut'
-        Disabled = False
         Name = 'Cut'
       end
       item
         CollectionIndex = 10
         CollectionName = 'Copy'
-        Disabled = False
         Name = 'Copy'
       end
       item
         CollectionIndex = 11
         CollectionName = 'Paste'
-        Disabled = False
         Name = 'Paste'
       end
       item
         CollectionIndex = 12
         CollectionName = 'Refresh'
-        Disabled = False
         Name = 'Refresh'
       end
       item
         CollectionIndex = 13
         CollectionName = 'Undo'
-        Disabled = False
         Name = 'Undo'
       end
       item
         CollectionIndex = 14
         CollectionName = 'Redo'
-        Disabled = False
         Name = 'Redo'
       end
       item
         CollectionIndex = 15
         CollectionName = 'Fill'
-        Disabled = False
         Name = 'Fill'
       end
       item
         CollectionIndex = 16
         CollectionName = 'Function'
-        Disabled = False
         Name = 'Function'
       end
       item
         CollectionIndex = 17
         CollectionName = 'FindInFiles'
-        Disabled = False
         Name = 'FindInFiles'
       end
       item
         CollectionIndex = 18
         CollectionName = 'Info'
-        Disabled = False
         Name = 'Info'
       end
       item
         CollectionIndex = 19
         CollectionName = 'Delete_gray'
-        Disabled = False
         Name = 'Delete_gray'
       end
       item
         CollectionIndex = 20
         CollectionName = 'Help'
-        Disabled = False
         Name = 'Help'
       end
       item
         CollectionIndex = 21
         CollectionName = 'Update'
-        Disabled = False
         Name = 'Update'
       end
       item
         CollectionIndex = 22
         CollectionName = 'Gear'
-        Disabled = False
         Name = 'Gear'
       end
       item
         CollectionIndex = 23
         CollectionName = 'Folder'
-        Disabled = False
         Name = 'Folder'
       end
       item
         CollectionIndex = 24
         CollectionName = 'Plus'
-        Disabled = False
         Name = 'Plus'
       end
       item
         CollectionIndex = 25
         CollectionName = 'Delete'
-        Disabled = False
         Name = 'Delete'
       end
       item
         CollectionIndex = 26
         CollectionName = 'PaneAddr'
-        Disabled = False
         Name = 'PaneAddr'
       end
       item
         CollectionIndex = 27
         CollectionName = 'PaneHex'
-        Disabled = False
         Name = 'PaneHex'
       end
       item
         CollectionIndex = 28
         CollectionName = 'PaneText'
-        Disabled = False
         Name = 'PaneText'
       end>
     ImageCollection = ImageCollection1
