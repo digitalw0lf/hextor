@@ -278,6 +278,7 @@
             <Form>FindAltStreamsForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uHexDataSource.pas"/>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>
@@ -361,112 +362,436 @@
                 <DeployFile LocalName="..\Build\Win32\Release\Hextor.exe" Configuration="Release" Class="ProjectOutput"/>
                 <DeployFile LocalName="..\Build\Win64\Debug\Hextor.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="..\Build\Win64\Release\Hextor.exe" Configuration="Release" Class="ProjectOutput"/>
+                <DeployFile LocalName="..\Build\Win64\Release\Hextor.exe" Configuration="Release" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>Hextor.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\DWHex\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\DWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex_TLB\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex_TLB\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\DWHex_TLB\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex_TLB\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\DWHex_TLB\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\DWHex_TLB\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\Hextor\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\Hextor\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\Hextor\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\Hextor\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\Hextor\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\Hextor\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uBitmapFrame\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uBitmapFrame\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uBitmapFrame\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uBitmapFrame\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uBitmapFrame\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uBitmapFrame\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uBitsEditorForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uBitsEditorForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uBitsEditorForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uCallbackList\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uCallbackList\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uCallbackList\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uCallbackList\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uCallbackList\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uCallbackList\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uCoDWHex\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uCoDWHex\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uCoDWHex\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uCoDWHex\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uCoDWHex\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uCoDWHex\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uCompareFrame\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uCompareFrame\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uCompareFrame\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uCompareFrame\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uCompareFrame\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uCompareFrame\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataSearcher\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataSearcher\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDataSearcher\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataSearcher\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataSearcher\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDataSearcher\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataStruct\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataStruct\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDataStruct\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataStruct\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDataStruct\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDataStruct\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDbgToolsForm\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDbgToolsForm\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDbgToolsForm\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDbgToolsForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDbgToolsForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDbgToolsForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDiskSelectForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDiskSelectForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDiskSelectForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDWHexDataSources\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDWHexDataSources\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDWHexDataSources\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uDWHexTypes\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uDWHexTypes\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uDWHexTypes\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditedData\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditedData\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uEditedData\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditedData\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditedData\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uEditedData\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditorForm\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditorForm\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uEditorForm\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditorForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditorForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uEditorForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditorPane\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uEditorPane\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uEditorPane\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uFillBytesForm\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uFillBytesForm\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uFillBytesForm\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uFillBytesForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uFillBytesForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uFillBytesForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uFindReplaceForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uFindReplaceForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uFindReplaceForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uMainForm\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uMainForm\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uMainForm\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uMainForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uMainForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uMainForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uProcessSelectForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uProcessSelectForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uProcessSelectForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uProfilerFrame\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uProfilerFrame\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uProfilerFrame\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uProfilerFrame\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uProfilerFrame\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uProfilerFrame\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uProgressForm\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uProgressForm\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uProgressForm\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uProgressForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uProgressForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uProgressForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uScriptFrame\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uScriptFrame\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uScriptFrame\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uScriptFrame\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uScriptFrame\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uScriptFrame\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uSetFileSizeForm\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uSetFileSizeForm\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uSetFileSizeForm\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uSetFileSizeForm\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uSetFileSizeForm\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uSetFileSizeForm\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uStructFrame\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uStructFrame\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uStructFrame\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uStructFrame\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uStructFrame\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uStructFrame\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uUndoStack\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uUndoStack\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uUndoStack\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uUndoStack\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uUndoStack\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uUndoStack\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uValueFrame\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueInterpretors\default.txaPackage" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueInterpretors\default.txaPackage" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uValueInterpretors\default.txaPackage" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueInterpretors\default.txvpck" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="ModelSupport_Hextor\uValueInterpretors\default.txvpck" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="ModelSupport_Hextor\uValueInterpretors\default.txvpck" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="iOSSimulator">
                         <Operation>1</Operation>

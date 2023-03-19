@@ -54,6 +54,8 @@ type
     function Intersects(Value: TFilePointer): Boolean; overload; inline;
     function Intersects2(const BRange: TFileRange): Boolean; overload; inline;
     function Intersects2(BStart, BEnd: TFilePointer): Boolean; overload; inline;
+    function Intersect(const BRange: TFileRange): TFileRange; overload; inline;
+    function Intersect(BStart, BEnd: TFilePointer): TFileRange; overload; inline;
     class operator Equal(const A, B: TFileRange): Boolean; inline;
     class operator NotEqual(const A, B: TFileRange): Boolean; inline;
     class operator Add(const A, B: TFileRange): TFileRange; inline;
@@ -980,9 +982,22 @@ begin
   Result := AEnd-Start;
 end;
 
+function TFileRange.Intersect(BStart, BEnd: TFilePointer): TFileRange;
+begin
+  Result := Intersect(TFileRange.Create(BStart, BEnd));
+end;
+
+function TFileRange.Intersect(const BRange: TFileRange): TFileRange;
+begin
+  if Self = EntireFile then Exit(BRange);
+  if BRange = EntireFile then Exit(Self);
+  Result.Start := Max(Start, BRange.Start);
+  Result.AEnd := Min(AEnd, BRange.AEnd);
+end;
+
 function TFileRange.Intersects(Value: TFilePointer): Boolean;
 begin
-  Result := (Value >= Start) and (Value < AEnd);
+  Result := ((Value >= Start) and (Value < AEnd)) or (Self = EntireFile);
 end;
 
 function TFileRange.Intersects2(const BRange: TFileRange): Boolean;
@@ -994,13 +1009,13 @@ end;
 function TFileRange.Intersects2(BStart, BEnd: TFilePointer): Boolean;
 // Also accept zero-length regions on the ends of this range
 begin
-  Result := ((BEnd > Start) and (BStart < AEnd)) or
+  Result := Intersects(BStart, BEnd) or
             ((BStart = BEnd) and ((BStart = Start) or (BStart = AEnd)));
 end;
 
 function TFileRange.Intersects(BStart, BEnd: TFilePointer): Boolean;
 begin
-  Result := (BEnd > Start) and (BStart < AEnd);
+  Result := Intersects(TFileRange.Create(BStart, BEnd));
 end;
 
 class operator TFileRange.NotEqual(const A, B: TFileRange): Boolean;
@@ -1010,7 +1025,8 @@ end;
 
 function TFileRange.Intersects(const BRange: TFileRange): Boolean;
 begin
-  Result := (BRange.AEnd > Start) and (BRange.Start < AEnd);
+  if (Self = NoRange) or (BRange = NoRange) then Exit(False);
+  Result := ((BRange.AEnd > Start) and (BRange.Start < AEnd)) or (Self = EntireFile) or (BRange = EntireFile);
 end;
 
 procedure TFileRange.SetSize(Value: TFilePointer);

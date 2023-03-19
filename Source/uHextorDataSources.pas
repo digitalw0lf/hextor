@@ -20,7 +20,7 @@ uses
 type
   THextorDataSource = class;
   TCachedDataSource = class;
-  TDataSourceProperty = (dspWritable, dspResizable);
+  TDataSourceProperty = (dspWritable, dspResizable, dspHasRegions);
   TDataSourceProperties = set of TDataSourceProperty;
 
   TDataCache = class
@@ -66,7 +66,8 @@ type
 
     constructor Create(const APath: string); virtual;
     destructor Destroy(); override;
-    procedure Open(Mode: Word; Share: Word = 0); virtual; abstract;
+    procedure Open(Mode: Word; Share: Word = 0); virtual;
+    procedure Close(); virtual; abstract;
     function GetProperties(): TDataSourceProperties; virtual;
     function CanBeSaved(): Boolean; virtual;
     function GetSize(): TFilePointer; virtual; abstract;
@@ -83,7 +84,7 @@ type
   protected
     Cache: TDataCache;
   public
-    procedure Open(Mode: Word; Share: Word = 0); override;
+    procedure Close(); override;
     function InternalGetData(Addr: TFilePointer; Size: Integer; var Data): Integer; virtual; abstract;
     function InternalChangeData(Addr: TFilePointer; Size: Integer; const Data): Integer; virtual; abstract;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
@@ -100,6 +101,7 @@ type
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
     procedure Open(Mode: Word; Share: Word = 0); override;
+    procedure Close(); override;
     function GetProperties(): TDataSourceProperties; override;
     function CanBeSaved(): Boolean; override;
     function GetSize(): TFilePointer; override;
@@ -132,6 +134,7 @@ type
     constructor Create(const APath: string); override;
     destructor Destroy(); override;
     procedure Open(Mode: Word; Share: Word = 0); override;
+    procedure Close(); override;
     function GetProperties(): TDataSourceProperties; override;
     function GetSize(): TFilePointer; override;
     function GetData(Addr: TFilePointer; Size: Integer; var Data): Integer; override;
@@ -190,7 +193,7 @@ end;
 
 destructor THextorDataSource.Destroy;
 begin
-
+  Close();
   inherited;
 end;
 
@@ -213,6 +216,13 @@ begin
   Result := nil;
 end;
 
+procedure THextorDataSource.Open(Mode, Share: Word);
+begin
+  // Close current source (if any) before opening new one.
+  // Descendants should call "inherited" in the beginning of Open() method.
+  Close();
+end;
+
 procedure THextorDataSource.SetSize(NewSize: TFilePointer);
 begin
   //raise Exception.Create('Size change not supported');
@@ -226,6 +236,12 @@ begin
   Result := (inherited) and (ExtractFilePath(Path) <> '');
 end;
 
+procedure TFileDataSource.Close;
+begin
+  inherited;
+  FreeAndNil(FileStream);
+end;
+
 constructor TFileDataSource.Create(const APath: string);
 begin
   inherited;
@@ -233,7 +249,6 @@ end;
 
 destructor TFileDataSource.Destroy;
 begin
-  FileStream.Free;
   inherited;
 end;
 
@@ -284,11 +299,11 @@ end;
 
 procedure TFileDataSource.Open(Mode: Word; Share: Word = 0);
 begin
+  inherited;
   if ExtractFilePath(Path) <> '' then
   begin
     if Mode = fmCreate then
       ForceDirectories(ExtractFilePath(Path));
-    FreeAndNil(FileStream);
     FileStream := TFileStream.Create(Path, Mode or Share);
   end;
 end;
@@ -405,7 +420,9 @@ procedure TDiskDataSource.Open(Mode: Word; Share: Word = 0);
 var
   Ret: Cardinal;
 begin
-  FreeAndNil(FileStream);
+  // We don't call inherited Open() here, but explicitly call Close().
+  Close();
+
   if Mode = fmCreate then
     Mode := fmOpenReadWrite;
   FileStream := TFileStream.Create(Path, Mode or Share);
@@ -431,6 +448,15 @@ begin
   Result := Size;
 end;
 
+procedure TProcMemDataSource.Close;
+begin
+  if hProcess <> 0 then
+  begin
+    CloseHandle(hProcess);
+    hProcess := 0;
+  end;
+end;
+
 constructor TProcMemDataSource.Create(const APath: string);
 begin
   inherited;
@@ -438,8 +464,6 @@ end;
 
 destructor TProcMemDataSource.Destroy;
 begin
-  if hProcess <> 0 then
-    CloseHandle(hProcess);
   inherited;
 end;
 
@@ -467,7 +491,7 @@ end;
 
 function TProcMemDataSource.GetProperties: TDataSourceProperties;
 begin
-  Result := [dspWritable];
+  Result := [dspWritable, dspHasRegions];
 end;
 
 function TProcMemDataSource.GetRegions(
@@ -569,10 +593,10 @@ var
   Regions: TSourceRegionArray;
   i: Integer;
 begin
+  inherited;
   i := Pos(' ', Path);
   if i = 0 then i := Length(Path) + 1;
   ProcID := StrToInt(Copy(Path, Low(Path), i - 1));
-  if hProcess <> 0 then  CloseHandle(hProcess);
   case Mode of
     fmCreate, fmOpenReadWrite: Access := PROCESS_ALL_ACCESS;
     else Access := PROCESS_VM_READ or PROCESS_QUERY_INFORMATION;
@@ -673,6 +697,13 @@ begin
   Result := Cache.ChangeData(Addr, Size, Data);
 end;
 
+procedure TCachedDataSource.Close;
+begin
+  inherited;
+  if Cache <> nil then
+    Cache.Flush();
+end;
+
 constructor TCachedDataSource.Create(const APath: string);
 begin
   inherited;
@@ -681,7 +712,7 @@ end;
 
 destructor TCachedDataSource.Destroy;
 begin
-  Cache.Free;
+  FreeAndNil(Cache);
   inherited;
 end;
 
@@ -689,12 +720,6 @@ function TCachedDataSource.GetData(Addr: TFilePointer; Size: Integer;
   var Data): Integer;
 begin
   Result := Cache.GetData(Addr, Size, Data);
-end;
-
-procedure TCachedDataSource.Open(Mode: Word; Share: Word = 0);
-begin
-  Cache.Flush();
-  inherited;
 end;
 
 { TSourceRegionArrayHelper }

@@ -29,7 +29,7 @@ uses
   System.ZLib,
 
   uEditorPane, {uLogFile,} superobject, uModuleSettings,
-  uHextorTypes, uHextorDataSources, uEditorForm,
+  uHextorTypes, uHextorDataSources, uHexDataSource, uEditorForm,
   uValueFrame, uStructFrame, uCompareFrame, uScriptFrame,
   uBitmapFrame, uCallbackList, uHextorGUI, uOleAutoAPIWrapper,
   uSearchResultsFrame, uHashFrame, uDataSaver, uAsmFrame, uDataStruct,
@@ -292,6 +292,9 @@ type
     VirtualImageList1: TVirtualImageList;
     ZLibdecompress1: TMenuItem;
     Createsparsefile1: TMenuItem;
+    ActionOpenHexFile: TAction;
+    MIOpenHexFile: TMenuItem;
+    OpenDialogHex: TOpenDialog;
     procedure FormCreate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -379,6 +382,7 @@ type
     procedure ApplicationEvents1Hint(Sender: TObject);
     procedure ZLibdecompress1Click(Sender: TObject);
     procedure Createsparsefile1Click(Sender: TObject);
+    procedure ActionOpenHexFileExecute(Sender: TObject);
   private const
     AppThemeNames: array[0..2] of string = ('', 'Carbon', 'Windows');
   private type
@@ -787,6 +791,25 @@ begin
       Progress.Show(i, OpenDialog1.Files.Count);
       OpenFile(OpenDialog1.Files[i]);
     end;
+  finally
+    Progress.TaskEnd();
+  end;
+end;
+
+procedure TMainForm.ActionOpenHexFileExecute(Sender: TObject);
+var
+  i: Integer;
+begin
+  if not OpenDialogHex.Execute() then Exit;
+
+  Progress.TaskStart(Sender);
+  try
+    for i:=0 to OpenDialogHex.Files.Count-1 do
+    begin
+      Progress.Show(i, OpenDialogHex.Files.Count);
+      Open(THexDataSource, OpenDialogHex.Files[i]);
+    end;
+    ShowToolFrame(RegionsFrame);
   finally
     Progress.TaskEnd();
   end;

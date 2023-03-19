@@ -3,8 +3,8 @@ object MainForm: TMainForm
   Top = 0
   ActiveControl = EditByteCols
   Caption = 'Hextor'
-  ClientHeight = 639
-  ClientWidth = 1028
+  ClientHeight = 638
+  ClientWidth = 1024
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -22,10 +22,10 @@ object MainForm: TMainForm
   OnShow = FormShow
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 604
+    Left = 600
     Top = 47
     Width = 4
-    Height = 592
+    Height = 591
     Align = alRight
     AutoSnap = False
     ResizeStyle = rsUpdate
@@ -73,7 +73,7 @@ object MainForm: TMainForm
   object ToolBar1: TToolBar
     Left = 0
     Top = 0
-    Width = 1028
+    Width = 1024
     Height = 22
     AutoSize = True
     ButtonWidth = 26
@@ -82,7 +82,6 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 0
-    ExplicitWidth = 1024
     object ToolButton1: TToolButton
       Left = 0
       Top = 0
@@ -223,7 +222,7 @@ object MainForm: TMainForm
   object MDITabs: TTabControl
     Left = 0
     Top = 22
-    Width = 1028
+    Width = 1024
     Height = 25
     Align = alTop
     DoubleBuffered = True
@@ -235,43 +234,45 @@ object MainForm: TMainForm
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseMove = MDITabsMouseMove
     OnMouseUp = MDITabsMouseUp
-    ExplicitWidth = 1024
   end
   object RightPanel: TPanel
-    Left = 608
+    Left = 604
     Top = 47
     Width = 420
-    Height = 592
+    Height = 591
     Align = alRight
     BevelOuter = bvNone
     DoubleBuffered = True
     ParentDoubleBuffered = False
     TabOrder = 2
     OnResize = RightPanelResize
+    ExplicitLeft = 608
+    ExplicitHeight = 592
     object RightPanelPageControl: TPageControl
       Left = 0
       Top = 0
       Width = 420
-      Height = 551
+      Height = 550
       ActivePage = PgValue
       Align = alClient
       MultiLine = True
       TabOrder = 0
       OnChange = RightPanelPageControlChange
+      ExplicitHeight = 551
       object PgValue: TTabSheet
         Caption = 'Value'
         inline ValueFrame: TValueFrame
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited ValuesTreeView: TVirtualStringTree
             Width = 412
-            Height = 505
+            Height = 504
             Colors.BorderColor = 15987699
             Colors.DisabledColor = clGray
             Colors.DropMarkColor = 15385233
@@ -290,7 +291,7 @@ object MainForm: TMainForm
             Colors.UnfocusedSelectionColor = clWhite
             Colors.UnfocusedSelectionBorderColor = clWhite
             ExplicitWidth = 412
-            ExplicitHeight = 505
+            ExplicitHeight = 504
             Columns = <
               item
                 Position = 0
@@ -300,7 +301,7 @@ object MainForm: TMainForm
               item
                 Position = 1
                 Text = 'Value'
-                Width = 322
+                Width = 326
               end>
           end
         end
@@ -312,7 +313,7 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           HelpType = htKeyword
           HelpKeyword = 'Structure-analyzer'
           Align = alClient
@@ -320,7 +321,7 @@ object MainForm: TMainForm
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited PnlButtonBar2: TPanel
             Top = 242
             Width = 412
@@ -351,7 +352,7 @@ object MainForm: TMainForm
           inherited DSTreeView: TVirtualStringTree
             Top = 283
             Width = 412
-            Height = 222
+            Height = 221
             Colors.BorderColor = 15987699
             Colors.DisabledColor = clGray
             Colors.DropMarkColor = 15385233
@@ -381,9 +382,14 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSaveDescr: TToolButton
+              ExplicitWidth = 26
+            end
             inherited LblStructName: TLabel
               Width = 57
+              Height = 13
               ExplicitWidth = 57
+              ExplicitHeight = 13
             end
           end
           inherited SavedDescrsMenu: TPopupMenu
@@ -481,21 +487,21 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited Splitter1: TSplitter
-            Top = 369
+            Top = 368
             Width = 412
             ExplicitTop = 387
             ExplicitWidth = 412
           end
           inherited OutputPanel: TPanel
-            Top = 373
+            Top = 372
             Width = 412
-            ExplicitTop = 373
+            ExplicitTop = 372
             ExplicitWidth = 412
             inherited MemoOutput: TRichEdit
               Width = 412
@@ -512,7 +518,7 @@ object MainForm: TMainForm
           end
           inherited ScriptEdit: TSynEdit
             Width = 412
-            Height = 343
+            Height = 342
             ExplicitWidth = 412
             ExplicitHeight = 343
           end
@@ -520,9 +526,14 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSave: TToolButton
+              ExplicitWidth = 26
+            end
             inherited LblScriptName: TLabel
               Width = 57
+              Height = 13
               ExplicitWidth = 57
+              ExplicitHeight = 13
             end
           end
           inherited SavedScriptsMenu: TPopupMenu
@@ -537,22 +548,22 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           DoubleBuffered = False
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited MainPaintBox: TPaintBox
             Width = 314
-            Height = 456
+            Height = 455
             ExplicitWidth = 299
             ExplicitHeight = 474
           end
           inherited LeftPanel: TPanel
-            Height = 456
-            ExplicitHeight = 456
+            Height = 455
+            ExplicitHeight = 455
             inherited Label3: TLabel
               Width = 29
               Height = 13
@@ -612,7 +623,7 @@ object MainForm: TMainForm
           end
           inherited VertScrollBar: TScrollBar64
             Left = 395
-            Height = 456
+            Height = 455
             ExplicitLeft = 395
             ExplicitHeight = 456
           end
@@ -625,14 +636,14 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited PageControl: TPageControl
             Width = 412
-            Height = 505
+            Height = 504
             ExplicitWidth = 412
             ExplicitHeight = 505
           end
@@ -645,11 +656,11 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited Splitter1: TSplitter
             Width = 412
             ExplicitWidth = 412
@@ -666,13 +677,11 @@ object MainForm: TMainForm
           end
           inherited Panel2: TPanel
             Width = 412
-            Height = 181
+            Height = 180
             ExplicitWidth = 412
             ExplicitHeight = 181
             inherited StaticText1: TStaticText
-              Width = 406
               Height = 17
-              ExplicitWidth = 406
               ExplicitHeight = 17
             end
             inherited ResultListView: TListView
@@ -691,11 +700,11 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
@@ -705,7 +714,7 @@ object MainForm: TMainForm
           end
           inherited SynEdit1: TSynEdit
             Width = 412
-            Height = 464
+            Height = 463
             ExplicitWidth = 412
             ExplicitHeight = 464
           end
@@ -718,11 +727,11 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited ToolBar1: TToolBar
             Width = 412
             Images = nil
@@ -730,7 +739,7 @@ object MainForm: TMainForm
           end
           inherited BookmarksTreeView: TVirtualStringTree
             Width = 412
-            Height = 479
+            Height = 478
             Colors.BorderColor = 15987699
             Colors.DisabledColor = clGray
             Colors.DropMarkColor = 15385233
@@ -772,23 +781,6 @@ object MainForm: TMainForm
           inherited RegionsTreeView: TVirtualStringTree
             Width = 412
             Height = 464
-            Colors.BorderColor = 15987699
-            Colors.DisabledColor = clGray
-            Colors.DropMarkColor = 15385233
-            Colors.DropTargetColor = 15385233
-            Colors.DropTargetBorderColor = 15385233
-            Colors.FocusedSelectionColor = 15385233
-            Colors.FocusedSelectionBorderColor = 15385233
-            Colors.GridLineColor = 15987699
-            Colors.HeaderHotColor = clBlack
-            Colors.HotColor = clBlack
-            Colors.SelectionRectangleBlendColor = 15385233
-            Colors.SelectionRectangleBorderColor = 15385233
-            Colors.SelectionTextColor = clBlack
-            Colors.TreeLineColor = 9471874
-            Colors.UnfocusedColor = clGray
-            Colors.UnfocusedSelectionColor = clWhite
-            Colors.UnfocusedSelectionBorderColor = clWhite
             ExplicitWidth = 412
             ExplicitHeight = 464
           end
@@ -801,11 +793,11 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 505
+          Height = 504
           Align = alClient
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 505
+          ExplicitHeight = 504
           inherited ToolPanel: TPanel
             Width = 412
             ExplicitWidth = 412
@@ -818,7 +810,7 @@ object MainForm: TMainForm
           end
           inherited ContentPanel: TPanel
             Width = 412
-            Height = 464
+            Height = 463
             ExplicitWidth = 412
             ExplicitHeight = 464
             inherited Image1: TImage
@@ -837,6 +829,10 @@ object MainForm: TMainForm
                 Width = 412
                 ExplicitTop = 423
                 ExplicitWidth = 412
+                inherited MediaPlayer1: TMediaPlayer
+                  Width = -8
+                  ExplicitWidth = -8
+                end
               end
               inherited Panel2: TPanel
                 Width = 412
@@ -857,7 +853,7 @@ object MainForm: TMainForm
     end
     object MsgPanel: TPanel
       Left = 0
-      Top = 551
+      Top = 550
       Width = 420
       Height = 41
       Align = alBottom
@@ -866,7 +862,6 @@ object MainForm: TMainForm
       ParentBackground = False
       TabOrder = 1
       Visible = False
-      ExplicitTop = 550
       object Image1: TImage
         Left = 0
         Top = 0
@@ -908,8 +903,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 389
-        Height = 35
+        Width = 259
+        Height = 17
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0
@@ -1028,6 +1023,9 @@ object MainForm: TMainForm
       end
       object N4: TMenuItem
         Caption = '-'
+      end
+      object MIOpenHexFile: TMenuItem
+        Action = ActionOpenHexFile
       end
       object MIOpenDisk: TMenuItem
         Action = ActionOpenDisk
@@ -1498,6 +1496,12 @@ object MainForm: TMainForm
       Caption = 'Save selection as...'
       Hint = 'Save selected data as...'
       OnExecute = ActionSaveSelectionAsExecute
+    end
+    object ActionOpenHexFile: TAction
+      Category = 'File'
+      Caption = 'Open Hex file (Intel, Motorola)'
+      Hint = 'Open Hex file (Intel, Motorola)'
+      OnExecute = ActionOpenHexFileExecute
     end
     object ActionOpenDisk: TAction
       Category = 'File'
@@ -2566,7 +2570,17 @@ object MainForm: TMainForm
         Name = 'PaneText'
       end>
     ImageCollection = ImageCollection1
-    Left = 368
+    Left = 456
     Top = 136
+  end
+  object OpenDialogHex: TOpenDialog
+    Filter = 
+      'Intel Hex (*.hex; *.h86)|*.hex; *.h86|Motorola S-record (*.s19; ' +
+      '*.s28; *.s37; *.s; *.srec; *.mot)|*.s19; *.s28; *.s37; *.s; *.sr' +
+      'ec; *.mot|All files|*'
+    FilterIndex = 3
+    Options = [ofHideReadOnly, ofAllowMultiSelect, ofEnableSizing]
+    Left = 328
+    Top = 72
   end
 end

@@ -59,7 +59,7 @@ type
     procedure BoundToRange(var Addr, Size: TFilePointer);
     procedure SetDataSource(const Value: THextorDataSource);
   public
-    Resizable: Boolean;
+    Resizable, HasRegions: Boolean;
     Parts: TDataPartSkipList;  // Treat as private except for saving to file
     // Data changed event. "Value" may be nil if fired as a result on Undo
     OnDataChanged: TCallbackListP5<{Sender:}TEditedData, {Addr:}TFilePointer, {OldSize:}TFilePointer, {NewSize:}TFilePointer, {Value:}PByteArray>;
@@ -449,6 +449,7 @@ begin
 //  begin
     FDataSource := Value;
     Resizable := (dspResizable in FDataSource.GetProperties());
+    HasRegions := (dspHasRegions in FDataSource.GetProperties());
     ResetParts();
 //  end;
 end;
@@ -495,6 +496,8 @@ var
   Part: TDataPart;
   NewParts: array of TDataPart;
   ASize: TFilePointer;
+  SrcRegions: TSourceRegionArray;
+  i: Integer;
 begin
   // If changing partially after end of data
   ASize := GetSize();
@@ -503,6 +506,18 @@ begin
 
   if (not Resizable) and (OldSize <> NewSize) then
     raise Exception.Create('Cannot resize data');
+
+  if (not Resizable) and (HasRegions) then
+  begin
+    SrcRegions := DataSource.GetRegions(TFileRange.Create(Addr, Addr + OldSize));
+    try
+      for i := 0 to Length(SrcRegions) - 1 do
+        if not SrcRegions[i].HasData then
+          raise Exception.Create('Cannot write into unallocated address');
+    finally
+      SrcRegions.Free;
+    end;
+  end;
 
   if NewSize > 0 then
   begin

@@ -29,6 +29,9 @@ type
       var CellText: string);
     procedure RegionsTreeViewNodeDblClick(Sender: TBaseVirtualTree;
       const HitInfo: THitInfo);
+    procedure RegionsTreeViewDrawText(Sender: TBaseVirtualTree;
+      TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
+      const Text: string; const CellRect: TRect; var DefaultDraw: Boolean);
   private type
     TRegionTreeNode = record
       Region: TSourceRegion;
@@ -96,12 +99,28 @@ begin
   UpdateInfo();
 end;
 
+procedure TRegionsFrame.RegionsTreeViewDrawText(Sender: TBaseVirtualTree;
+  TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
+  const Text: string; const CellRect: TRect; var DefaultDraw: Boolean);
+begin
+  if not (PRegionTreeNode(Sender.GetNodeData(Node))^).Region.HasData then
+    TargetCanvas.Font.Color := clGrayText;
+end;
+
 procedure TRegionsFrame.RegionsTreeViewFreeNode(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 begin
 //  FreeAndNil((PRegionTreeNode(Sender.GetNodeData(Node))^).Region);
   (PRegionTreeNode(Sender.GetNodeData(Node))^).Region.Free;
 //  (PRegionTreeNode(Sender.GetNodeData(Node))^).Region := nil;
+end;
+
+function RegionSizeStr(Size: TFilePointer): string;
+begin
+  if (Size > 0) and (Size mod 1024 = 0) then
+    Result := IntToStr(Size div 1024) + ' KB'
+  else
+    Result := IntToStr(Size) + ' B';
 end;
 
 procedure TRegionsFrame.RegionsTreeViewGetText(Sender: TBaseVirtualTree;
@@ -115,7 +134,7 @@ begin
 
   case Column of
     0: CellText := IntToHex(NodeData.Region.Range.Start, PointerSize * 2);
-    1: CellText := IntToStr(NodeData.Region.Range.Size div 1024) + ' KB';
+    1: CellText := RegionSizeStr(NodeData.Region.Range.Size);
     2: CellText := NodeData.Region.Description;
   end;
 end;

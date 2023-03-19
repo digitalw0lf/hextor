@@ -49,7 +49,8 @@ uses
   uFileSplitForm in 'uFileSplitForm.pas' {FileSplitForm},
   uFileConcatForm in 'uFileConcatForm.pas' {FileConcatForm},
   uMediaFrame in 'uMediaFrame.pas' {MediaFrame: TFrame},
-  uFindAltStreamsForm in 'uFindAltStreamsForm.pas' {FindAltStreamsForm};
+  uFindAltStreamsForm in 'uFindAltStreamsForm.pas' {FindAltStreamsForm},
+  uHexDataSource in 'uHexDataSource.pas';
 
 {$R *.res}
 
