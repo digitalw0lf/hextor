@@ -34,7 +34,7 @@ type
     SrcFormat: THexFileFormat;
     Recs: TObjectList<THexFileRecord>;
     Modified: Boolean;
-    class function CalcIntelChecksum(const Buf: TBytes): Byte;
+    class function CalcIntelChecksum(const Buf: PByteArray; Size: Integer): Byte;
     procedure LoadIntel(const Lines: TStringDynArray);
     procedure LoadMotorola(const Lines: TStringDynArray);
     procedure SortRecs();
@@ -57,13 +57,13 @@ implementation
 
 { THexDataSource }
 
-class function THexDataSource.CalcIntelChecksum(const Buf: TBytes): Byte;
+class function THexDataSource.CalcIntelChecksum(const Buf: PByteArray; Size: Integer): Byte;
 var
   i: Integer;
 begin
   Result := 0;
-  for i := 0 to Length(Buf) - 1 do
-    Inc(Result, Buf[i]);
+  for i := 0 to Size - 1 do
+    Inc(Result, Buf^[i]);
   Result := (not Result) + 1;
 end;
 
@@ -77,6 +77,7 @@ var
 begin
   ARange.Start := Addr;
   ARange.Size := Size;
+  Result := 0;
   for i := 0 to Recs.Count - 1 do
   begin
     Rec := Recs[i];
@@ -86,6 +87,7 @@ begin
       if Range.Size > 0 then
       begin
         Move(PByteArray(@Data)^[Range.Start - Addr], Rec.Data[Range.Start - Rec.Addr], Range.Size);
+        Inc(Result, Range.Size);
       end;
     end;
   end;
@@ -143,6 +145,7 @@ begin
       end;
     end;
   end;
+  Result := Size;
 end;
 
 function THexDataSource.GetProperties: TDataSourceProperties;
@@ -243,6 +246,10 @@ begin
     RelAddr := (Buf[1] shl 8) + Buf[2];
     RecType := Buf[3];
     Checksum := Buf[ByteCount + 4];
+    if Checksum <> CalcIntelChecksum(@Buf[0], ByteCount + 4) then
+    begin
+      // TODO: Show warning
+    end;
 
     case RecType of
       0: if ByteCount > 0 then  // Data
@@ -333,11 +340,11 @@ var
   i: Integer;
   Rec: THexFileRecord;
   Buf: TBytes;
-  s: AnsiString;
   Adr: Word;
   BaseAddr: Cardinal;
 begin
   Lines := nil;
+  BaseAddr := 0;
   for i := 0 to Recs.Count - 1 do
   begin
     Rec := Recs[i];
@@ -346,16 +353,16 @@ begin
         begin
           Adr := FastSwap(Rec.Addr shr 16);
           Buf := [2, 0, 0, 4] + MakeBytes(Adr, 2);
-          Buf := Buf + [CalcIntelChecksum(Buf)];
-          Lines := Lines + [':' + AnsiString(Data2Hex(Buf, False))];
+          Buf := Buf + [CalcIntelChecksum(@Buf[0], Length(Buf))];
+          Lines := Lines + [':' + Data2Hex(Buf, False)];
           BaseAddr := Rec.Addr;
         end;
       hfrData:
         begin
           Adr := FastSwap(Rec.Addr - BaseAddr);
           Buf := [Length(Rec.Data)] + MakeBytes(Adr, 2) + [0] + Rec.Data;
-          Buf := Buf + [CalcIntelChecksum(Buf)];
-          Lines := Lines + [':' + AnsiString(Data2Hex(Buf, False))];
+          Buf := Buf + [CalcIntelChecksum(@Buf[0], Length(Buf))];
+          Lines := Lines + [':' + Data2Hex(Buf, False)];
         end;
     end;
   end;
