@@ -211,6 +211,7 @@ function R2S(X: Double; Digits:integer = 10): string;
 function R2Sf(X: Double; Digits:integer): string;
 function FileSize2Str(s:Int64; FracDigits:integer=1):UnicodeString;
 function Str2FileSize(const s:UnicodeString):Int64;
+function FilePointer2Str(const Addr: TFilePointer; const FileSize: TFilePointer; MaxLength: Integer = 100; Prefix: Boolean = True): string;
 
 function GetNanosec():Int64;
 function GetAppBuildTime(Instance:THandle = 0):TDateTime;
@@ -845,6 +846,21 @@ begin
   end;
   s1:=Trim(Copy(s,1,L-1));
   Result:=Round(S2R(s1)*Mult);
+end;
+
+function FilePointer2Str(const Addr: TFilePointer; const FileSize: TFilePointer; MaxLength: Integer = 100; Prefix: Boolean = True): string;
+var
+  AddrChars, L: Integer;
+begin
+  AddrChars := Length(IntToHex(FileSize, 4));
+  AddrChars := DivRoundUp(AddrChars, 2) * 2;
+  Result := IntToHex(Addr, AddrChars);
+  if Length(Result) > MaxLength then
+  begin
+    L := MaxLength div 2;
+    Result := Copy(Result, Low(Result), L) + '…' + Copy(Result, High(Result) - (MaxLength - L - 2), MaxInt);
+  end;
+  if Prefix then Result := '0x' + Result;
 end;
 
 var

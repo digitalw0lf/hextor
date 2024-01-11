@@ -16,9 +16,13 @@ uses
   Generics.Collections, System.Types, Vcl.StdCtrls, Vcl.Buttons,
   Generics.Defaults,
 
-  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, Vcl.ComCtrls{, uLogFile};
+  uHextorTypes, uEditorForm, uEditedData, uHextorGUI, Vcl.ComCtrls,
+  VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree, VirtualTrees.AncestorVCL,
+  VirtualTrees{, uLogFile};
 
 type
+  TCompareFrame = class;
+
   TComparedRange = record
     Differs: Boolean;
     Range: array[0..1] of TFileRange;
@@ -37,6 +41,7 @@ type
     function GetByte(n: Integer; Addr: TFilePointer): Byte;
     function GetBytes(n: Integer; Addr: TFilePointer; Size: Integer): TBytes;
     function FindNextCommonSeq(var SyncPtrs: TFilePointerPair): Boolean;
+    procedure RangesChanged(Sender: TObject; const Item: TComparedRange; Action: TCollectionNotification);
   public type
     TComparerStats = record
       SameSize: Int64;
@@ -45,6 +50,7 @@ type
       Invalidated: Boolean;
     end;
   public
+    OwnerFrame: TCompareFrame;
     // Settings
     MaxWorkTime: Cardinal;   // Milliseconds
     SyncBlockSize: Integer;  // Detect common sequence if it is at least this size. Must be a power of 2
@@ -108,6 +114,8 @@ type
     BtnSyncCaret: TSpeedButton;
     CBDetectInsertions: TCheckBox;
     HintedImageProxy1: THintedImageProxy;
+    DiffsList: TVirtualStringTree;
+    Label1: TLabel;
     procedure DiffBarPaint(Sender: TObject);
     procedure DiffBarMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
@@ -123,6 +131,11 @@ type
     procedure CBRange1Click(Sender: TObject);
     procedure CBRange2Click(Sender: TObject);
     procedure BtnSyncCaretClick(Sender: TObject);
+    procedure DiffsListGetText(Sender: TBaseVirtualTree; Node:
+        PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText:
+        string);
+    procedure DiffsListNodeDblClick(Sender: TBaseVirtualTree; const HitInfo:
+        THitInfo);
   private type
     TDiff = TFileRange;
   private
@@ -149,6 +162,7 @@ type
     procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     function EditorIndex(Editor: TEditorForm): Integer;
     procedure SyncCaretPos(FromEditor: TEditorForm);
+    function NodeIndexToRangeIndex(Index: Integer): Integer;
   public
     { Public declarations }
     Editors: array[0..1] of TEditorForm;
@@ -240,6 +254,7 @@ begin
   inherited;
   ScrBmp := TBitmap.Create();
   Comparer := TDataComparer.Create();
+  Comparer.OwnerFrame := Self;
   for i:=0 to PageControl1.PageCount-1 do
     PageControl1.Pages[i].TabVisible := False;
   PageControl1.ActivePage := InitialTab;
@@ -532,6 +547,15 @@ end;
 
 
 
+function TCompareFrame.NodeIndexToRangeIndex(Index: Integer): Integer;
+// Get compared range index from the Diff tree view item index
+begin
+  if Comparer.Ranges.Count = 0 then Exit(-1);
+  // Only "different" ranges are shown in list
+  Result := Index * 2;
+  if not Comparer.Ranges[0].Differs then  Inc(Result);
+end;
+
 function TCompareFrame.PosToScr(DataIndex: Integer; P: TFilePointer): Integer;
 begin
   if DrawnSize = 0 then Exit(0);
@@ -798,6 +822,41 @@ begin
     Editors[1].UpdatePanes();
 end;
 
+procedure TCompareFrame.DiffsListGetText(Sender: TBaseVirtualTree;
+    Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var
+    CellText: string);
+var
+  N: Integer;
+  R: TComparedRange;
+begin
+  N := NodeIndexToRangeIndex(Node.Index);
+  if N < 0 then Exit;
+  R := Comparer.Ranges[N];
+
+  case Column of
+    0: CellText := FilePointer2Str(R.Range[0].Start, Comparer.Data[0].GetSize(), 11);
+    1: CellText := IntToStr(R.Range[0].Size);
+    2: CellText := IntToStr(R.Range[1].Size);
+    3: CellText := FilePointer2Str(R.Range[1].Start, Comparer.Data[1].GetSize(), 11);
+  end;
+end;
+
+procedure TCompareFrame.DiffsListNodeDblClick(Sender: TBaseVirtualTree; const
+    HitInfo: THitInfo);
+var
+  N, i:Integer;
+begin
+  N := NodeIndexToRangeIndex(HitInfo.HitNode.Index);
+  if N < 0 then Exit;
+  FOurScrolling := True;
+  try
+    for i := 0 to 1 do
+      Editors[i].SelectAndShow(Comparer.Ranges[N].Range[i].Start, Comparer.Ranges[N].Range[i].AEnd);
+  finally
+    FOurScrolling := False;
+  end;
+end;
+
 { TDataComparer }
 
 procedure TDataComparer.AddRange(Differs: Boolean; Size0, Size1: TFilePointer);
@@ -892,6 +951,7 @@ begin
   MaxReadAhead := 10*MByte;
   DetectInsertions := True;
   Ranges := TList<TComparedRange>.Create();
+  Ranges.OnNotify := RangesChanged;
 end;
 
 function TDataComparer.DataIndex(AData: TEditedData): Integer;
@@ -1152,6 +1212,23 @@ begin
       if L.Intersects(R) then Result := 0
       else Result := CompareValue(L.Start, R.Start);
     end));
+end;
+
+procedure TDataComparer.RangesChanged(Sender: TObject;
+  const Item: TComparedRange; Action: TCollectionNotification);
+var
+  Ranges: TList<TComparedRange>;
+  DiffsCnt: Integer;
+begin
+  if Application.Terminated then Exit;
+  // Update Diffs list in window
+  Ranges := TList<TComparedRange>(Sender);
+  if (Ranges.Count > 0) and (not Ranges[0].Differs) then
+    DiffsCnt := (Ranges.Count) div 2
+  else
+    DiffsCnt := (Ranges.Count + 1) div 2;
+  OwnerFrame.DiffsList.RootNodeCount := DiffsCnt;
+  OwnerFrame.DiffsList.Invalidate();
 end;
 
 procedure TDataComparer.RecalcStats;

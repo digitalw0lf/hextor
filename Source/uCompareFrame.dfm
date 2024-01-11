@@ -30,15 +30,19 @@ object CompareFrame: TCompareFrame
     object ComparisonTab: TTabSheet
       Caption = 'ComparisonTab'
       ImageIndex = 1
+      DesignSize = (
+        489
+        572)
       object DiffBar: TPaintBox
         Left = 0
         Top = 0
         Width = 58
-        Height = 579
+        Height = 572
         Align = alLeft
         OnMouseDown = DiffBarMouseDown
         OnMouseMove = DiffBarMouseMove
         OnPaint = DiffBarPaint
+        ExplicitHeight = 579
       end
       object BtnCloseComparison: TSpeedButton
         Left = 248
@@ -192,6 +196,13 @@ object CompareFrame: TCompareFrame
         ShowHint = True
         OnClick = BtnSyncCaretClick
       end
+      object Label1: TLabel
+        Left = 64
+        Top = 208
+        Width = 78
+        Height = 20
+        Caption = 'Differences:'
+      end
       object BtnRecompare: TButton
         Left = 64
         Top = 8
@@ -228,11 +239,67 @@ object CompareFrame: TCompareFrame
         ReadOnly = True
         TabOrder = 2
       end
+      object DiffsList: TVirtualStringTree
+        Left = 64
+        Top = 230
+        Width = 353
+        Height = 344
+        AccessibleName = 'Right Addr'
+        Anchors = [akLeft, akTop, akBottom]
+        Colors.BorderColor = 15987699
+        Colors.DisabledColor = clGray
+        Colors.DropMarkColor = 15385233
+        Colors.DropTargetColor = 15385233
+        Colors.DropTargetBorderColor = 15385233
+        Colors.FocusedSelectionColor = 15385233
+        Colors.FocusedSelectionBorderColor = 15385233
+        Colors.GridLineColor = 15987699
+        Colors.HeaderHotColor = clBlack
+        Colors.HotColor = clBlack
+        Colors.SelectionRectangleBlendColor = 15385233
+        Colors.SelectionRectangleBorderColor = 15385233
+        Colors.SelectionTextColor = clBlack
+        Colors.TreeLineColor = 9471874
+        Colors.UnfocusedColor = clGray
+        Colors.UnfocusedSelectionColor = clWhite
+        Colors.UnfocusedSelectionBorderColor = clWhite
+        Header.AutoSizeIndex = 0
+        Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+        TabOrder = 3
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toReportMode, toToggleOnDblClick, toWheelPanning, toEditOnClick]
+        TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowHorzGridLines, toThemeAware, toUseBlendedImages]
+        TreeOptions.SelectionOptions = [toFullRowSelect]
+        OnGetText = DiffsListGetText
+        OnNodeDblClick = DiffsListNodeDblClick
+        Touch.InteractiveGestures = [igPan, igPressAndTap]
+        Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
+        Columns = <
+          item
+            Position = 0
+            Text = 'Left Addr'
+            Width = 100
+          end
+          item
+            Position = 1
+            Text = 'Left Size'
+            Width = 70
+          end
+          item
+            Position = 2
+            Text = 'Right Size'
+            Width = 70
+          end
+          item
+            Position = 3
+            Text = 'Right Addr'
+            Width = 100
+          end>
+      end
     end
   end
   object CompareSelectFormPanel: TPanel
-    Left = 12
-    Top = 272
+    Left = 436
+    Top = 256
     Width = 457
     Height = 321
     BevelOuter = bvNone
@@ -241,15 +308,15 @@ object CompareFrame: TCompareFrame
     object Label3: TLabel
       Left = 16
       Top = 212
-      Width = 75
-      Height = 13
+      Width = 102
+      Height = 20
       Caption = 'Sync block size:'
     end
     object Label4: TLabel
       Left = 184
       Top = 212
-      Width = 27
-      Height = 13
+      Width = 35
+      Height = 20
       Caption = 'bytes'
     end
     object ImageProxy1: THintedImageProxy
@@ -296,7 +363,7 @@ object CompareFrame: TCompareFrame
       Left = 112
       Top = 209
       Width = 57
-      Height = 21
+      Height = 28
       Style = csDropDownList
       ItemIndex = 4
       TabOrder = 2
@@ -320,16 +387,16 @@ object CompareFrame: TCompareFrame
       object LblRange1Start: TLabel
         Left = 120
         Top = 56
-        Width = 23
-        Height = 13
+        Width = 29
+        Height = 20
         Caption = 'start'
         Enabled = False
       end
       object LblRange1End: TLabel
         Left = 280
         Top = 56
-        Width = 18
-        Height = 13
+        Width = 25
+        Height = 20
         Caption = 'end'
         Enabled = False
       end
@@ -337,7 +404,7 @@ object CompareFrame: TCompareFrame
         Left = 8
         Top = 21
         Width = 417
-        Height = 21
+        Height = 28
         Style = csDropDownList
         TabOrder = 0
         OnChange = CBCmpEditor1Change
@@ -358,7 +425,7 @@ object CompareFrame: TCompareFrame
         Left = 150
         Top = 52
         Width = 121
-        Height = 21
+        Height = 28
         Hint = 'Range is pre-filled with current selection'
         Enabled = False
         ParentShowHint = False
@@ -370,7 +437,7 @@ object CompareFrame: TCompareFrame
         Left = 304
         Top = 52
         Width = 121
-        Height = 21
+        Height = 28
         Hint = 'Range is pre-filled with current selection'
         Enabled = False
         ParentShowHint = False
@@ -389,16 +456,16 @@ object CompareFrame: TCompareFrame
       object LblRange2Start: TLabel
         Left = 120
         Top = 56
-        Width = 23
-        Height = 13
+        Width = 29
+        Height = 20
         Caption = 'start'
         Enabled = False
       end
       object LblRange2End: TLabel
         Left = 280
         Top = 56
-        Width = 18
-        Height = 13
+        Width = 25
+        Height = 20
         Caption = 'end'
         Enabled = False
       end
@@ -406,7 +473,7 @@ object CompareFrame: TCompareFrame
         Left = 8
         Top = 21
         Width = 417
-        Height = 21
+        Height = 28
         Style = csDropDownList
         TabOrder = 0
         OnChange = CBCmpEditor1Change
@@ -427,7 +494,7 @@ object CompareFrame: TCompareFrame
         Left = 150
         Top = 52
         Width = 121
-        Height = 21
+        Height = 28
         Hint = 'Range is pre-filled with current selection'
         Enabled = False
         ParentShowHint = False
@@ -439,7 +506,7 @@ object CompareFrame: TCompareFrame
         Left = 304
         Top = 52
         Width = 121
-        Height = 21
+        Height = 28
         Hint = 'Range is pre-filled with current selection'
         Enabled = False
         ParentShowHint = False
