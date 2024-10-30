@@ -272,6 +272,23 @@ object MainForm: TMainForm
           inherited ValuesTreeView: TVirtualStringTree
             Width = 412
             Height = 504
+            Colors.BorderColor = 15987699
+            Colors.DisabledColor = clGray
+            Colors.DropMarkColor = 15385233
+            Colors.DropTargetColor = 15385233
+            Colors.DropTargetBorderColor = 15385233
+            Colors.FocusedSelectionColor = 15385233
+            Colors.FocusedSelectionBorderColor = 15385233
+            Colors.GridLineColor = 15987699
+            Colors.HeaderHotColor = clBlack
+            Colors.HotColor = clBlack
+            Colors.SelectionRectangleBlendColor = 15385233
+            Colors.SelectionRectangleBorderColor = 15385233
+            Colors.SelectionTextColor = clBlack
+            Colors.TreeLineColor = 9471874
+            Colors.UnfocusedColor = clGray
+            Colors.UnfocusedSelectionColor = clWhite
+            Colors.UnfocusedSelectionBorderColor = clWhite
             ExplicitWidth = 412
             ExplicitHeight = 504
             Columns = <
@@ -388,110 +405,8 @@ object MainForm: TMainForm
           ParentBackground = False
           ParentDoubleBuffered = False
           TabOrder = 0
-          inherited PageControl1: TPageControl
-            Width = 412
-            Height = 504
-            inherited InitialTab: TTabSheet
-              ExplicitTop = 24
-              ExplicitHeight = 579
-            end
-            inherited ComparisonTab: TTabSheet
-              ExplicitTop = 24
-              ExplicitWidth = 404
-              ExplicitHeight = 476
-              inherited DiffBar: TPaintBox
-                Height = 476
-              end
-              inherited Label1: TLabel
-                Width = 59
-                Height = 13
-                ExplicitWidth = 59
-                ExplicitHeight = 13
-              end
-              inherited BtnRecompare: TButton
-                Images = nil
-              end
-              inherited DiffsList: TVirtualStringTree
-                Height = 241
-              end
-            end
-          end
-          inherited CompareSelectFormPanel: TPanel
-            inherited Label3: TLabel
-              Width = 75
-              Height = 13
-              ExplicitWidth = 75
-              ExplicitHeight = 13
-            end
-            inherited Label4: TLabel
-              Width = 27
-              Height = 13
-              ExplicitWidth = 27
-              ExplicitHeight = 13
-            end
-            inherited ImageProxy1: THintedImageProxy
-              Image = nil
-            end
-            inherited HintedImageProxy1: THintedImageProxy
-              Image = nil
-            end
-            inherited CBSyncBlockSize: TComboBox
-              Height = 21
-              ExplicitHeight = 21
-            end
-            inherited GBFile1: TGroupBox
-              inherited LblRange1Start: TLabel
-                Width = 23
-                Height = 13
-                ExplicitWidth = 23
-                ExplicitHeight = 13
-              end
-              inherited LblRange1End: TLabel
-                Width = 18
-                Height = 13
-                ExplicitWidth = 18
-                ExplicitHeight = 13
-              end
-              inherited CBCmpEditor1: TComboBox
-                Height = 21
-                ExplicitHeight = 21
-              end
-              inherited EditRange1Start: TEdit
-                Height = 21
-                ExplicitHeight = 21
-              end
-              inherited EditRange1End: TEdit
-                Height = 21
-                ExplicitHeight = 21
-              end
-            end
-            inherited GBFile2: TGroupBox
-              inherited LblRange2Start: TLabel
-                Width = 23
-                Height = 13
-                ExplicitWidth = 23
-                ExplicitHeight = 13
-              end
-              inherited LblRange2End: TLabel
-                Width = 18
-                Height = 13
-                ExplicitWidth = 18
-                ExplicitHeight = 13
-              end
-              inherited CBCmpEditor2: TComboBox
-                Height = 21
-                ExplicitHeight = 21
-              end
-              inherited EditRange2Start: TEdit
-                Height = 21
-                ExplicitHeight = 21
-              end
-              inherited EditRange2End: TEdit
-                Height = 21
-                ExplicitHeight = 21
-              end
-            end
-          end
+          ExplicitWidth = 412
+          ExplicitHeight = 504
         end
       end
       object PgScript: TTabSheet

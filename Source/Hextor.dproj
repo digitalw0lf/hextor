@@ -210,10 +210,8 @@
         <DCCReference Include="uPasteAsForm.pas">
             <Form>PasteAsForm</Form>
         </DCCReference>
-        <DCCReference Include="uHextorGUI.pas"/>
         <DCCReference Include="uAboutForm.pas">
             <Form>AboutForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uHashFrame.pas">
             <Form>HashFrame</Form>
@@ -279,6 +277,10 @@
             <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uHexDataSource.pas"/>
+        <DCCReference Include="uCompareSelectForm.pas">
+            <Form>CompareSelectForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <None Include="ModelSupport_Hextor\default.txaPackage"/>
         <None Include="ModelSupport_Hextor\default.txvpck"/>
         <None Include="ModelSupport_Hextor\uMainForm\default.txaPackage"/>

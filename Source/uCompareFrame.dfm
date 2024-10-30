@@ -1,8 +1,8 @@
 object CompareFrame: TCompareFrame
   Left = 0
   Top = 0
-  Width = 497
-  Height = 607
+  Width = 623
+  Height = 706
   DoubleBuffered = True
   ParentBackground = False
   ParentDoubleBuffered = False
@@ -10,11 +10,11 @@ object CompareFrame: TCompareFrame
   object PageControl1: TPageControl
     Left = 0
     Top = 0
-    Width = 497
-    Height = 607
+    Width = 623
+    Height = 706
     ActivePage = ComparisonTab
     Align = alClient
-    TabOrder = 1
+    TabOrder = 0
     object InitialTab: TTabSheet
       Caption = 'InitialTab'
       object BtnStartCompare: TButton
@@ -30,14 +30,15 @@ object CompareFrame: TCompareFrame
     object ComparisonTab: TTabSheet
       Caption = 'ComparisonTab'
       ImageIndex = 1
+      OnResize = ComparisonTabResize
       DesignSize = (
-        489
-        572)
+        615
+        671)
       object DiffBar: TPaintBox
         Left = 0
         Top = 0
         Width = 58
-        Height = 572
+        Height = 671
         Align = alLeft
         OnMouseDown = DiffBarMouseDown
         OnMouseMove = DiffBarMouseMove
@@ -243,7 +244,7 @@ object CompareFrame: TCompareFrame
         Left = 64
         Top = 230
         Width = 353
-        Height = 344
+        Height = 443
         AccessibleName = 'Right Addr'
         Anchors = [akLeft, akTop, akBottom]
         Colors.BorderColor = 15987699
@@ -258,7 +259,7 @@ object CompareFrame: TCompareFrame
         Colors.HotColor = clBlack
         Colors.SelectionRectangleBlendColor = 15385233
         Colors.SelectionRectangleBorderColor = 15385233
-        Colors.SelectionTextColor = clBlack
+        Colors.SelectionTextColor = clWhite
         Colors.TreeLineColor = 9471874
         Colors.UnfocusedColor = clGray
         Colors.UnfocusedSelectionColor = clWhite
@@ -295,239 +296,6 @@ object CompareFrame: TCompareFrame
             Width = 100
           end>
       end
-    end
-  end
-  object CompareSelectFormPanel: TPanel
-    Left = 436
-    Top = 256
-    Width = 457
-    Height = 321
-    BevelOuter = bvNone
-    TabOrder = 0
-    Visible = False
-    object Label3: TLabel
-      Left = 16
-      Top = 212
-      Width = 102
-      Height = 20
-      Caption = 'Sync block size:'
-    end
-    object Label4: TLabel
-      Left = 184
-      Top = 212
-      Width = 35
-      Height = 20
-      Caption = 'bytes'
-    end
-    object ImageProxy1: THintedImageProxy
-      Left = 231
-      Top = 211
-      Width = 16
-      Height = 16
-      Image = MainForm.HintImage
-      ImageIndex = 0
-      HintFmt = 
-        'When comparing different data, detect similarities if they are a' +
-        't least this size'
-    end
-    object HintedImageProxy1: THintedImageProxy
-      Left = 231
-      Top = 236
-      Width = 16
-      Height = 16
-      Image = MainForm.HintImage
-      ImageIndex = 0
-      HintFmt = 'If unchecked, simple compare bytes one-by-one'
-    end
-    object BtnCompare: TButton
-      Left = 136
-      Top = 280
-      Width = 75
-      Height = 25
-      Caption = 'Compare'
-      Default = True
-      ModalResult = 1
-      TabOrder = 0
-    end
-    object BtnCancel: TButton
-      Left = 248
-      Top = 280
-      Width = 75
-      Height = 25
-      Cancel = True
-      Caption = 'Cancel'
-      ModalResult = 2
-      TabOrder = 1
-    end
-    object CBSyncBlockSize: TComboBox
-      Left = 112
-      Top = 209
-      Width = 57
-      Height = 28
-      Style = csDropDownList
-      ItemIndex = 4
-      TabOrder = 2
-      Text = '16'
-      Items.Strings = (
-        '1'
-        '2'
-        '4'
-        '8'
-        '16'
-        '32'
-        '64')
-    end
-    object GBFile1: TGroupBox
-      Left = 8
-      Top = 3
-      Width = 441
-      Height = 89
-      Caption = 'Left'
-      TabOrder = 3
-      object LblRange1Start: TLabel
-        Left = 120
-        Top = 56
-        Width = 29
-        Height = 20
-        Caption = 'start'
-        Enabled = False
-      end
-      object LblRange1End: TLabel
-        Left = 280
-        Top = 56
-        Width = 25
-        Height = 20
-        Caption = 'end'
-        Enabled = False
-      end
-      object CBCmpEditor1: TComboBox
-        Left = 8
-        Top = 21
-        Width = 417
-        Height = 28
-        Style = csDropDownList
-        TabOrder = 0
-        OnChange = CBCmpEditor1Change
-      end
-      object CBRange1: TCheckBox
-        Left = 8
-        Top = 54
-        Width = 97
-        Height = 17
-        Hint = 'Range is pre-filled with current selection'
-        Caption = 'Specify range:'
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 1
-        OnClick = CBRange1Click
-      end
-      object EditRange1Start: TEdit
-        Left = 150
-        Top = 52
-        Width = 121
-        Height = 28
-        Hint = 'Range is pre-filled with current selection'
-        Enabled = False
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 2
-        Text = '0'
-      end
-      object EditRange1End: TEdit
-        Left = 304
-        Top = 52
-        Width = 121
-        Height = 28
-        Hint = 'Range is pre-filled with current selection'
-        Enabled = False
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 3
-        Text = '0'
-      end
-    end
-    object GBFile2: TGroupBox
-      Left = 8
-      Top = 106
-      Width = 441
-      Height = 90
-      Caption = 'Right'
-      TabOrder = 4
-      object LblRange2Start: TLabel
-        Left = 120
-        Top = 56
-        Width = 29
-        Height = 20
-        Caption = 'start'
-        Enabled = False
-      end
-      object LblRange2End: TLabel
-        Left = 280
-        Top = 56
-        Width = 25
-        Height = 20
-        Caption = 'end'
-        Enabled = False
-      end
-      object CBCmpEditor2: TComboBox
-        Left = 8
-        Top = 21
-        Width = 417
-        Height = 28
-        Style = csDropDownList
-        TabOrder = 0
-        OnChange = CBCmpEditor1Change
-      end
-      object CBRange2: TCheckBox
-        Left = 8
-        Top = 54
-        Width = 97
-        Height = 17
-        Hint = 'Range is pre-filled with current selection'
-        Caption = 'Specify range:'
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 1
-        OnClick = CBRange2Click
-      end
-      object EditRange2Start: TEdit
-        Left = 150
-        Top = 52
-        Width = 121
-        Height = 28
-        Hint = 'Range is pre-filled with current selection'
-        Enabled = False
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 2
-        Text = '0'
-      end
-      object EditRange2End: TEdit
-        Left = 304
-        Top = 52
-        Width = 121
-        Height = 28
-        Hint = 'Range is pre-filled with current selection'
-        Enabled = False
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 3
-        Text = '0'
-      end
-    end
-    object CBDetectInsertions: TCheckBox
-      Left = 16
-      Top = 236
-      Width = 195
-      Height = 17
-      Hint = 'Range is pre-filled with current selection'
-      Caption = 'Detect block insertion/deletion'
-      Checked = True
-      ParentShowHint = False
-      ShowHint = True
-      State = cbChecked
-      TabOrder = 5
-      OnClick = CBRange2Click
     end
   end
   object Timer1: TTimer

@@ -32,7 +32,7 @@ uses
   Vcl.Styles,
   uSearchResultsFrame in 'uSearchResultsFrame.pas' {SearchResultsFrame: TFrame},
   uPasteAsForm in 'uPasteAsForm.pas' {PasteAsForm},
-  uHextorGUI in 'uHextorGUI.pas',
+  uHextorGUI,
   uAboutForm in 'uAboutForm.pas' {AboutForm},
   uHashFrame in 'uHashFrame.pas' {HashFrame: TFrame},
   uModifyWithExpressionForm in 'uModifyWithExpressionForm.pas' {ModifyWithExpressionForm},
@@ -50,7 +50,8 @@ uses
   uFileConcatForm in 'uFileConcatForm.pas' {FileConcatForm},
   uMediaFrame in 'uMediaFrame.pas' {MediaFrame: TFrame},
   uFindAltStreamsForm in 'uFindAltStreamsForm.pas' {FindAltStreamsForm},
-  uHexDataSource in 'uHexDataSource.pas';
+  uHexDataSource in 'uHexDataSource.pas',
+  uCompareSelectForm in 'uCompareSelectForm.pas' {CompareSelectForm};
 
 {$R *.res}
 
@@ -78,5 +79,6 @@ begin
   Application.CreateForm(TFileSplitForm, FileSplitForm);
   Application.CreateForm(TFileConcatForm, FileConcatForm);
   Application.CreateForm(TFindAltStreamsForm, FindAltStreamsForm);
+  Application.CreateForm(TCompareSelectForm, CompareSelectForm);
   Application.Run;
 end.

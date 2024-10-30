@@ -78,9 +78,6 @@ type
   end;
 
   TCompareFrame = class(TFrame)
-    CompareSelectFormPanel: TPanel;
-    BtnCompare: TButton;
-    BtnCancel: TButton;
     PageControl1: TPageControl;
     InitialTab: TTabSheet;
     ComparisonTab: TTabSheet;
@@ -92,28 +89,8 @@ type
     BtnPrevDiff: TSpeedButton;
     BtnNextDiff: TSpeedButton;
     Timer1: TTimer;
-    Label3: TLabel;
-    CBSyncBlockSize: TComboBox;
-    Label4: TLabel;
-    ImageProxy1: THintedImageProxy;
-    GBFile1: TGroupBox;
-    CBCmpEditor1: TComboBox;
-    CBRange1: TCheckBox;
-    EditRange1Start: TEdit;
-    LblRange1Start: TLabel;
-    LblRange1End: TLabel;
-    EditRange1End: TEdit;
-    GBFile2: TGroupBox;
-    CBCmpEditor2: TComboBox;
-    CBRange2: TCheckBox;
-    EditRange2Start: TEdit;
-    LblRange2Start: TLabel;
-    LblRange2End: TLabel;
-    EditRange2End: TEdit;
     MemoDiffStats: TMemo;
     BtnSyncCaret: TSpeedButton;
-    CBDetectInsertions: TCheckBox;
-    HintedImageProxy1: THintedImageProxy;
     DiffsList: TVirtualStringTree;
     Label1: TLabel;
     procedure DiffBarPaint(Sender: TObject);
@@ -122,15 +99,13 @@ type
     procedure DiffBarMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure BtnRecompareClick(Sender: TObject);
-    procedure CBCmpEditor1Change(Sender: TObject);
     procedure BtnAbortClick(Sender: TObject);
     procedure BtnCloseComparisonClick(Sender: TObject);
     procedure BtnStartCompareClick(Sender: TObject);
     procedure BtnNextDiffClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
-    procedure CBRange1Click(Sender: TObject);
-    procedure CBRange2Click(Sender: TObject);
     procedure BtnSyncCaretClick(Sender: TObject);
+    procedure ComparisonTabResize(Sender: TObject);
     procedure DiffsListGetText(Sender: TBaseVirtualTree; Node:
         PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText:
         string);
@@ -178,7 +153,7 @@ type
 implementation
 
 uses
-  uMainForm, uBitmapFrame;
+  uMainForm, uBitmapFrame, uCompareSelectForm;
 
 {$R *.dfm}
 
@@ -205,46 +180,6 @@ procedure TCompareFrame.BtnSyncCaretClick(Sender: TObject);
 begin
   if BtnSyncCaret.Down then
     SyncCaretPos(MainForm.ActiveEditor);
-end;
-
-procedure TCompareFrame.CBCmpEditor1Change(Sender: TObject);
-var
-  Editor: TEditorForm;
-  Range: TFileRange;
-begin
-  BtnCompare.Enabled := (CBCmpEditor1.ItemIndex <> CBCmpEditor2.ItemIndex);
-
-  if (Sender as TComboBox).ItemIndex >= 0 then
-  begin
-    Editor := MainForm.Editors[(Sender as TComboBox).ItemIndex];
-    Range := Editor.SelectedRange;
-    if Sender = CBCmpEditor1 then
-    begin
-      EditRange1Start.Text := IntToStr(Range.Start);
-      EditRange1End.Text := IntToStr(Range.AEnd);
-    end
-    else
-    begin
-      EditRange2Start.Text := IntToStr(Range.Start);
-      EditRange2End.Text := IntToStr(Range.AEnd);
-    end;
-  end;
-end;
-
-procedure TCompareFrame.CBRange1Click(Sender: TObject);
-begin
-  LblRange1Start.Enabled := CBRange1.Checked;
-  EditRange1Start.Enabled := CBRange1.Checked;
-  LblRange1End.Enabled := CBRange1.Checked;
-  EditRange1End.Enabled := CBRange1.Checked;
-end;
-
-procedure TCompareFrame.CBRange2Click(Sender: TObject);
-begin
-  LblRange2Start.Enabled := CBRange2.Checked;
-  EditRange2Start.Enabled := CBRange2.Checked;
-  LblRange2End.Enabled := CBRange2.Checked;
-  EditRange2End.Enabled := CBRange2.Checked;
 end;
 
 constructor TCompareFrame.Create(AOwner: TComponent);
@@ -592,32 +527,35 @@ begin
   if MainForm.EditorCount < 2 then
     raise EInvalidUserInput.Create('You need to open two files in editor first');
 
-  CBCmpEditor1.Items.Clear();
+  CompareSelectForm.CBCmpEditor1.Items.Clear();
   for n:=0 to MainForm.EditorCount-1 do
-    CBCmpEditor1.Items.Add(MainForm.Editors[n].Caption);
-  CBCmpEditor2.Items.Assign(CBCmpEditor1.Items);
+    CompareSelectForm.CBCmpEditor1.Items.Add(MainForm.Editors[n].Caption);
+  CompareSelectForm.CBCmpEditor2.Items.Assign(CompareSelectForm.CBCmpEditor1.Items);
 
   n := MainForm.GetEditorIndex(MainForm.ActiveEditor);
   if n = 0 then
   begin
-    CBCmpEditor1.ItemIndex := 0;
-    CBCmpEditor2.ItemIndex := 1;
+    CompareSelectForm.CBCmpEditor1.ItemIndex := 0;
+    CompareSelectForm.CBCmpEditor2.ItemIndex := 1;
   end
   else
   begin
-    CBCmpEditor1.ItemIndex := n - 1;
-    CBCmpEditor2.ItemIndex := n;
+    CompareSelectForm.CBCmpEditor1.ItemIndex := n - 1;
+    CompareSelectForm.CBCmpEditor2.ItemIndex := n;
   end;
-  CBCmpEditor1Change(CBCmpEditor1);
-  CBCmpEditor1Change(CBCmpEditor2);
+  CompareSelectForm.CBCmpEditor1Change(CompareSelectForm.CBCmpEditor1);
+  CompareSelectForm.CBCmpEditor1Change(CompareSelectForm.CBCmpEditor2);
 
-  with MakeFormWithContent(CompareSelectFormPanel, bsDialog, 'Compare') do
+  //with MakeFormWithContent(CompareSelectFormPanel, bsDialog, 'Compare') do
+  with CompareSelectForm do
   begin
+//    CompareSelectFormPanel.Align := alNone;
+//    AutoSize := True;
     Result := ShowModal();   // <--
     if Result <> mrOk then Exit;
   end;
 
-  StartCompare(MainForm.Editors[CBCmpEditor1.ItemIndex], MainForm.Editors[CBCmpEditor2.ItemIndex]);
+  StartCompare(MainForm.Editors[CompareSelectForm.CBCmpEditor1.ItemIndex], MainForm.Editors[CompareSelectForm.CBCmpEditor2.ItemIndex]);
 end;
 
 procedure TCompareFrame.CloseComparison;
@@ -687,6 +625,11 @@ begin
   end;
 end;
 
+procedure TCompareFrame.ComparisonTabResize(Sender: TObject);
+begin
+  DiffsList.Height := ComparisonTab.ClientHeight - DiffsList.Top;
+end;
+
 procedure TCompareFrame.StartCompare(Editor0, Editor1: TEditorForm);
 var
   Range0, Range1: TFileRange;
@@ -696,18 +639,18 @@ var
   MDIRect: TRect;
 begin
   // Read settings from dialog
-  SyncBlockSize := StrToInt(CBSyncBlockSize.Text);
-  DetectInsertions := CBDetectInsertions.Checked;
+  SyncBlockSize := StrToInt(CompareSelectForm.CBSyncBlockSize.Text);
+  DetectInsertions := CompareSelectForm.CBDetectInsertions.Checked;
 
-  if CBRange1.Checked then
-    Range0 := TFileRange.Create(MainForm.ParseFilePointer(EditRange1Start.Text, 0),
-                                MainForm.ParseFilePointer(EditRange1End.Text, 0))
+  if CompareSelectForm.CBRange1.Checked then
+    Range0 := TFileRange.Create(MainForm.ParseFilePointer(CompareSelectForm.EditRange1Start.Text, 0),
+                                MainForm.ParseFilePointer(CompareSelectForm.EditRange1End.Text, 0))
   else
     Range0 := TFileRange.Create(0, Editor0.Data.GetSize());
 
-  if CBRange2.Checked then
-    Range1 := TFileRange.Create(MainForm.ParseFilePointer(EditRange2Start.Text, 0),
-                                MainForm.ParseFilePointer(EditRange2End.Text, 0))
+  if CompareSelectForm.CBRange2.Checked then
+    Range1 := TFileRange.Create(MainForm.ParseFilePointer(CompareSelectForm.EditRange2Start.Text, 0),
+                                MainForm.ParseFilePointer(CompareSelectForm.EditRange2End.Text, 0))
   else
     Range1 := TFileRange.Create(0, Editor1.Data.GetSize());
 
