@@ -57,7 +57,6 @@ object EditorForm: TEditorForm
     1D393939383737371F2119233A3A3A3A1E1D1B1A18171514131C243A3A3AC003
     0000C0030000C0030000C0030000C0030000C0030000C0030000C0030000C003
     0000C0030000C0030000C0030000C0030000C0030000C0030000C0070000}
-  OldCreateOrder = False
   Visible = True
   OnActivate = FormActivate
   OnClose = FormClose
@@ -65,7 +64,6 @@ object EditorForm: TEditorForm
   OnCreate = FormCreate
   OnDeactivate = FormDeactivate
   OnResize = FormResize
-  PixelsPerInch = 96
   TextHeight = 13
   object PaneHex: TEditorPane
     AlignWithMargins = True
@@ -103,6 +101,7 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 618
   end
   object PaneAddr: TEditorPane
     Left = 0
@@ -126,6 +125,7 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 618
   end
   object PaneText: TEditorPane
     AlignWithMargins = True
@@ -163,12 +163,14 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitWidth = 252
+    ExplicitHeight = 618
     DesignSize = (
       258
       627)
     object BtnSkipFFBack: TSpeedButton
       Tag = -1
-      Left = 204
+      Left = 198
       Top = 4
       Width = 51
       Height = 26
@@ -185,10 +187,11 @@ object EditorForm: TEditorForm
       ShowHint = True
       Visible = False
       OnClick = BtnSkipFFBackClick
+      ExplicitLeft = 204
     end
     object BtnSkipFFFwd: TSpeedButton
       Tag = 1
-      Left = 206
+      Left = 200
       Top = 599
       Width = 49
       Height = 25
@@ -205,6 +208,7 @@ object EditorForm: TEditorForm
       ShowHint = True
       Visible = False
       OnClick = BtnSkipFFBackClick
+      ExplicitLeft = 206
       ExplicitTop = 579
     end
     object Image1: TImage
@@ -228,7 +232,15 @@ object EditorForm: TEditorForm
       item
         Text = 'Byte: ?'
         Width = 200
+      end
+      item
+        Text = 'OVR'
+        Width = 50
       end>
+    OnMouseUp = StatusBarMouseUp
+    OnResize = StatusBarResize
+    ExplicitTop = 635
+    ExplicitWidth = 1043
   end
   object VertScrollBar: TScrollBar64
     Left = 1032
@@ -242,6 +254,8 @@ object EditorForm: TEditorForm
     TabOrder = 4
     OnChange = VertScrollBarChange
     OnScroll = VertScrollBarScroll
+    ExplicitLeft = 1026
+    ExplicitHeight = 618
   end
   object HorzScrollBar: TScrollBar64
     Left = 0
@@ -253,6 +267,8 @@ object EditorForm: TEditorForm
     PageSize = 0
     TabOrder = 5
     OnChange = HorzScrollBarChange
+    ExplicitTop = 618
+    ExplicitWidth = 1043
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286

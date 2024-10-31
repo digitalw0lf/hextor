@@ -15,7 +15,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Generics.Collections, Math, System.Types, Vcl.Menus,
   System.Win.ComObj, System.TypInfo, Winapi.ActiveX, Vcl.Buttons,
-  System.ImageList, Vcl.ImgList, System.IOUtils,
+  System.ImageList, Vcl.ImgList, System.IOUtils, System.StrUtils,
 
   uHextorTypes, uHextorDataSources, uEditorPane, uEditedData,
   uCallbackList, uDataSearcher, uUndoStack, {uLogFile,} uOleAutoAPIWrapper,
@@ -110,6 +110,9 @@ type
     procedure VertScrollBarScroll(Sender: TObject; ScrollCode: TScrollCode;
       var ScrollPos: Int64);
     procedure HorzScrollBarChange(Sender: TObject);
+    procedure StatusBarMouseUp(Sender: TObject; Button: TMouseButton; Shift:
+        TShiftState; X, Y: Integer);
+    procedure StatusBarResize(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   private
     { Private declarations }
@@ -184,6 +187,7 @@ type
     procedure SetShowPanes(PaneType: TEditorPaneType; const Value: Boolean);
     function GetShowPanes(PaneType: TEditorPaneType): Boolean;
     procedure EnsureControlOrder(const Ctrls: array of TControl);
+    function GetStatusBarPanelAt(X: Integer): Integer;
   public type
     TCaretInSelection = (CaretNoMove, CaretAtStart, CaretAtEnd);
   public const
@@ -1139,6 +1143,21 @@ begin
   Result := FShowPanes[PaneType];
 end;
 
+function TEditorForm.GetStatusBarPanelAt(X: Integer): Integer;
+// Find StatusBar panel index at given relative coordinate
+var
+  w: Integer;
+begin
+  w := 0;
+  Result := 0;
+  while (Result < StatusBar.Panels.Count) do
+  begin
+    w := w + StatusBar.Panels[Result].Width;
+    if w >= X then Exit();
+    Inc(Result);
+  end;
+end;
+
 function TEditorForm.GetVisibleLinesCount: Integer;
 begin
   RequireLineRanges();
@@ -1657,6 +1676,7 @@ begin
   begin
     FInsertMode := Value;
     UpdatePanesCarets();
+    StatusBar.Panels[2].Text := IfThen(Value, 'INS', 'OVR');
   end;
 end;
 
@@ -2292,6 +2312,18 @@ end;
 procedure TEditorForm.OpenNewEmptyFile(const FileName: string);
 begin
   Open(TFileDataSource, FileName, True);
+end;
+
+procedure TEditorForm.StatusBarMouseUp(Sender: TObject; Button: TMouseButton;
+    Shift: TShiftState; X, Y: Integer);
+begin
+  if (Button = mbLeft) and (GetStatusBarPanelAt(X) = 2) then
+    InsertMode := not InsertMode;
+end;
+
+procedure TEditorForm.StatusBarResize(Sender: TObject);
+begin
+  StatusBar.Panels[1].Width := StatusBar.Width - StatusBar.Panels[0].Width - StatusBar.Panels[2].Width;
 end;
 
 { TFFSkipSearcher }
