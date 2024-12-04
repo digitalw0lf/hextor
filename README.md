@@ -76,8 +76,8 @@ Copyright (c) Henri Gourvest
 Licence: LGPL / MPL 1.1  
 
 **SynEdit** Syntax highlighting editor component  
-https://github.com/SynEdit/SynEdit  
-Licence: MPL 1.1 / GPL 2  
+https://github.com/pyscripter/SynEdit  
+Licence: MPL 1.1  
 
 **Virtual-TreeView** Delphi treeview control  
 https://www.jam-software.com/virtual-treeview  

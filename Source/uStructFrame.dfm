@@ -78,19 +78,14 @@ object StructFrame: TStructFrame
     Width = 297
     Height = 228
     Align = alTop
+    CaseSensitive = True
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
+    Font.Quality = fqClearTypeNatural
     TabOrder = 2
-    CodeFolding.GutterShapeSize = 11
-    CodeFolding.CollapsedLineColor = clGrayText
-    CodeFolding.FolderBarLinesColor = clGrayText
-    CodeFolding.IndentGuidesColor = clGray
-    CodeFolding.IndentGuides = True
-    CodeFolding.ShowCollapsedLine = False
-    CodeFolding.ShowHintMark = True
     UseCodeFolding = False
     Gutter.DigitCount = 3
     Gutter.Font.Charset = DEFAULT_CHARSET
@@ -98,15 +93,32 @@ object StructFrame: TStructFrame
     Gutter.Font.Height = -11
     Gutter.Font.Name = 'Courier New'
     Gutter.Font.Style = []
-    Gutter.LeftOffset = 0
+    Gutter.Font.Quality = fqClearTypeNatural
     Gutter.ShowLineNumbers = True
-    Gutter.ShowModification = True
+    Gutter.TrackChanges.Visible = True
+    Gutter.Bands = <
+      item
+        Kind = gbkMarks
+        Width = 13
+      end
+      item
+        Kind = gbkLineNumbers
+      end
+      item
+        Kind = gbkFold
+      end
+      item
+        Kind = gbkTrackChanges
+      end
+      item
+        Kind = gbkMargin
+        Width = 3
+      end>
     Highlighter = SynCppSyn1
-    MaxScrollWidth = 512
-    Options = [eoAutoIndent, eoAutoSizeMaxScrollWidth, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoSmartTabs, eoTabIndent, eoTabsToSpaces, eoTrimTrailingSpaces]
+    SelectedColor.Alpha = 0.449999988079071000
     TabWidth = 2
+    VisibleSpecialChars = []
     WantTabs = True
-    FontSmoothing = fsmNone
   end
   object DSTreeView: TVirtualStringTree
     Left = 0
@@ -116,7 +128,9 @@ object StructFrame: TStructFrame
     Align = alClient
     ClipboardFormats.Strings = (
       'Plain text')
+    DefaultNodeHeight = 19
     Header.AutoSizeIndex = 0
+    Header.Height = 15
     Header.MainColumn = -1
     HintMode = hmHint
     ParentShowHint = False
@@ -144,7 +158,7 @@ object StructFrame: TStructFrame
     Left = 144
     Top = 304
     Width = 121
-    Height = 21
+    Height = 23
     TabOrder = 1
     Text = 'EditFieldValue'
     Visible = False
@@ -198,7 +212,7 @@ object StructFrame: TStructFrame
       OnClick = MISaveAsClick
     end
     object LblStructName: TLabel
-      Left = 93
+      Left = 97
       Top = 0
       Width = 64
       Height = 26
@@ -239,9 +253,6 @@ object StructFrame: TStructFrame
     Top = 168
   end
   object SynCppSyn1: TSynCppSyn
-    Options.AutoDetectEnabled = False
-    Options.AutoDetectLineLimit = 0
-    Options.Visible = False
     CommentAttri.Foreground = clGreen
     Left = 224
     Top = 104

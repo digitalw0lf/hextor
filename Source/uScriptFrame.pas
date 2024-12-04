@@ -199,6 +199,8 @@ begin
   if not FilesForMenuItems.TryGetValue(n, fn) then Exit;
   name := (Sender as TMenuItem).Caption;
   ScriptEdit.Lines.LoadFromFile(fn);
+  // If you get compilation error here, switch to https://github.com/pyscripter/SynEdit
+  ScriptEdit.ClearTrackChanges();
   CurScriptFileName := fn;
   LblScriptName.Caption := '    ' + name;
 end;
@@ -238,7 +240,7 @@ begin
 
   ForceDirectories(ExtractFilePath(fn));
   ScriptEdit.Lines.SaveToFile(fn);
-  ScriptEdit.MarkModifiedLinesAsSaved();
+  ScriptEdit.MarkSaved();
   CurScriptFileName := fn;
   // '    ' is added so vertical line, added by toolbar, does not overlaps caption
   LblScriptName.Caption := '    ' + ChangeFileExt(ExtractFileName(CurScriptFileName), '');

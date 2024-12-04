@@ -1140,7 +1140,8 @@ begin
 
   ForceDirectories(ExtractFilePath(fn));
   DSDescrEdit.Lines.SaveToFile(fn);
-  DSDescrEdit.MarkModifiedLinesAsSaved();
+  // If you get compilation error here, switch to https://github.com/pyscripter/SynEdit
+  DSDescrEdit.MarkSaved();
   // '    ' is added so vertical line, added by toolbar, does not overlaps caption
   LblStructName.Caption := '    ' + ChangeFileExt(ExtractFileName(fn), '');
   CurDSFileName := fn;
@@ -1240,6 +1241,7 @@ begin
     FileName := FindFile(FileName, [UserDSFolder(), BuiltInDSFolder()]);
   name := ChangeFileExt(ExtractFileName(FileName), '');
   DSDescrEdit.Lines.LoadFromFile(FileName);
+  DSDescrEdit.ClearTrackChanges();
   LblStructName.Caption := '    ' + name;
   CurDSFileName := FileName;
 end;

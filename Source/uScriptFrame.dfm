@@ -38,7 +38,6 @@ object ScriptFrame: TScriptFrame
       ReadOnly = True
       ScrollBars = ssBoth
       TabOrder = 0
-      Zoom = 100
     end
     object OutputToolPanel: TPanel
       Left = 0
@@ -68,19 +67,14 @@ object ScriptFrame: TScriptFrame
     Width = 401
     Height = 482
     Align = alClient
+    CaseSensitive = True
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
+    Font.Quality = fqClearTypeNatural
     TabOrder = 0
-    CodeFolding.GutterShapeSize = 11
-    CodeFolding.CollapsedLineColor = clGrayText
-    CodeFolding.FolderBarLinesColor = clGrayText
-    CodeFolding.IndentGuidesColor = clGray
-    CodeFolding.IndentGuides = True
-    CodeFolding.ShowCollapsedLine = False
-    CodeFolding.ShowHintMark = True
     UseCodeFolding = False
     Gutter.DigitCount = 3
     Gutter.Font.Charset = DEFAULT_CHARSET
@@ -88,15 +82,31 @@ object ScriptFrame: TScriptFrame
     Gutter.Font.Height = -11
     Gutter.Font.Name = 'Courier New'
     Gutter.Font.Style = []
-    Gutter.LeftOffset = 0
+    Gutter.Font.Quality = fqClearTypeNatural
     Gutter.ShowLineNumbers = True
-    Gutter.ShowModification = True
+    Gutter.Bands = <
+      item
+        Kind = gbkMarks
+        Width = 13
+      end
+      item
+        Kind = gbkLineNumbers
+      end
+      item
+        Kind = gbkFold
+      end
+      item
+        Kind = gbkTrackChanges
+      end
+      item
+        Kind = gbkMargin
+        Width = 3
+      end>
     Highlighter = SynJScriptSyn1
-    MaxScrollWidth = 512
-    Options = [eoAutoIndent, eoAutoSizeMaxScrollWidth, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoSmartTabs, eoTabIndent, eoTabsToSpaces, eoTrimTrailingSpaces]
+    SelectedColor.Alpha = 0.449999988079071000
     TabWidth = 2
+    VisibleSpecialChars = []
     WantTabs = True
-    FontSmoothing = fsmNone
   end
   object ToolBar1: TToolBar
     Left = 0
@@ -145,7 +155,7 @@ object ScriptFrame: TScriptFrame
       OnClick = MISaveAsClick
     end
     object BtnRun: TToolButton
-      Left = 93
+      Left = 97
       Top = 0
       Hint = 'Run'
       Caption = 'BtnRun'
@@ -156,9 +166,9 @@ object ScriptFrame: TScriptFrame
       OnClick = BtnRunClick
     end
     object LblScriptName: TLabel
-      Left = 119
+      Left = 123
       Top = 0
-      Width = 57
+      Width = 64
       Height = 26
       Caption = '    Unnamed'
       Transparent = True
@@ -170,9 +180,6 @@ object ScriptFrame: TScriptFrame
     Top = 296
   end
   object SynJScriptSyn1: TSynJScriptSyn
-    Options.AutoDetectEnabled = False
-    Options.AutoDetectLineLimit = 0
-    Options.Visible = False
     Left = 104
     Top = 184
   end

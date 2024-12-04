@@ -55,7 +55,7 @@ object AsmFrame: TAsmFrame
       Left = 88
       Top = 11
       Width = 97
-      Height = 21
+      Height = 23
       Hint = 'Instruction set'
       Style = csDropDownList
       ItemIndex = 0
@@ -81,31 +81,42 @@ object AsmFrame: TAsmFrame
     Font.Height = -13
     Font.Name = 'Courier New'
     Font.Style = []
+    Font.Quality = fqClearTypeNatural
     PopupMenu = DisasmPopupMenu
     TabOrder = 1
-    CodeFolding.GutterShapeSize = 11
-    CodeFolding.CollapsedLineColor = clGrayText
-    CodeFolding.FolderBarLinesColor = clGrayText
-    CodeFolding.IndentGuidesColor = clGray
-    CodeFolding.IndentGuides = True
-    CodeFolding.ShowCollapsedLine = False
-    CodeFolding.ShowHintMark = True
     UseCodeFolding = False
     Gutter.Font.Charset = DEFAULT_CHARSET
     Gutter.Font.Color = clWindowText
     Gutter.Font.Height = -11
     Gutter.Font.Name = 'Courier New'
     Gutter.Font.Style = []
+    Gutter.Font.Quality = fqClearTypeNatural
+    Gutter.Bands = <
+      item
+        Kind = gbkMarks
+        Width = 13
+      end
+      item
+        Kind = gbkLineNumbers
+      end
+      item
+        Kind = gbkFold
+      end
+      item
+        Kind = gbkTrackChanges
+      end
+      item
+        Kind = gbkMargin
+        Width = 3
+      end>
     Highlighter = SynAsmSyn1
     Options = [eoAutoIndent, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoRightMouseMovesCursor, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoSmartTabs, eoTabsToSpaces]
     ReadOnly = True
+    SelectedColor.Alpha = 0.449999988079071000
+    VisibleSpecialChars = []
     OnStatusChange = SynEdit1StatusChange
-    FontSmoothing = fsmNone
   end
   object SynAsmSyn1: TSynAsmSyn
-    Options.AutoDetectEnabled = False
-    Options.AutoDetectLineLimit = 0
-    Options.Visible = False
     Left = 104
     Top = 176
   end
