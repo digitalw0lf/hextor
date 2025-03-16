@@ -120,6 +120,7 @@
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=Copyright © Grigoriy Mylnikov (DigitalWolF);LegalTrademarks=;OriginalFilename=Hextor.exe;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <Icon_MainIcon>..\Data\WolfTraceIcon.ico</Icon_MainIcon>
+        <ILINK_MapFileType>DetailedSegments</ILINK_MapFileType>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>

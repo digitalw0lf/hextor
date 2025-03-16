@@ -37,6 +37,9 @@ type
       Inverse: Boolean;        // for peRanges - match all except ranges
       MinCount, MaxCount: Integer;  // for peAny, peRanges, peScript
       Greedy: Boolean;         // for peAny, peRanges, peScript
+
+      class function Create_Any(AMinCount, AMaxCount: Integer): TElement; static;
+      class function Create_Bytes(const Data: TBytes): TElement; static;
     end;
 
     TFoundElement = record
@@ -79,6 +82,7 @@ type
     function CombineElements(var Elem1: TElement; const Elem2: TElement): Boolean;
     function GetElementSize(DataType: TValueInterpretor; const Ranges: TVariantRanges): Integer;
     function ParseTag(const Text: string): TElement;
+    function ParseHexElement(const Text: string): TElement;
     procedure CollectGroups();
     procedure Compile(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
     function MatchElementsFrom(const Data: PByte; DataSize: Integer; ElemIndex: Integer; var Size: Integer; var Items: TFoundElements): Boolean;
@@ -735,6 +739,35 @@ begin
   Inc(P);
 end;
 
+function ReadHexPair(var P: PChar): string;
+// Read a pair of hexadecimal characters (one or both may also be replaced with '?').
+// Raises an exception if invalid character found.
+begin
+  Result := '';
+  while P^ <> #0 do
+  begin
+    if CharInSet(P^, H2BDelimiters) then
+    begin
+      // Skip spaces
+    end
+    else
+    if CharInSet(P^, H2BValidSet + ['?']) then
+    begin
+      Result := Result + P^;
+      if Length(Result) >= 2 then
+      begin
+        Inc(P);
+        Exit;
+      end;
+    end
+    else
+      raise EMatchPatternException.Create('Invalid character in hex pattern: ' + P^);
+    Inc(P);
+  end;
+  if Length(Result) = 1 then
+    raise EMatchPatternException.Create('Odd character count in hex pattern');
+end;
+
 function TExtMatchPattern.GetNextElement(var P: PChar;
   var Element: TElement): Boolean;
 var
@@ -757,20 +790,6 @@ begin
   if bExtSyntax then
   begin
     case P^ of
-      cAnyByte:  // '?' - any byte
-        begin
-          Inc(P);
-          if bHex then
-          begin
-            if P^ <> cAnyByte then
-              raise EMatchPatternException.Create('In hex search mode, use two question marks (??) to specify unknown byte');
-            Inc(P);
-          end;
-          Element._type := peAny;
-          Element.MinCount := 1;
-          Element.MaxCount := 1;
-          Result := True;
-        end;
       cTagStart:  // '{' - tag with typed data element
         begin
           s := ReadTag(P);
@@ -796,10 +815,34 @@ begin
                    else Element._type := peBytes;
           Result := True;
         end;
+      else  // Raw data (may include '?' wildcards)
+        begin
+          if bHex then
+          begin
+            s := ReadHexPair(P);
+            Element := ParseHexElement(s);
+            Result := True;
+          end
+          else
+          begin
+            if P^ = cAnyByte then  // '?'
+            begin
+              Inc(P);
+              Element := TElement.Create_Any(1, 1);
+              Result := True;
+            end
+            else  // Raw chars
+            begin
+              Element._type := peStr;
+              Element.Text := P^;
+              Inc(P);
+              Result := True;
+            end;
+          end;
+        end;
     end;
-  end;
-
-  if not Result then
+  end
+  else
   // Raw data
   begin
     if bHex then  // Hex
@@ -1054,6 +1097,64 @@ begin
 //      end;
     else
       raise EMatchPatternException.Create('Error in tag');
+  end;
+end;
+
+function VarRangesForLoHalfByte(LoHalf: Char): TVariantRanges;
+// E.g. '?1' -> [(01), (11), (21), .., (F1)]
+var
+  i: Integer;
+  v: Byte;
+begin
+  v := H2BConvert[LoHalf];
+  SetLength(Result.Ranges, 16);
+  for i := 0 to 15 do
+    Result.Ranges[i] := TVariantRange.Create((i shl 4) + v, (i shl 4) + v);
+end;
+
+function VarRangesForHiHalfByte(HiHalf: Char): TVariantRanges;
+// E.g. '1?' -> [(10..1F)]
+var
+  v: Byte;
+begin
+  v := H2BConvert[HiHalf] shl 4;
+  Result.Ranges := [TVariantRange.Create(v, v + $0F)];
+end;
+
+function TExtMatchPattern.ParseHexElement(const Text: string): TElement;
+// Parse a pair of hex chars into element.
+// If one (or both) of the chars are replaced with '?', it unrolls
+// into a set of possible values.
+begin
+  if Text = cAnyByte + cAnyByte then
+  begin
+    Result := TElement.Create_Any(1, 1);
+  end
+  else
+  if Text[1] = cAnyByte then
+  begin
+    Result._type := peRanges;
+    Result.DataType := ValueInterpretors.FindInterpretor('u8');
+    Result.Inverse := False;
+    Result.Ranges := VarRangesForLoHalfByte(Text[2]);
+    Result.MinCount := 1;
+    Result.MaxCount := 1;
+    Result.SizeInBytes := 1;
+  end
+  else
+  if Text[2] = cAnyByte then
+  begin
+    Result._type := peRanges;
+    Result.DataType := ValueInterpretors.FindInterpretor('u8');
+    Result.Inverse := False;
+    Result.Ranges := VarRangesForHiHalfByte(Text[1]);
+    Result.MinCount := 1;
+    Result.MaxCount := 1;
+    Result.SizeInBytes := 1;
+  end
+  else
+  begin
+    Result := TElement.Create_Bytes(Hex2Data(Text));
   end;
 end;
 
@@ -1401,6 +1502,25 @@ begin
   // Original value type determines output value size.
   // E.g. ${X+1} will generate a value of same size as X
   Owner.LastMentionedType := Owner.Pattern.Elements[DispID].DataType;
+end;
+
+{ TExtMatchPattern.TElement }
+
+class function TExtMatchPattern.TElement.Create_Any(AMinCount,
+  AMaxCount: Integer): TElement;
+begin
+  FillChar(Result, SizeOf(Result), 0);
+  Result._type := peAny;
+  Result.MinCount := AMinCount;
+  Result.MaxCount := AMaxCount;
+end;
+
+class function TExtMatchPattern.TElement.Create_Bytes(
+  const Data: TBytes): TElement;
+begin
+  FillChar(Result, SizeOf(Result), 0);
+  Result._type := peBytes;
+  Result.Data := Data;
 end;
 
 end.
