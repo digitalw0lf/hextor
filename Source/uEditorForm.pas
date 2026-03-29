@@ -26,6 +26,10 @@ const
   bcByWindowWidth = -1;
   bcByLineBreaks  = -2;
 
+  // How to show unprintable chars in text pane
+  UnprintableCharShowAs = #$B7;   // '·'
+  LineBreakShowAs       = #$2193; // Down arrow
+
 type
   TEditorForm = class;
 
@@ -144,6 +148,7 @@ type
     FFSkipSearcher: TFFSkipSearcher;
     FFSkipBackByte, FFSkipFwdByte: Byte;
     FTextEncoding: Integer;
+    FUnprintableChars: TSetOfByte;
     FNowSelecting: Boolean;
     FLineBreakSearcher: TLineBreakSearcher;
     FDetectedLineBreakToken: RawByteString;
@@ -303,6 +308,35 @@ begin
     AScrollBar.PageSize := APageSize;
   end;
   AScrollBar.LargeChange := APageSize;
+end;
+
+function GetUnprintableChars(Encoding: Integer; Font: TFont): TSetOfByte;
+// Return a set of single-byte characters which are unprintable in given
+// text encoding and font. Character is considered unprintable if it has
+// non-standard width (usually 0) even in fixed-width font.
+var
+  rbs: RawByteString;
+  Bmp: TBitmap;
+  NormWidth: Integer;
+begin
+  Result := [];
+  Bmp := TBitmap.Create();
+  try
+    Bmp.Canvas.Font := Font;
+    rbs := 'A';
+    SetCodePage(rbs, Encoding, False);
+    NormWidth := Bmp.Canvas.TextWidth(string(rbs));
+    for var i := 0 to 255 do
+    begin
+      rbs[1] := AnsiChar(i);
+      var W := Bmp.Canvas.TextWidth(string(rbs));
+      if (i < $20) or (i = $7F) or
+         (W <> NormWidth) then
+        Result := Result + [i];
+    end;
+  finally
+    Bmp.Free;
+  end;
 end;
 
 procedure TEditorForm.AddCurrentFileToRecentFiles;
@@ -706,7 +740,7 @@ begin
   ByteColumnsSetting := Settings.ByteColumns;
   CalculateByteColumns();
   OnGetTaggedRegions.Add(EditorGetTaggedRegions);
-  FTextEncoding := GetCachedEncoding(0).CodePage;
+  TextEncoding := GetCachedEncoding(0).CodePage;
 
   MainForm.AddEditor(Self);
 end;
@@ -1742,9 +1776,10 @@ end;
 
 procedure TEditorForm.SetTextEncoding(const Value: Integer);
 begin
-  if Value <> FTextEncoding then
+  if (Value <> FTextEncoding) or (FUnprintableChars = []) then
   begin
     FTextEncoding := Value;
+    FUnprintableChars := GetUnprintableChars(FTextEncoding, PaneText.Font);
     UpdatePanes();
   end;
 end;
@@ -2039,16 +2074,21 @@ var
     for i:=Low(Buf) to High(Buf) do
     begin
       // Unprintable chars
-      if ((Buf[i] < ' ') and (Buf[i] <> #$0A) and (Buf[i] <> #$0D)) or
-         (Buf[i] = #$7F) or (Buf[i] = #$98) then
-        Buf[i] := #$B7;
+      if (Ord(Buf[i]) in FUnprintableChars) and
+         (Ord(Buf[i]) <> Ord(LineFeed)) and (Ord(Buf[i]) <> Ord(CarriageReturn)) then
+        Buf[i] := #0;
     end;
+    // Convert from selected text encoding to unicode
     Result := string(Buf);
-    // Carriage return symbols
     for i:=Low(Result) to High(Result) do
     begin
-      if (Result[i] = #$000D) or (Result[i] = #$000A) then
-        Result[i] := #$2193;
+      // Unprintable chars
+      if Result[i] = #0 then
+        Result[i] := UnprintableCharShowAs
+      else
+      // Newline symbols
+      if (Result[i] = LineFeed) or (Result[i] = CarriageReturn) then
+        Result[i] := LineBreakShowAs;
     end;
   end;
 

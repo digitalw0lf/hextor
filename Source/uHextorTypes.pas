@@ -39,6 +39,8 @@ const
   cMillisecond = cSecond / 1000;
 
 type
+  TSetOfByte = set of Byte;
+
   // Address inside file/data source
   TFilePointer = Int64;
 

@@ -82,7 +82,6 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 0
-    ExplicitWidth = 1022
     object ToolButton1: TToolButton
       Left = 0
       Top = 0
@@ -235,7 +234,6 @@ object MainForm: TMainForm
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseMove = MDITabsMouseMove
     OnMouseUp = MDITabsMouseUp
-    ExplicitWidth = 1022
   end
   object RightPanel: TPanel
     Left = 604
@@ -289,6 +287,7 @@ object MainForm: TMainForm
             Colors.UnfocusedColor = clGray
             Colors.UnfocusedSelectionColor = clWhite
             Colors.UnfocusedSelectionBorderColor = clWhite
+            DefaultNodeHeight = 17
             Header.Height = 17
             ExplicitWidth = 412
             ExplicitHeight = 504
@@ -301,7 +300,7 @@ object MainForm: TMainForm
               item
                 Position = 1
                 Text = 'Value'
-                Width = 326
+                Width = 322
               end>
           end
         end
@@ -372,6 +371,7 @@ object MainForm: TMainForm
             Colors.UnfocusedColor = clGray
             Colors.UnfocusedSelectionColor = clWhite
             Colors.UnfocusedSelectionBorderColor = clWhite
+            DefaultNodeHeight = 17
             Header.Height = 13
             TabOrder = 2
             ExplicitTop = 283
@@ -379,24 +379,24 @@ object MainForm: TMainForm
             ExplicitHeight = 221
           end
           inherited EditFieldValue: TEdit
+            Height = 21
             TabOrder = 3
             StyleElements = [seFont, seClient, seBorder]
+            ExplicitHeight = 21
           end
           inherited ToolBar1: TToolBar
             Width = 412
             Images = nil
             ExplicitWidth = 412
             inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 26
+              ExplicitWidth = 45
             end
             inherited LblStructName: TLabel
-              Left = 93
+              Left = 97
               Width = 57
-              Height = 13
               StyleElements = [seFont, seClient, seBorder]
-              ExplicitLeft = 93
+              ExplicitLeft = 97
               ExplicitWidth = 57
-              ExplicitHeight = 13
             end
           end
           inherited SavedDescrsMenu: TPopupMenu
@@ -424,17 +424,19 @@ object MainForm: TMainForm
             Width = 412
             Height = 504
             ExplicitWidth = 412
-            ExplicitHeight = 496
+            ExplicitHeight = 504
             inherited InitialTab: TTabSheet
-              ExplicitTop = 24
-              ExplicitHeight = 678
+              ExplicitTop = 33
+              ExplicitHeight = 665
             end
             inherited ComparisonTab: TTabSheet
+              ExplicitLeft = 4
               ExplicitTop = 24
               ExplicitWidth = 404
               ExplicitHeight = 476
               inherited DiffBar: TPaintBox
                 Height = 476
+                ExplicitHeight = 476
               end
               inherited Label1: TLabel
                 Width = 59
@@ -450,10 +452,10 @@ object MainForm: TMainForm
                 StyleElements = [seFont, seClient, seBorder]
               end
               inherited DiffsList: TVirtualStringTree
-                Height = 246
+                Height = 57
                 DefaultNodeHeight = 17
                 Header.Height = 17
-                ExplicitHeight = 246
+                ExplicitHeight = 57
               end
             end
           end
@@ -481,7 +483,7 @@ object MainForm: TMainForm
             Top = 372
             Width = 412
             StyleElements = [seFont, seClient, seBorder]
-            ExplicitTop = 380
+            ExplicitTop = 372
             ExplicitWidth = 412
             inherited MemoOutput: TRichEdit
               Width = 412
@@ -509,20 +511,18 @@ object MainForm: TMainForm
             Images = nil
             ExplicitWidth = 412
             inherited BtnSave: TToolButton
-              ExplicitWidth = 26
+              ExplicitWidth = 45
             end
             inherited BtnRun: TToolButton
-              Left = 93
-              ExplicitLeft = 93
+              Left = 97
+              ExplicitLeft = 97
             end
             inherited LblScriptName: TLabel
-              Left = 119
+              Left = 123
               Width = 57
-              Height = 13
               StyleElements = [seFont, seClient, seBorder]
-              ExplicitLeft = 119
+              ExplicitLeft = 123
               ExplicitWidth = 57
-              ExplicitHeight = 13
             end
           end
           inherited SavedScriptsMenu: TPopupMenu
@@ -537,23 +537,23 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 412
-          Height = 512
+          Height = 504
           Align = alClient
           DoubleBuffered = False
           ParentDoubleBuffered = False
           TabOrder = 0
           ExplicitWidth = 412
-          ExplicitHeight = 512
+          ExplicitHeight = 504
           inherited MainPaintBox: TPaintBox
             Width = 314
-            Height = 463
+            Height = 455
             ExplicitWidth = 299
             ExplicitHeight = 474
           end
           inherited LeftPanel: TPanel
-            Height = 463
+            Height = 455
             StyleElements = [seFont, seClient, seBorder]
-            ExplicitHeight = 463
+            ExplicitHeight = 455
             inherited Label3: TLabel
               Width = 29
               Height = 13
@@ -605,7 +605,9 @@ object MainForm: TMainForm
               ExplicitHeight = 21
             end
             inherited EditByteShift: TSpinEdit
+              Height = 22
               StyleElements = [seFont, seClient, seBorder]
+              ExplicitHeight = 22
             end
           end
           inherited TopPanel: TPanel
@@ -626,11 +628,23 @@ object MainForm: TMainForm
               ExplicitWidth = 25
               ExplicitHeight = 13
             end
+            inherited TrackBarWidth: TTrackBar
+              Width = 679
+              ExplicitWidth = 679
+            end
+            inherited TrackBarHScroll: TTrackBar
+              Width = 679
+              ExplicitWidth = 679
+            end
             inherited EditHScroll: TSpinEdit
+              Height = 22
               StyleElements = [seFont, seClient, seBorder]
+              ExplicitHeight = 22
             end
             inherited EditWidth: TSpinEdit
+              Height = 22
               StyleElements = [seFont, seClient, seBorder]
+              ExplicitHeight = 22
             end
           end
           inherited VertScrollBar: TScrollBar64
@@ -696,7 +710,9 @@ object MainForm: TMainForm
             ExplicitWidth = 412
             ExplicitHeight = 180
             inherited StaticText1: TStaticText
+              Width = 406
               Height = 17
+              ExplicitWidth = 406
               ExplicitHeight = 17
             end
             inherited ResultListView: TListView
@@ -775,6 +791,7 @@ object MainForm: TMainForm
             Colors.UnfocusedColor = clGray
             Colors.UnfocusedSelectionColor = clWhite
             Colors.UnfocusedSelectionBorderColor = clWhite
+            DefaultNodeHeight = 17
             Header.Height = 17
             ExplicitWidth = 412
             ExplicitHeight = 478
@@ -801,6 +818,7 @@ object MainForm: TMainForm
           inherited RegionsTreeView: TVirtualStringTree
             Width = 412
             Height = 463
+            DefaultNodeHeight = 17
             Header.Height = 17
             ExplicitWidth = 412
             ExplicitHeight = 463
@@ -886,7 +904,6 @@ object MainForm: TMainForm
       ParentBackground = False
       TabOrder = 1
       Visible = False
-      ExplicitTop = 542
       object Image1: TImage
         Left = 0
         Top = 0
