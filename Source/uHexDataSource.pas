@@ -294,6 +294,7 @@ end;
 procedure THexDataSource.LoadMotorola(const Lines: TStringDynArray);
 begin
   // TODO
+  raise Exception.Create('Sorry, Motorola Hex support not implemented yet');
 end;
 
 procedure THexDataSource.Open(Mode, Share: Word);
