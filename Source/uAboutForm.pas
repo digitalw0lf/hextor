@@ -30,6 +30,10 @@ type
     LicenseMemo: TMemo;
     LblLicense: TLabel;
     LblVersion: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    Label5: TLabel;
+    Label6: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure LblUrlClick(Sender: TObject);
     procedure LblLicenseClick(Sender: TObject);

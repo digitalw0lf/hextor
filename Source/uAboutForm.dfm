@@ -3,7 +3,7 @@ object AboutForm: TAboutForm
   Top = 0
   BorderStyle = bsDialog
   Caption = 'About'
-  ClientHeight = 211
+  ClientHeight = 339
   ClientWidth = 426
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -11,10 +11,8 @@ object AboutForm: TAboutForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poMainFormCenter
   OnCreate = FormCreate
-  PixelsPerInch = 96
   TextHeight = 13
   object Image1: TImage
     Left = 16
@@ -160,7 +158,7 @@ object AboutForm: TAboutForm
   end
   object LblBuildDate: TLabel
     Left = 240
-    Top = 145
+    Top = 273
     Width = 102
     Height = 16
     Caption = 'Build: 2020-00-00'
@@ -226,7 +224,7 @@ object AboutForm: TAboutForm
   end
   object LblVersion: TLabel
     Left = 96
-    Top = 145
+    Top = 273
     Width = 106
     Height = 16
     Caption = 'Version: 0.0-alpha'
@@ -237,9 +235,80 @@ object AboutForm: TAboutForm
     Font.Style = []
     ParentFont = False
   end
+  object Label3: TLabel
+    Left = 96
+    Top = 151
+    Width = 313
+    Height = 42
+    AutoSize = False
+    Caption = 
+      'If Hextor helps you get your job done, consider supporting the d' +
+      'evelopment:'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    WordWrap = True
+  end
+  object Label4: TLabel
+    Left = 110
+    Top = 193
+    Width = 91
+    Height = 16
+    Cursor = crHandPoint
+    Hint = 'https://github.com/sponsors/digitalw0lf'
+    Caption = 'Github sponsors'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = [fsUnderline]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    OnClick = LblUrlClick
+  end
+  object Label5: TLabel
+    Left = 110
+    Top = 215
+    Width = 110
+    Height = 16
+    Cursor = crHandPoint
+    Hint = 'https://buymeacoffee.com/digitalw0lf'
+    Caption = 'BuyMeACoffee.com'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = [fsUnderline]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    OnClick = LblUrlClick
+  end
+  object Label6: TLabel
+    Left = 110
+    Top = 237
+    Width = 300
+    Height = 16
+    Cursor = crHandPoint
+    Hint = 'https://revolut.me/grigoriym'
+    Caption = 'Send on Revolut (mention "Hextor" in payment note)'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = [fsUnderline]
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    OnClick = LblUrlClick
+  end
   object Button1: TButton
-    Left = 312
-    Top = 176
+    Left = 304
+    Top = 304
     Width = 75
     Height = 25
     Cancel = True
@@ -250,7 +319,7 @@ object AboutForm: TAboutForm
   object LicenseMemo: TMemo
     AlignWithMargins = True
     Left = 96
-    Top = 207
+    Top = 335
     Width = 430
     Height = 330
     Lines.Strings = (

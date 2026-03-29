@@ -51,6 +51,9 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure BtnUpdateClick(Sender: TObject);
     procedure BtnCancelClick(Sender: TObject);
+    procedure WebBrowser1NewWindow3(ASender: TObject; var ppDisp: IDispatch;
+      var Cancel: WordBool; dwFlags: LongWord; const bstrUrlContext,
+      bstrUrl: WideString);
   private type
     // Information about available update
     TUpdateInfo = record
@@ -487,6 +490,18 @@ begin
     end;
   finally
     Timer1.Enabled := True;
+  end;
+end;
+
+procedure TUpdaterForm.WebBrowser1NewWindow3(ASender: TObject;
+  var ppDisp: IDispatch; var Cancel: WordBool; dwFlags: LongWord;
+  const bstrUrlContext, bstrUrl: WideString);
+begin
+  // Open links in user's favorite browser, and not in IE as TWebBrowser tries by default
+  if string(bstrURL).StartsWith('https://', True) then
+  begin
+    Cancel := True;
+    ShellExecute(0, nil, PChar(string(bstrURL)), nil, nil, SW_SHOWNORMAL);
   end;
 end;
 
