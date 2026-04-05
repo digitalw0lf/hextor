@@ -1274,12 +1274,16 @@ begin
     Assert(False, 'Unbalanced Progress.TaskStart/TaskEnd');
     Exit;
   end;
-  Show(1.0);
-  Task := TaskStack.Peek();
-  OnTaskEnd.Call(Self, Task);
-  if CurrentTaskLevel = 1 then
-    WriteLogFmt('Progress', 'TaskEnd: %s (%d ms)', [Task.Worker.ClassName, GetTickCount() - Task.StartTime]);
-  TaskStack.Pop();
+  Task := nil;
+  try
+    Task := TaskStack.Peek();
+    OnTaskEnd.Call(Self, Task);
+    Show(1.0);
+  finally
+    if CurrentTaskLevel = 1 then
+      WriteLogFmt('Progress', StringOfChar('-', CurrentTaskLevel - 1) + 'TaskEnd: %s (%d ms)', [Task.Worker.ClassName, GetTickCount() - Task.StartTime]);
+    TaskStack.Pop();
+  end;
 end;
 
 procedure TProgressTracker.TaskStart(Worker: TObject; PortionOfParent: Double = 1.0; Abortable: Boolean = True);
@@ -1289,7 +1293,7 @@ begin
   if (PortionOfParent <> 1.0) and (CurrentTask = nil) then
     raise Exception.Create('Top-level task thould have a portion equal to 1.0');
   if CurrentTask = nil then
-    WriteLogFmt('Progress', 'TaskStart: %s', [Worker.ClassName]);
+    WriteLogFmt('Progress', StringOfChar('-', CurrentTaskLevel) +'TaskStart: %s', [Worker.ClassName]);
   Task := TTask.Create();
   Task.Worker := Worker;
   Task.Portion := PortionOfParent;
@@ -1310,8 +1314,14 @@ begin
     Task.Abortable := Task.Abortable and ParentTask.Abortable;
   end;
   TaskStack.Push(Task);
-  OnTaskStart.Call(Self, Task);
-  Show(0.0);
+  try
+    OnTaskStart.Call(Self, Task);
+    Show(0.0);
+  except
+    // With default usage pattern, caller won't be able to call TaskEnd() in this case, so we do it here
+    TaskEnd();
+    raise;
+  end;
 end;
 
 { TNameFilter }

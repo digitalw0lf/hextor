@@ -18,6 +18,7 @@ uses
   SynHighlighterCpp, superobject, Clipbrd, VirtualTrees, VirtualTrees.Types, 
   System.IOUtils, Vcl.ToolWin, Winapi.ShellAPI, System.UITypes, 
   VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree, VirtualTrees.AncestorVCL,
+  SynEditCodeFolding,
 
   uHextorTypes, uHextorGUI, {uLogFile,} uEditorForm, uValueInterpretors,
   uDataStruct, uEditedData, uCallbackList, uModuleSettings, uOleAutoAPIWrapper,
