@@ -11,14 +11,12 @@ object BitsEditorForm: TBitsEditorForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
   DesignSize = (
     466
     143)
-  PixelsPerInch = 96
   TextHeight = 13
   object PaintBox1: TPaintBox
     Left = 8
@@ -53,7 +51,7 @@ object BitsEditorForm: TBitsEditorForm
   object EditDec: TEdit
     Left = 16
     Top = 79
-    Width = 145
+    Width = 121
     Height = 21
     BorderStyle = bsNone
     ParentColor = True
@@ -64,7 +62,7 @@ object BitsEditorForm: TBitsEditorForm
   object EditHex: TEdit
     Left = 176
     Top = 79
-    Width = 145
+    Width = 121
     Height = 21
     BorderStyle = bsNone
     ParentColor = True

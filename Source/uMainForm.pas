@@ -511,8 +511,8 @@ begin
 
     x := 0;
     Move(Buf[0], x, Length(Buf));
-    BitsEditorForm.Value := x;
     BitsEditorForm.ValueSize := Max(Length(Buf), 1);
+    BitsEditorForm.Value := x;
 
     if BitsEditorForm.ShowModal() <> mrOk then Exit;
 

@@ -13,6 +13,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, System.Types,
+  System.Math,
 
   uHextorGUI;
 
@@ -32,15 +33,13 @@ type
     procedure PaintBox1MouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
   private
-    const
-      cw = 25;
-      ch = 25;
-  private
     { Private declarations }
     ScrBmp: TBitmap;
     FValue: Int64;
     HoveredBit: Integer;
     procedure InternalPaint();
+    function cw(): Integer;
+    function ch(): Integer;
     function BitRect(n: Integer): TRect;
     procedure SetValue(const Value: Int64);
     function BitAtScrPos(p: TPoint): Integer;
@@ -72,8 +71,18 @@ function TBitsEditorForm.BitRect(n: Integer): TRect;
 begin
   Result.Left := ScrBmp.Width - cw - cw*n - (n div 8)*cw div 2;
   Result.Right := Result.Left + cw;
-  Result.Top := 25;
+  Result.Top := ScaleValue(25);
   Result.Bottom := Result.Top + ch;
+end;
+
+function TBitsEditorForm.ch: Integer;
+begin
+  Result := ScaleValue(25);
+end;
+
+function TBitsEditorForm.cw: Integer;
+begin
+  Result := ScaleValue(25);
 end;
 
 procedure TBitsEditorForm.FormCreate(Sender: TObject);
@@ -89,7 +98,8 @@ end;
 
 procedure TBitsEditorForm.FormShow(Sender: TObject);
 begin
-  ClientWidth := PaintBox1.Left*2 + 25*ValueSize*8 + 12*ValueSize;
+  ClientWidth := Max(PaintBox1.Left*2 + cw*ValueSize*8 + cw*ValueSize div 2,
+                     EditHex.Left + EditHex.Width);
   if OkEnabled then
   begin
     BtnOk.Enabled := True;
@@ -133,19 +143,19 @@ begin
       Brush.Color := ColorForCurrentTheme(clWindow);
       Brush.Style := bsSolid;
       Rectangle(R);
-      Font.Size := 14;
+      Font.Size := ScaleValue(14);
       Brush.Style := bsClear;
       R1 := R;
       TextRect(R1, s, [tfCenter, tfVerticalCenter]);
 
       Font.Color := ColorForCurrentTheme(clWindowText);
-      Font.Size := 8;
+      Font.Size := ScaleValue(8);
       // bit number
-      R1 := Rect(R.Left, R.Top-15, R.Right, R.Top);
+      R1 := Rect(R.Left, R.Top - ScaleValue(15), R.Right, R.Top);
       s := IntToStr(i);
       TextRect(R1, s, [tfCenter, tfVerticalCenter]);
       // bit value
-      R1 := Rect(R.Left, R.Bottom, R.Right, R.Bottom+15);
+      R1 := Rect(R.Left, R.Bottom, R.Right, R.Bottom + ScaleValue(15));
       s := IntToStr(Int64(1) shl i);
       if (i <= 7) or (i = HoveredBit) then
       begin
@@ -154,7 +164,7 @@ begin
           TextRect(R1, s, [tfCenter, tfVerticalCenter]);
         end
         else
-          TextOut(R1.Left + 3, R1.Top + 3, s);
+          TextOut(R1.Left, R1.Top, s);
       end;
     end;
   end;

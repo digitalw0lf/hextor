@@ -82,6 +82,7 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 0
+    ExplicitWidth = 1022
     object ToolButton1: TToolButton
       Left = 0
       Top = 0
@@ -234,6 +235,7 @@ object MainForm: TMainForm
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseMove = MDITabsMouseMove
     OnMouseUp = MDITabsMouseUp
+    ExplicitWidth = 1022
   end
   object RightPanel: TPanel
     Left = 604
@@ -388,14 +390,9 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSaveDescr: TToolButton
-              ExplicitWidth = 45
-            end
             inherited LblStructName: TLabel
-              Left = 97
               Width = 57
               StyleElements = [seFont, seClient, seBorder]
-              ExplicitLeft = 97
               ExplicitWidth = 57
             end
           end
@@ -424,13 +421,12 @@ object MainForm: TMainForm
             Width = 412
             Height = 504
             ExplicitWidth = 412
-            ExplicitHeight = 504
+            ExplicitHeight = 496
             inherited InitialTab: TTabSheet
-              ExplicitTop = 33
-              ExplicitHeight = 665
+              ExplicitTop = 24
+              ExplicitHeight = 678
             end
             inherited ComparisonTab: TTabSheet
-              ExplicitLeft = 4
               ExplicitTop = 24
               ExplicitWidth = 404
               ExplicitHeight = 476
@@ -452,10 +448,10 @@ object MainForm: TMainForm
                 StyleElements = [seFont, seClient, seBorder]
               end
               inherited DiffsList: TVirtualStringTree
-                Height = 57
+                Height = 8
                 DefaultNodeHeight = 17
                 Header.Height = 17
-                ExplicitHeight = 57
+                ExplicitHeight = 8
               end
             end
           end
@@ -510,18 +506,9 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
-            inherited BtnSave: TToolButton
-              ExplicitWidth = 45
-            end
-            inherited BtnRun: TToolButton
-              Left = 97
-              ExplicitLeft = 97
-            end
             inherited LblScriptName: TLabel
-              Left = 123
               Width = 57
               StyleElements = [seFont, seClient, seBorder]
-              ExplicitLeft = 123
               ExplicitWidth = 57
             end
           end
@@ -904,6 +891,7 @@ object MainForm: TMainForm
       ParentBackground = False
       TabOrder = 1
       Visible = False
+      ExplicitTop = 542
       object Image1: TImage
         Left = 0
         Top = 0
