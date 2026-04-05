@@ -756,6 +756,7 @@ begin
   if FClosed then Exit;
   BeginUpdate();
   try
+    InvalidateLineRanges();
     CalculateByteColumns();
     UpdatePaneWidths();
     UpdatePanes();
