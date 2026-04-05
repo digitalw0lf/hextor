@@ -1276,13 +1276,16 @@ begin
   end;
   Task := nil;
   try
-    Task := TaskStack.Peek();
-    OnTaskEnd.Call(Self, Task);
     Show(1.0);
   finally
-    if CurrentTaskLevel = 1 then
-      WriteLogFmt('Progress', StringOfChar('-', CurrentTaskLevel - 1) + 'TaskEnd: %s (%d ms)', [Task.Worker.ClassName, GetTickCount() - Task.StartTime]);
-    TaskStack.Pop();
+    try
+      Task := TaskStack.Peek();
+      OnTaskEnd.Call(Self, Task);
+    finally
+      if CurrentTaskLevel = 1 then
+        WriteLogFmt('Progress', StringOfChar('-', CurrentTaskLevel - 1) + 'TaskEnd: %s (%d ms)', [Task.Worker.ClassName, GetTickCount() - Task.StartTime]);
+      TaskStack.Pop();
+    end;
   end;
 end;
 
