@@ -483,8 +483,8 @@ begin
 
   RegisterInterpretor(['bin'], Bin2Variant, Variant2Bin, 1, 8);
 
-  RegisterInterpretor(['float', 'single'], Float2Variant, Variant2Float, 4);
-  RegisterInterpretor(['double'], Double2Variant, Variant2Double, 8);
+  RegisterInterpretor(['float', 'single', 'f32'], Float2Variant, Variant2Float, 4);
+  RegisterInterpretor(['double', 'f64'], Double2Variant, Variant2Double, 8);
 
   RegisterInterpretor(['ansi'], Ansi2Variant, Variant2Ansi, 1, MAX_STR_VALUE_LENGTH{, True})
     .SetFromVariantAutosize(Variant2AnsiAutosize);
