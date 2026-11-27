@@ -118,6 +118,12 @@ type
         TShiftState; X, Y: Integer);
     procedure StatusBarResize(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
+  private const
+    // StatusBar panel indices
+    SBPANEL_ADDR   = 0;
+    SBPANEL_VALUE  = 1;
+    SBPANEL_LSBMSB = 2;
+    SBPANEL_INSOVR = 3;
   private
     { Private declarations }
     FData: TEditedData;
@@ -1711,7 +1717,7 @@ begin
   begin
     FInsertMode := Value;
     UpdatePanesCarets();
-    StatusBar.Panels[2].Text := IfThen(Value, 'INS', 'OVR');
+    StatusBar.Panels[SBPANEL_INSOVR].Text := IfThen(Value, 'INS', 'OVR');
   end;
 end;
 
@@ -1793,25 +1799,25 @@ var
 begin
   if SelLength = 0 then
   begin
-    StatusBar.Panels[0].Text := 'Addr: ' + IntToStr(CaretPos) + ' ('+'0x' + IntToHex(CaretPos, 2) + ')';
+    StatusBar.Panels[SBPANEL_ADDR].Text := 'Addr: ' + IntToStr(CaretPos) + ' ('+'0x' + IntToHex(CaretPos, 2) + ')';
     AData := GetEditedData(CaretPos, 1);
     if Length(AData)>=1 then
-      StatusBar.Panels[1].Text := 'Byte: ' + IntToStr(AData[0])
+      StatusBar.Panels[SBPANEL_VALUE].Text := 'Byte: ' + IntToStr(AData[0])
     else
-      StatusBar.Panels[1].Text := '';
+      StatusBar.Panels[SBPANEL_VALUE].Text := '';
   end
   else
   begin
-    StatusBar.Panels[0].Text := 'Selected: ' + IntToStr(SelLength) + ' bytes';
+    StatusBar.Panels[SBPANEL_ADDR].Text := 'Selected: ' + IntToStr(SelLength) + ' bytes';
     if (SelLength <= 8) then
     begin
       AData := GetEditedData(SelStart, SelLength);
       x := 0;
       Move(AData[0], x, Length(AData));
-      StatusBar.Panels[1].Text := 'As '+IntToStr(Length(AData))+'-byte value: ' + IntToStr(x);
+      StatusBar.Panels[SBPANEL_VALUE].Text := 'As '+IntToStr(Length(AData))+'-byte value: ' + IntToStr(x);
     end
     else
-      StatusBar.Panels[1].Text := '';
+      StatusBar.Panels[SBPANEL_VALUE].Text := '';
   end;
 end;
 
@@ -2357,14 +2363,26 @@ end;
 
 procedure TEditorForm.StatusBarMouseUp(Sender: TObject; Button: TMouseButton;
     Shift: TShiftState; X, Y: Integer);
+var
+  Pnl: Integer;
 begin
-  if (Button = mbLeft) and (GetStatusBarPanelAt(X) = 2) then
+  Pnl := GetStatusBarPanelAt(X);
+  if (Button = mbLeft) and (Pnl = SBPANEL_INSOVR) then
     InsertMode := not InsertMode;
+  if (Button = mbLeft) and (Pnl = SBPANEL_LSBMSB) then
+
+
 end;
 
 procedure TEditorForm.StatusBarResize(Sender: TObject);
+var
+  Sz, i: Integer;
 begin
-  StatusBar.Panels[1].Width := StatusBar.Width - StatusBar.Panels[0].Width - StatusBar.Panels[2].Width;
+  Sz := 0;
+  for i := 0 to StatusBar.Panels.Count - 1 do
+    if i <> SBPANEL_VALUE then
+      Inc(Sz, StatusBar.Panels[i].Width);
+  StatusBar.Panels[SBPANEL_VALUE].Width := StatusBar.Width - Sz;
 end;
 
 { TFFSkipSearcher }

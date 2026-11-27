@@ -101,6 +101,7 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 619
   end
   object PaneAddr: TEditorPane
     Left = 0
@@ -124,6 +125,7 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitHeight = 619
   end
   object PaneText: TEditorPane
     AlignWithMargins = True
@@ -161,12 +163,14 @@ object EditorForm: TEditorForm
     OnMouseWheel = PaneHexMouseWheel
     OnBeforeDraw = PaneHexBeforeDraw
     OnAfterDraw = PaneHexAfterDraw
+    ExplicitWidth = 256
+    ExplicitHeight = 619
     DesignSize = (
       258
       627)
     object BtnSkipFFBack: TSpeedButton
       Tag = -1
-      Left = 186
+      Left = 184
       Top = 4
       Width = 51
       Height = 26
@@ -187,7 +191,7 @@ object EditorForm: TEditorForm
     end
     object BtnSkipFFFwd: TSpeedButton
       Tag = 1
-      Left = 188
+      Left = 186
       Top = 599
       Width = 49
       Height = 25
@@ -230,11 +234,16 @@ object EditorForm: TEditorForm
         Width = 200
       end
       item
+        Width = 50
+      end
+      item
         Text = 'OVR'
         Width = 50
       end>
     OnMouseUp = StatusBarMouseUp
     OnResize = StatusBarResize
+    ExplicitTop = 636
+    ExplicitWidth = 1047
   end
   object VertScrollBar: TScrollBar64
     Left = 1032
@@ -248,6 +257,8 @@ object EditorForm: TEditorForm
     TabOrder = 4
     OnChange = VertScrollBarChange
     OnScroll = VertScrollBarScroll
+    ExplicitLeft = 1030
+    ExplicitHeight = 619
   end
   object HorzScrollBar: TScrollBar64
     Left = 0
@@ -259,6 +270,8 @@ object EditorForm: TEditorForm
     PageSize = 0
     TabOrder = 5
     OnChange = HorzScrollBarChange
+    ExplicitTop = 619
+    ExplicitWidth = 1047
   end
   object EditorPopupMenu: TPopupMenu
     Left = 286
