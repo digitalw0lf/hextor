@@ -685,10 +685,11 @@ begin
 
   // String
   if (Length(Expr) >= 2) and (Expr[Low(Expr)] = '"') and
-     (Expr[High(Expr)] = '"') then
+    (Expr[High(Expr)] = '"')  then
   begin
     Value := Copy(Expr, Low(Expr) + 1, Length(Expr) - 2);
-    Exit(True);
+    if Pos('"', Value) = 0 then
+      Exit(True);
   end;
 
   Result := False;
