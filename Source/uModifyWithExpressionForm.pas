@@ -39,7 +39,8 @@ type
     FEditor: TEditorForm;
     Range: TFileRange;
     procedure ApplyExpr(var AData: TBytes; const Expression: string;
-      const Pattern: TBytes; ElementSize: Integer; SrcAddr: TFilePointer);
+      const Pattern: TBytes; ElementSize: Integer; SrcAddr: TFilePointer;
+      UseBigEndian: Boolean = False);
   end;
 
 var
@@ -69,28 +70,37 @@ type
     property a: Int64 read fa;
   end;
 
-function GetElement(const Buf: TBytes; ElemSize, ElemIndex: Integer): UInt64; inline;
+function GetElement(const Buf: TBytes; ElemSize, ElemIndex: Integer;
+  SwapBytes: Boolean): UInt64; inline;
 begin
   Result := 0;
   Move(Buf[ElemIndex * ElemSize], Result, ElemSize);
+  if SwapBytes then
+    InvertByteOrder(Result, ElemSize);
 end;
 
-procedure PutElement(var Buf: TBytes; ElemSize, ElemIndex: Integer; Value: UInt64); inline;
+procedure PutElement(var Buf: TBytes; ElemSize, ElemIndex: Integer;
+  Value: UInt64; SwapBytes: Boolean); inline;
 begin
+  if SwapBytes then
+    InvertByteOrder(Value, ElemSize);
   Move(Value, Buf[ElemIndex * ElemSize], ElemSize);
 end;
 
 procedure TModifyWithExpressionForm.ApplyExpr(var AData: TBytes;
-  const Expression: string; const Pattern: TBytes; ElementSize: Integer; SrcAddr: TFilePointer);
+  const Expression: string; const Pattern: TBytes; ElementSize: Integer;
+  SrcAddr: TFilePointer; UseBigEndian: Boolean);
 // Apply Expression to values in AData
 var
   ScriptEngine: TActiveScript;  // Expression evaluator
   ScriptVars: TFillExpressionVars;
   ElemCount, PatternElemCount, i: Integer;
+  SwapBytes: Boolean;
   x: Int64;
 begin
   ElemCount := Length(AData) div ElementSize;
   PatternElemCount := Length(Pattern) div ElementSize;
+  SwapBytes := UseBigEndian and (ElementSize > 1);
 
   ScriptEngine := TActiveScript.Create(nil);
   ScriptVars := TFillExpressionVars.Create();
@@ -102,10 +112,10 @@ begin
     for i:=0 to ElemCount-1 do
     begin
       // Original element value
-      ScriptVars.fx := GetElement(AData, ElementSize, i);
+      ScriptVars.fx := GetElement(AData, ElementSize, i, SwapBytes);
       // Corresponding value from pattern
       if PatternElemCount > 0 then
-        ScriptVars.fp := GetElement(Pattern, ElementSize, i mod PatternElemCount)
+        ScriptVars.fp := GetElement(Pattern, ElementSize, i mod PatternElemCount, SwapBytes)
       else
         ScriptVars.fp := 0;
       ScriptVars.fi := i;
@@ -113,7 +123,7 @@ begin
 
       // Evaluate
       x := ScriptEngine.Eval(Expression);
-      PutElement(AData, ElementSize, i, x);
+      PutElement(AData, ElementSize, i, x, SwapBytes);
 
       if i mod 10000 = 0 then
         Progress.Show(i+1, ElemCount);
@@ -145,7 +155,7 @@ begin
   AData := FEditor.Data.Get(Range.Start, Range.Size);
 
   // Apply expression
-  ApplyExpr(AData, Expression, Pattern, ElemSize, Range.Start);
+  ApplyExpr(AData, Expression, Pattern, ElemSize, Range.Start, FEditor.UseBigEndian);
 
   // Put data back
   with FEditor do
