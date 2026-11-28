@@ -82,7 +82,6 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 0
-    ExplicitWidth = 1022
     object ToolButton1: TToolButton
       Left = 0
       Top = 0
@@ -235,7 +234,6 @@ object MainForm: TMainForm
     OnGetImageIndex = MDITabsGetImageIndex
     OnMouseMove = MDITabsMouseMove
     OnMouseUp = MDITabsMouseUp
-    ExplicitWidth = 1022
   end
   object RightPanel: TPanel
     Left = 604
@@ -302,7 +300,7 @@ object MainForm: TMainForm
               item
                 Position = 1
                 Text = 'Value'
-                Width = 322
+                Width = 326
               end>
           end
         end
@@ -390,10 +388,15 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSaveDescr: TToolButton
+              ExplicitWidth = 26
+            end
             inherited LblStructName: TLabel
               Width = 57
+              Height = 13
               StyleElements = [seFont, seClient, seBorder]
               ExplicitWidth = 57
+              ExplicitHeight = 13
             end
           end
           inherited SavedDescrsMenu: TPopupMenu
@@ -421,7 +424,7 @@ object MainForm: TMainForm
             Width = 412
             Height = 504
             ExplicitWidth = 412
-            ExplicitHeight = 496
+            ExplicitHeight = 504
             inherited InitialTab: TTabSheet
               ExplicitTop = 24
               ExplicitHeight = 678
@@ -448,10 +451,10 @@ object MainForm: TMainForm
                 StyleElements = [seFont, seClient, seBorder]
               end
               inherited DiffsList: TVirtualStringTree
-                Height = 8
+                Height = 0
                 DefaultNodeHeight = 17
                 Header.Height = 17
-                ExplicitHeight = 8
+                ExplicitHeight = 0
               end
             end
           end
@@ -506,10 +509,15 @@ object MainForm: TMainForm
             Width = 412
             Images = nil
             ExplicitWidth = 412
+            inherited BtnSave: TToolButton
+              ExplicitWidth = 26
+            end
             inherited LblScriptName: TLabel
               Width = 57
+              Height = 13
               StyleElements = [seFont, seClient, seBorder]
               ExplicitWidth = 57
+              ExplicitHeight = 13
             end
           end
           inherited SavedScriptsMenu: TPopupMenu
@@ -697,9 +705,7 @@ object MainForm: TMainForm
             ExplicitWidth = 412
             ExplicitHeight = 180
             inherited StaticText1: TStaticText
-              Width = 406
               Height = 17
-              ExplicitWidth = 406
               ExplicitHeight = 17
             end
             inherited ResultListView: TListView
@@ -891,7 +897,6 @@ object MainForm: TMainForm
       ParentBackground = False
       TabOrder = 1
       Visible = False
-      ExplicitTop = 542
       object Image1: TImage
         Left = 0
         Top = 0
@@ -933,8 +938,8 @@ object MainForm: TMainForm
         AlignWithMargins = True
         Left = 28
         Top = 3
-        Width = 389
-        Height = 35
+        Width = 259
+        Height = 17
         Align = alClient
         Caption = 'Saving your changes requires temporary file of size X'
         TabOrder = 0

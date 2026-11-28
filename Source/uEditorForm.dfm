@@ -240,6 +240,7 @@ object EditorForm: TEditorForm
         Text = 'OVR'
         Width = 50
       end>
+    OnMouseMove = StatusBarMouseMove
     OnMouseUp = StatusBarMouseUp
     OnResize = StatusBarResize
     ExplicitTop = 636

@@ -1,4 +1,4 @@
-{                          ---BEGIN LICENSE BLOCK---                           }
+ï»¿{                          ---BEGIN LICENSE BLOCK---                           }
 {                                                                              }
 { Hextor - Hexadecimal editor and binary data analyzing toolkit                }
 { Copyright (C) 2019-2023  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
@@ -66,6 +66,7 @@ type
     RecentFiles: array of TRecentFileRec;
     Theme: Integer;
     AdditionalCodePages: TArray<Integer>;
+    UseBigEndian: Boolean;
   end;
 
   [API]
@@ -509,6 +510,7 @@ begin
 
     BitsEditorForm.OkEnabled := (Length(Buf) > 0);
 
+    BitsEditorForm.BigEndian := UseBigEndian;
     x := 0;
     Move(Buf[0], x, Length(Buf));
     BitsEditorForm.ValueSize := Max(Length(Buf), 1);
@@ -2139,7 +2141,7 @@ var
   u8: UTF8String;
   v: Variant;
 begin
-  u8 := 'ßß ZZ';
+  u8 := 'ï¿½ï¿½ ZZ';
   s := string(u8);
   v := u8;
   Application.MessageBox(PChar(string(string(u8)+' '+s+' '+v+';'+IntToStr(Length(u8))+' '+IntToStr(Length(UTF8String(v))))), '');

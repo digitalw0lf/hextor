@@ -10,7 +10,7 @@ object ValueFrame: TValueFrame
     Width = 328
     Height = 598
     Align = alClient
-    DefaultNodeHeight = 20
+    DefaultNodeHeight = 19
     Header.AutoSizeIndex = 1
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     HintMode = hmHint
@@ -40,7 +40,7 @@ object ValueFrame: TValueFrame
       item
         Position = 1
         Text = 'Value'
-        Width = 242
+        Width = 238
       end>
   end
   object ValuePopupMenu: TPopupMenu

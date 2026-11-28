@@ -15,7 +15,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, System.Types,
   System.Math,
 
-  uHextorGUI;
+  uHextorGUI, uHextorTypes;
 
 type
   TBitsEditorForm = class(TForm)
@@ -47,6 +47,7 @@ type
     { Public declarations }
     ValueSize: Integer;
     OkEnabled: Boolean;
+    BigEndian: Boolean;
     property Value: Int64 read FValue write SetValue;
   end;
 
@@ -202,13 +203,13 @@ end;
 
 procedure TBitsEditorForm.SetValue(const Value: Int64);
 begin
-  if FValue <> Value then
-  begin
-    FValue := Value;
-    EditDec.Text := 'dec: ' + IntToStr(FValue);
-    EditHex.Text := 'hex: ' + IntToHex(FValue, ValueSize*2);
-    PaintBox1Paint(nil);
-  end;
+  FValue := Value;
+  var CValue: Int64 := FValue;
+  if BigEndian then InvertByteOrder(CValue, ValueSize);
+
+  EditDec.Text := 'dec: ' + IntToStr(CValue);
+  EditHex.Text := 'hex: ' + IntToHex(CValue, ValueSize*2);
+  PaintBox1Paint(nil);
 end;
 
 end.

@@ -70,6 +70,7 @@ type
     procedure ShowTypesList();
     procedure ClearInfo();
     function ValueNode(Node: PVirtualNode; RequireDefined: Boolean = False; AbortIfNone: Boolean = False): PValueNodeData;
+    function ConvertEndianness(const Data: TBytes; ElemSize: Integer = 0): TBytes;
   public
     { Public declarations }
     constructor Create(AOwner: TComponent); override;
@@ -218,6 +219,21 @@ begin
 
 end;
 
+function TValueFrame.ConvertEndianness(const Data: TBytes; ElemSize: Integer = 0): TBytes;
+// Convert given buffer to alternative endianness if associated editor uses BigEndian.
+// If buffer contains multiple elements (e.g. 2-byte characters), convert each element separately.
+var
+  i: Integer;
+begin
+  if ElemSize = 0 then
+    ElemSize := Length(Data);
+  if (not FEditor.UseBigEndian) or (ElemSize <= 1) then
+    Exit(Data);
+  Result := Copy(Data, 0, Length(Data));
+  for i := 0 to (Length(Result) div ElemSize) - 1 do
+    InvertByteOrder(Result[i * ElemSize], ElemSize);
+end;
+
 procedure TValueFrame.UpdateInfo;
 // Show selection/data under cursor as values
 var
@@ -288,8 +304,9 @@ begin
           else
             Size := Interp.MinSize;
           AOrigDataSize := Size;
+          var CData: TBytes := ConvertEndianness(AData, Interp.MinSize);
 
-          S := Interp.ToVariant(AData[0], Size);  // <--
+          S := Interp.ToVariant(CData[0], Size);  // <--
 
           ADefined := True;
         except
@@ -424,6 +441,8 @@ begin
 
   try
     Interp.FromVariant(s, Data[0], Length(Data));
+
+    Data := ConvertEndianness(Data, Interp.MinSize);
 
     if not DataEqual(Data, FEditor.GetEditedData(FShownRange.Start, Length(Data))) then
     begin

@@ -1,4 +1,4 @@
-{                          ---BEGIN LICENSE BLOCK---                           }
+ï»¿{                          ---BEGIN LICENSE BLOCK---                           }
 {                                                                              }
 { Hextor - Hexadecimal editor and binary data analyzing toolkit                }
 { Copyright (C) 2019-2023  Grigoriy Mylnikov (DigitalWolF) <info@hextor.net>   }
@@ -27,7 +27,7 @@ const
   bcByLineBreaks  = -2;
 
   // How to show unprintable chars in text pane
-  UnprintableCharShowAs = #$B7;   // '·'
+  UnprintableCharShowAs = #$B7;   // 'ï¿½'
   LineBreakShowAs       = #$2193; // Down arrow
 
 type
@@ -118,6 +118,8 @@ type
         TShiftState; X, Y: Integer);
     procedure StatusBarResize(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
+    procedure StatusBarMouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
   private const
     // StatusBar panel indices
     SBPANEL_ADDR   = 0;
@@ -141,6 +143,7 @@ type
     FNeedCallSelectionChanged: Boolean; // We need to call SelectionChanged() when long operation ends
     FByteColumns: Integer;
     FInsertMode: Boolean;
+    FUseBigEndian: Boolean;
     FByteColumnsSetting: Integer;
     FPrevVisibleRange: TFileRange;
     FPrevHorzScroll: Integer;
@@ -172,6 +175,7 @@ type
     procedure AddCurrentFileToRecentFiles();
     procedure SelectionChanged();
     procedure SetInsertMode(Value: Boolean);
+    procedure SetUseBigEndian(const Value: Boolean);
     procedure AdjustPointersPositions(Addr, OldSize, NewSize: TFilePointer);
     procedure DataChanged(Sender: TEditedData; Addr: TFilePointer; OldSize, NewSize: TFilePointer; Value: PByteArray);
     procedure SomeDataChanged();
@@ -199,6 +203,7 @@ type
     function GetShowPanes(PaneType: TEditorPaneType): Boolean;
     procedure EnsureControlOrder(const Ctrls: array of TControl);
     function GetStatusBarPanelAt(X: Integer): Integer;
+    procedure ShowHintWithHighlightedValue(const Items: array of string; SelItem: Integer);
   public type
     TCaretInSelection = (CaretNoMove, CaretAtStart, CaretAtEnd);
   public const
@@ -255,6 +260,8 @@ type
     property NowSelecting: Boolean read FNowSelecting;
     [API]
     property InsertMode: Boolean read FInsertMode write SetInsertMode;
+    [API]
+    property UseBigEndian: Boolean read FUseBigEndian write SetUseBigEndian;  // Interpret multi-byte values in this editor as big-endian
     procedure MoveCaret(NewPos: TFilePointer; Shift: TShiftState);
     [API]
     procedure SetSelection(AStart, AEnd: TFilePointer; MoveCaret: TCaretInSelection = CaretNoMove);
@@ -1301,6 +1308,7 @@ begin
     else
       CaretPos := CaretPos;  // Limit by file size
     InsertMode := InsertMode;  // Only for resizable sources
+    UseBigEndian := MainForm.Settings.UseBigEndian;
     UpdatePanes();
 
     SelectionChanged();
@@ -1721,6 +1729,18 @@ begin
   end;
 end;
 
+procedure TEditorForm.SetUseBigEndian(const Value: Boolean);
+begin
+  if FUseBigEndian <> Value then
+  begin
+    FUseBigEndian := Value;
+    // Update views which depend on endianness
+    ShowSelectionInfo();
+    MainForm.ValueFrame.UpdateInfo();
+  end;
+  StatusBar.Panels[SBPANEL_LSBMSB].Text := IfThen(Value, 'MSB', 'LSB');
+end;
+
 procedure TEditorForm.SetSelectedRange(const Value: TFileRange);
 begin
   SetSelection(Value.Start, Value.AEnd);
@@ -1791,6 +1811,23 @@ begin
   end;
 end;
 
+procedure TEditorForm.ShowHintWithHighlightedValue(const Items: array of string;
+  SelItem: Integer);
+var
+  i: Integer;
+  S: string;
+begin
+  S := '';
+  for i := 0 to Length(Items) - 1 do
+  begin
+    if i > 0 then S := S + sLineBreak;
+    if i = SelItem then S := S +'<b>';
+    S := S + Items[i];
+    if i = SelItem then S := S +'</b>';
+  end;
+  FmtHint.ShowHint(S);
+end;
+
 procedure TEditorForm.ShowSelectionInfo();
 // Show info in statusbar about values under caret
 var
@@ -1812,6 +1849,8 @@ begin
     if (SelLength <= 8) then
     begin
       AData := GetEditedData(SelStart, SelLength);
+      if UseBigEndian then
+        InvertByteOrder(AData[0], Length(AData));
       x := 0;
       Move(AData[0], x, Length(AData));
       StatusBar.Panels[SBPANEL_VALUE].Text := 'As '+IntToStr(Length(AData))+'-byte value: ' + IntToStr(x);
@@ -2130,7 +2169,7 @@ begin
     begin
       ws := IntToHex(GetLineRange(i).Start, AddrChars);
       if Length(ws) > 11 then
-        ws := Copy(ws, Low(ws), 5) + '…' + Copy(ws, High(ws) - 4, 5);
+        ws := Copy(ws, Low(ws), 5) + 'ï¿½' + Copy(ws, High(ws) - 4, 5);
       Lines.Add(ws);
     end;
 
@@ -2361,6 +2400,27 @@ begin
   Open(TFileDataSource, FileName, True);
 end;
 
+procedure TEditorForm.StatusBarMouseMove(Sender: TObject; Shift: TShiftState; X,
+  Y: Integer);
+var
+  Pnl: Integer;
+begin
+  Pnl := GetStatusBarPanelAt(X);
+  if (Pnl = SBPANEL_INSOVR) then
+  begin
+    StatusBar.Cursor := crHandPoint;
+    ShowHintWithHighlightedValue(['Overwrite', 'Insert'], IfThen(InsertMode, 1, 0));
+  end
+  else
+  if (Pnl = SBPANEL_LSBMSB) then
+  begin
+    StatusBar.Cursor := crHandPoint;
+    ShowHintWithHighlightedValue(['Little-Endian', 'Big-Endian'], IfThen(UseBigEndian, 1, 0));
+  end
+  else
+    StatusBar.Cursor := crDefault;
+end;
+
 procedure TEditorForm.StatusBarMouseUp(Sender: TObject; Button: TMouseButton;
     Shift: TShiftState; X, Y: Integer);
 var
@@ -2370,8 +2430,10 @@ begin
   if (Button = mbLeft) and (Pnl = SBPANEL_INSOVR) then
     InsertMode := not InsertMode;
   if (Button = mbLeft) and (Pnl = SBPANEL_LSBMSB) then
-
-
+  begin
+    UseBigEndian := not UseBigEndian;
+    MainForm.Settings.UseBigEndian := UseBigEndian;
+  end;
 end;
 
 procedure TEditorForm.StatusBarResize(Sender: TObject);
