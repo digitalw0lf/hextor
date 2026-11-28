@@ -113,6 +113,7 @@ type
     FindWhere: TFindWhere;
     Inited: Boolean;
     procedure FillParams(aReplace, aCanFindInSel: Boolean);
+    procedure PrepareMatchPattern(AEditor: TEditorForm);
     function GetTargetEditor: TEditorForm;
     function GetTargetEditorNoEx: TEditorForm;
     procedure AutosizeForm();
@@ -379,8 +380,7 @@ begin
       end;
 
       // Parse search pattern
-      Pattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase, Params.bExtSyntax, Params.FindCodePage,
-        Assigned(ReplacePattern) and (ReplacePattern.HasPlaceholders));
+      PrepareMatchPattern(nil);
       if Pattern.IsEmpty() then
         raise EMatchPatternException.Create('Specify search string');
       Pattern.CalcMinMaxMatchSize(MinMatchSize, MaxMatchSize);
@@ -427,6 +427,28 @@ begin
   end;
 
   StoreToSettings();
+end;
+
+procedure TFindReplaceForm.PrepareMatchPattern(AEditor: TEditorForm);
+// Create or recreate search pattern if given editor has different "UseBigEndian"
+var
+  UseBigEndian: Boolean;
+  NewPattern: TExtMatchPattern;
+begin
+  if Assigned(AEditor) then
+    UseBigEndian := AEditor.UseBigEndian
+  else
+    UseBigEndian := MainForm.Settings.UseBigEndian;
+
+  with Searcher do
+  begin
+    if Assigned(Pattern) and (Pattern.UseBigEndian = UseBigEndian) then Exit;
+    NewPattern := TExtMatchPattern.Create(Params.Text, Params.bHex, Params.bIgnoreCase,
+      Params.bExtSyntax, Params.FindCodePage, Assigned(ReplacePattern) and ReplacePattern.HasPlaceholders,
+      UseBigEndian);
+    Pattern.Free;
+    Pattern := NewPattern;
+  end;
 end;
 
 function TFindReplaceForm.FindAll(Action: TSearchAction): Integer;
@@ -536,6 +558,7 @@ var
   end;
 
 begin
+  PrepareMatchPattern(AEditor);
   Searcher.Haystack := AData;
   ResultsGroupNode := nil;
   if Action in [saList, saReplace] then
@@ -647,6 +670,7 @@ var
 begin
   // Collect search parameters from input controls
   FillParams(False, False);
+  PrepareMatchPattern(TargetEditor);
   Searcher.Haystack := TargetEditor.Data;
   Dir := Direction;
   if Dir > 0 then

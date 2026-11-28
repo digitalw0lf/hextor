@@ -73,6 +73,7 @@ type
     end;
   protected
     bHex, bIgnoreCase, bExtSyntax, bNeedSubexpressions: Boolean;
+    FUseBigEndian: Boolean;
     CodePage: Integer;
     Elements: TArray<TElement>;
     SearchGroups: TSearchGroups;
@@ -90,12 +91,16 @@ type
       const Elem: TElement; var PossibleMatches: TPossibleElemMatches): Boolean; inline;
     function ElemCompareStr(const Data: PByte; DataSize: Integer; const Elem: TElement; var PossibleMatches: TPossibleElemMatches): Boolean;
     function ElemCompareValues(const Data: PByte; DataSize: Integer; const Elem: TElement; var PossibleMatches: TPossibleElemMatches): Boolean;
+    procedure ConvertValueByteOrder(var Bytes: TBytes; DataType: TValueInterpretor);
+    function DecodeValue(DataType: TValueInterpretor; Data: Pointer; Size: Integer): Variant;
     function AdjustItemRanges(Items: TFoundElements; Delta: TFilePointer): TFoundElements;
     procedure MakeGroupsData(Data: PByte; var FoundElements: TFoundElements; var GroupsData: TArray<TBytes>);
     function ElementByName(const Name: string): Integer;
   public
-    constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
+    constructor Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean;
+      ACodePage: Integer; ANeedSubexpressions: Boolean; AUseBigEndian: Boolean = False);
     destructor Destroy(); override;
+    property UseBigEndian: Boolean read FUseBigEndian;
     function IsEmpty(): Boolean;
     procedure CalcMinMaxMatchSize(var MinSize, MaxSize: Integer);
     function Match(Data: PByte; DataSize: Integer; var Size: Integer; var Items: TFoundElements): Boolean; inline;
@@ -374,7 +379,7 @@ function TExtMatchPattern.GetElementSize(DataType: TValueInterpretor;
 // Get size of elements of given DataType that can fall into Ranges.
 // In case of fixed-size types, this does not depends on Ranges.
 // In case of variable-size characters, this function fails if values in Ranges
-// have different sizes (e.g. {utf8:'z'..'ß'})
+// have different sizes (e.g. {utf8:'z'..'ï¿½'})
 var
   i: Integer;
 begin
@@ -541,9 +546,11 @@ begin
     OptimizedSimpleMatch := False;
 end;
 
-constructor TExtMatchPattern.Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean; ACodePage: Integer; ANeedSubexpressions: Boolean);
+constructor TExtMatchPattern.Create(const Text: string; AHex, AIgnoreCase, AExtSyntax: Boolean;
+  ACodePage: Integer; ANeedSubexpressions, AUseBigEndian: Boolean);
 begin
   inherited Create();
+  FUseBigEndian := AUseBigEndian;
   Compile(Text, AHex, AIgnoreCase, AExtSyntax, ACodePage, ANeedSubexpressions);
 end;
 
@@ -575,6 +582,30 @@ begin
     PossibleMatches := TPossibleElemMatches.Create(Elem.SizeInBytes, Elem.SizeInBytes, 0);
 end;
 
+procedure TExtMatchPattern.ConvertValueByteOrder(var Bytes: TBytes; DataType: TValueInterpretor);
+var
+  i, UnitSize: Integer;
+begin
+  UnitSize := DataType.MinSize;
+  if not FUseBigEndian or (UnitSize <= 1) then Exit;
+  for i := 0 to Length(Bytes) div UnitSize - 1 do
+    InvertByteOrder(Bytes[i * UnitSize], UnitSize);
+end;
+
+function TExtMatchPattern.DecodeValue(DataType: TValueInterpretor; Data: Pointer; Size: Integer): Variant;
+// Extract value from buffer, respecting endianness
+var
+  Bytes: TBytes;
+begin
+  if FUseBigEndian and (DataType.MinSize > 1) and (Size >= DataType.MinSize) then
+  begin
+    Bytes := MakeBytes(Data^, Size);
+    ConvertValueByteOrder(Bytes, DataType);
+    Data := @Bytes[0];
+  end;
+  Result := DataType.ToVariant(Data, Size);
+end;
+
 function TExtMatchPattern.ElemCompareValues(const Data: PByte; DataSize: Integer;
   const Elem: TElement; var PossibleMatches: TPossibleElemMatches): Boolean;
 // Compare Data with Element's value ranges.
@@ -595,7 +626,7 @@ begin
     for i:=0 to MaxCount-1 do
     begin
       try
-        v := Elem.DataType.ToVariant(Data[ElemSize * i], ElemSize);
+        v := DecodeValue(Elem.DataType, @Data[ElemSize * i], ElemSize);
         Match := Elem.Ranges.Contains(v) xor Elem.Inverse;
       except
         Match := False;
@@ -1183,7 +1214,7 @@ begin
       if not bNeedSubexpressions then
       begin
         // Ranged expression can be converted to raw bytes if it unambiguously evaluates to constant value.
-        // E.g. {i16:5:2} evaluates to 05000500
+        // E.g. {i16:5:2} evaluates to 05000500 in little-endian mode.
         if (Element.MinCount = Element.MaxCount) and (Element.MaxCount <= 1024) and
            (Length(Element.Ranges.Ranges) = 1) and (Element.Ranges.Ranges[0].AStart = Element.Ranges.Ranges[0].AEnd) and
            (not ((Element.DataType.Name = 'float') or (Element.DataType.Name = 'double'))) and  // Float's require inexact comparison
@@ -1191,6 +1222,7 @@ begin
         begin
           Element._type := peBytes;
           b := Element.DataType.FromVariant(Element.Ranges.Ranges[0].AStart);
+          ConvertValueByteOrder(b, Element.DataType);
           SetLength(Element.Data, Length(b) * Element.MinCount);
           for i:=0 to Element.MinCount-1 do
             Move(b[0], Element.Data[i*Length(b)], Length(b));
@@ -1247,6 +1279,7 @@ var
   i, j: Integer;
   Elem: ^TExtReplacePatternElement;
   V: Variant;
+  Bytes: TBytes;
 begin
   if Assigned(ScriptEngine) then
   begin
@@ -1279,7 +1312,9 @@ begin
           V := ScriptEngine.Eval(Elem.Text);
           if LastMentionedType = nil then
             raise EMatchPatternException.CreateFmt('Cannot determine value size for expression "%s"', [Elem.Text]);
-          Result := Result + LastMentionedType.FromVariant(V);
+          Bytes := LastMentionedType.FromVariant(V);
+          Pattern.ConvertValueByteOrder(Bytes, LastMentionedType);
+          Result := Result + Bytes;
         end;
     end;
   end;
@@ -1497,8 +1532,8 @@ begin
   if Put then
     Exit(DISP_E_BADVARTYPE);
   Result := S_OK;
-  POleVariant(VarResult)^ := Owner.Pattern.Elements[DispID].DataType.ToVariant(
-    Owner.FoundElements[DispID].Data[0], Length(Owner.FoundElements[DispID].Data));
+  POleVariant(VarResult)^ := Owner.Pattern.DecodeValue(Owner.Pattern.Elements[DispID].DataType,
+    @Owner.FoundElements[DispID].Data[0], Length(Owner.FoundElements[DispID].Data));
   // Original value type determines output value size.
   // E.g. ${X+1} will generate a value of same size as X
   Owner.LastMentionedType := Owner.Pattern.Elements[DispID].DataType;
